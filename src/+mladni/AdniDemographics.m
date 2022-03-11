@@ -131,6 +131,7 @@ classdef AdniDemographics < handle
         pet_meta_adni3_file
         pet_meta_list_file
         pet_qc_file
+        registry_file
         subjects
         t1_filenames_file
     end
@@ -200,6 +201,10 @@ classdef AdniDemographics < handle
         function g = get.pet_qc_file(~)
             g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "PETQC.csv");
             % unique RID ~ 1413, unique LONIUID ~ 3950
+        end
+        function g = get.registry_file(~)
+            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "REGISTRY.csv");
+            % unique RID ~ 4045, unique ID ~ 15637
         end
         function g = get.subjects(this)
             if isempty(this.subjects_)
@@ -368,6 +373,15 @@ classdef AdniDemographics < handle
                 this.pet_qc_ = readtable(this.pet_qc_file);
             end
             t = this.pet_qc_;
+            if ~isempty(varargin)
+                t = t(varargin{:});
+            end
+        end
+        function t = table_registry(this, varargin)
+            if isempty(this.registry_)
+                this.registry_ = readtable(this.registry_file);
+            end
+            t = this.registry_;
             if ~isempty(varargin)
                 t = t(varargin{:});
             end
@@ -566,6 +580,7 @@ classdef AdniDemographics < handle
         mri_quality_adni3_
         pet_c3_
         pet_qc_
+        registry_
         subjects_
         t1_filenames_
     end
@@ -684,7 +699,26 @@ classdef AdniDemographics < handle
                     handwarning(ME)
                 end
             end
+            
             %t = t(~isnan(t.RID), :);
+
+            % update t with table_registry.EXAMDATE (cf. ADNI Google Group)
+            t_reg = this.table_registry();
+%             for ti = 1:size(t, 1)
+%                 t_ti = t(ti, :);
+%                 ED = t_ti.EXAMDATE;
+%                 ED1 = t_reg(t_reg.RID == t_ti.RID & t_reg.ID == t_ti.ID, :).EXAMDATE;
+%                 if isnat(ED) && ~all(isnat(ED1))
+%                     t(ti, :).EXAMDATE = ED1;
+%                 end
+%             end
+            for ti = 1:size(t, 1)
+                t_ti = t(ti, :);
+                ED1 = t_reg(t_reg.ID == t_ti.ID, :).EXAMDATE;
+                if isscalar(ED1) && ~isnat(ED1)
+                    t(ti, :).EXAMDATE = ED1;
+                end
+            end
         end
         function t = cdrRevisions(~, t)
             v2 = t.VISCODE2;
