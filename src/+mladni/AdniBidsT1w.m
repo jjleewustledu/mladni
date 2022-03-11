@@ -120,7 +120,7 @@ classdef AdniBidsT1w < mladni.AdniBids
             if ~isfile(fullfile(dest_folder, strcat(base, '.nii.gz')))
                 s = []; r = '';
                 try
-                    [s,r] = mlpipeline.Bids.dcm2niix(image_folder, 'f', base, 'o', dest_folder);
+                    [s,r] = mlpipeline.Bids.dcm2niix(image_folder, 'f', base, 'o', dest_folder, 'version', 20180622);
                     this.update_json(image_folder, rawdata_folder);
                 catch ME
                     if 0 ~= s
