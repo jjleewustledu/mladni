@@ -10,6 +10,45 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
     %  Developed on Matlab 9.11.0.1809720 (R2021b) Update 1 for MACI64.  Copyright 2021 John J. Lee.
 
     methods (Static)
+        function j = parcluster()
+            %% See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/
+            
+            c = parcluster;
+            c.AdditionalProperties.WallTime = '02:00:00';
+            c.AdditionalProperties.Node = 16;
+            c.AdditionalProperties.MemUsage = '10000';
+            disp(c.AdditionalProperties)
+            j = c.batch(@mladni.FDG.batch, 1, {}, 'Pool', 32, ...
+                'CurrentFolder', '.', 'AutoAddClientPath', false);
+            
+        end
+        function t = batch(varargin)
+            ip = inputParser;
+            addParameter(ip, 'proc', 'CASU', @istext)
+            parse(ip, varargin{:});
+            ipr = ip.Results;
+            
+            disp('Start mladni.FDG.batch()')
+            
+            setenv('DEBUG', '');
+            if isempty(getenv('ADNI_HOME'))
+                setenv('ADNI_HOME', '/home/aris_data/ADNI_FDG')
+            end
+            
+            t0 = tic;
+            globbed = globT( ...
+                fullfile(getenv('ADNI_HOME'), ...
+                sprintf('bids/rawdata/sub-*/ses-941S*/pet/*-%s_pet.nii.gz', ipr.proc)));
+            parfor idx = 1:length(globbed)
+                fdg_ = mlfourd.ImagingContext2(globbed{idx});
+                obj = mladni.FDG(fdg_);
+                obj.call();
+                obj.finalize();                
+            end
+            t = toc(t0);
+
+            disp('mladni.FDG.batch() completed')            
+        end
         function fn = niigz(obj)
             ic = mlfourd.ImagingContext2(obj);
             fn = strcat(ic.fqfp, '.nii.gz');
@@ -88,8 +127,9 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 return
             end
             pwd0 = pushd(this.fdg.filepath);
-            this.fdg_mask_ = this.fdg.thresh(0.001*dipmax(this.fdg));
-            this.fdg_mask_ = this.fdg_mask_.binarized();
+            %this.fdg_mask_ = this.fdg.thresh(0.0001*dipmax(this.fdg));
+            %this.fdg_mask_ = this.fdg_mask_.binarized();
+            this.fdg_mask_ = this.fdg.ones();
             this.fdg_mask_.fileprefix = strcat(this.fdg.fileprefix, '_msk');
             this.fdg_mask_.save();
             g = this.fdg_mask_;
@@ -146,7 +186,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 return
             end
             fqfp = this.t1w_on_atl.fqfp;
-            this.t1w_on_atl_n4_ = mlfourd.ImagingContext2(strrpe(fqfp, '_T1w', '-n4_T1w'));
+            this.t1w_on_atl_n4_ = mlfourd.ImagingContext2(strrep(fqfp, '_T1w', '-n4_T1w'));
             g = this.t1w_on_atl_n4_;
         end
         function g = get.t1w_on_atl_dmrs(this)
@@ -320,11 +360,11 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             fqfn = fullfile(pth, fp, x);
         end
         function this = N4BiasFieldCorrection(this)
-            if contains(this.t1w_on_atl.fileprefix, '-n3') || contains(this.t1w_on_atl.fileprefix, '-n4')
+            %if contains(this.t1w_on_atl.fileprefix, '-n3') || contains(this.t1w_on_atl.fileprefix, '-n4')
                 this.t1w_on_atl_n4_ = copy(this.t1w_on_atl);
-                return
-            end
-            this.ants.N4BiasFieldCorrection(this.t1w_on_atl, this.t1w_on_atl_n4);
+            %    return
+            %end
+            %this.ants.N4BiasFieldCorrection(this.t1w_on_atl, this.t1w_on_atl_n4);
         end        
         function [s,r] = view(this)
             cmd = sprintf('fsleyes %s %s %s', this.fdg_final.fqfn, this.t1w_on_atl_warped.fqfn, this.atl.fqfn);
