@@ -1,0 +1,214 @@
+[f,p] = matlab.codetools.requiredFilesAndProducts('mladni_unittest.Test_FDG');
+
+f' % https://github.com/jjleewustledu?tab=repositories
+
+% {'/Users/jjlee/MATLAB-Drive/mfiles/asrow.m'                                           }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/cell2str.m'                                        }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dbbash.m'                                          }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/deleteExisting.m'                                  }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/deleteExisting_4dfp.m'                             }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dipiqr.m'                                          }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dipisfinite.m'                                     }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dipisinf.m'                                        }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dipisnan.m'                                        }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dipisreal.m'                                       }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/diplogprod.m'                                      }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dipmad.m'                                          }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dipmax.m'                                          }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dipmean.m'                                         }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dipmedian.m'                                       }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dipmin.m'                                          }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dipmode.m'                                         }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dipprctile.m'                                      }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dipprod.m'                                         }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dipquantile.m'                                     }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dipstd.m'                                          }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dipsum.m'                                          }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/diptrimmean.m'                                     }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/dispexcept.m'                                      }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/ensureCell.m'                                      }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/ensureColVector.m'                                 }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/ensureSafenameMgz.m'                               }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/ensureString.m'                                    }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/ensuredir.m'                                       }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/filepartsx.m'                                      }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/fileprefixparts.m'                                 }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/glob.m'                                            }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/globT.m'                                           }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/handerror.m'                                       }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/handexcept.m'                                      }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/handwarning.m'                                     }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/hostname.m'                                        }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/imagingType.m'                                     }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/istext.m'                                          }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/jsonrecode.m'                                      }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/lexist.m'                                          }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/lexist_4dfp.m'                                     }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/lgetenv.m'                                         }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/list2str.m'                                        }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/lstrcmp.m'                                         }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/lstrfind.m'                                        }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/mergeStruct.m'                                     }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/mlbash.m'                                          }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/mlbashDiary.m'                                     }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/mlbashLogger.m'                                    }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/mybasename.m'                                      }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/myclass.m'                                         }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/mydatetimestr.m'                                   }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/myfileparts.m'                                     }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/myfileprefix.m'                                    }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/myniftiname.m'                                     }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/popd.m'                                            }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/pushd.m'                                           }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/shiftNumeric.m'                                    }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/shiftTensor.m'                                     }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/shiftVector.m'                                     }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/strexcise.m'                                       }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/struct2str.m'                                      }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/tempFqfilename.m'                                  }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/tmpFileprefix.m'                                   }
+% {'/Users/jjlee/MATLAB-Drive/mfiles/verbose.m'                                         }
+% {'/Users/jjlee/MATLAB-Drive/mladni/src/+mladni/FDG.m'                                 }
+% {'/Users/jjlee/MATLAB-Drive/mladni/test/+mladni_unittest/Test_FDG.m'                  }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/AbstractImagingTool_20211201.m'      }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/AbstractInnerImagingFormat.m'        }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/AbstractNIfTIInfo.m'                 }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/Analyze75Info.m'                     }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/BlurringTool.m'                      }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/BlurringTool_20211201.m'             }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/DynamicsTool.m'                      }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/DynamicsTool_20211201.m'             }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/FilesystemFormatTool.m'              }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/FilesystemTool.m'                    }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/FilesystemTool_20211201.m'           }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/FourdfpInfo.m'                       }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/FourdfpTool.m'                       }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/HandleINIfTI.m'                      }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/IImaging.m'                          }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/IImagingFormat.m'                    }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/IViewer.m'                           }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/ImagingContext2.m'                   }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/ImagingFormatContext.m'              }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/ImagingFormatContext2.m'             }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/ImagingFormatState2.m'               }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/ImagingFormatTool.m'                 }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/ImagingFormatTool_20211201.m'        }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/ImagingInfo.m'                       }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/ImagingState2.m'                     }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/ImagingTool.m'                       }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/InnerNIfTI.m'                        }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/InnerNIfTIIO.m'                      }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/JimmyShen.m'                         }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/JimmyShenInterface.m'                }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/LegacyImagingFormatContext.m'        }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/LegacyTool.m'                        }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/MGHInfo.m'                           }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/MaskingTool.m'                       }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/MaskingTool_20211201.m'              }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/MatlabFormatTool.m'                  }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/MatlabTool.m'                        }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/MghTool.m'                           }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/NIfTIInfo.m'                         }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/NiftiTool.m'                         }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/NumericalTool.m'                     }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/NumericalTool_20211201.m'            }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/PointCloudTool.m'                    }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/RegistrationTool.m'                  }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/TrivialFormatTool.m'                 }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/TrivialTool.m'                       }
+% {'/Users/jjlee/MATLAB-Drive/mlfourd/src/+mlfourd/Viewer.m'                            }
+% {'/Users/jjlee/MATLAB-Drive/mlfourdfp/src/+mlfourdfp/AbstractBuilder.m'               }
+% {'/Users/jjlee/MATLAB-Drive/mlfourdfp/src/+mlfourdfp/FourdfpVisitor.m'                }
+% {'/Users/jjlee/MATLAB-Drive/mlfourdfp/src/+mlfourdfp/IfhParser.m'                     }
+% {'/Users/jjlee/MATLAB-Drive/mlfourdfp/src/+mlfourdfp/ImgRecLogger.m'                  }
+% {'/Users/jjlee/MATLAB-Drive/mlfourdfp/src/+mlfourdfp/ImgRecParser.m'                  }
+% {'/Users/jjlee/MATLAB-Drive/mlfourdfp/src/+mlfourdfp/InnerFourdfp.m'                  }
+% {'/Users/jjlee/MATLAB-Drive/mlfourdfp/src/+mlfourdfp/RegistrationTool.m'              }
+% {'/Users/jjlee/MATLAB-Drive/mlfourdfp/src/+mlfourdfp/Viewer.m'                        }
+% {'/Users/jjlee/MATLAB-Drive/mlfsl/src/+mlfsl/ANTs.m'                                  }
+% {'/Users/jjlee/MATLAB-Drive/mlfsl/src/+mlfsl/Flirt.m'                                 }
+% {'/Users/jjlee/MATLAB-Drive/mlio/src/+mlio/AbstractHandleIO.m'                        }
+% {'/Users/jjlee/MATLAB-Drive/mlio/src/+mlio/AbstractParser.m'                          }
+% {'/Users/jjlee/MATLAB-Drive/mlio/src/+mlio/FilesystemRegistry.m'                      }
+% {'/Users/jjlee/MATLAB-Drive/mlio/src/+mlio/HandleFilesystem.m'                        }
+% {'/Users/jjlee/MATLAB-Drive/mlio/src/+mlio/HandleIOInterface.m'                       }
+% {'/Users/jjlee/MATLAB-Drive/mlio/src/+mlio/IOInterface.m'                             }
+% {'/Users/jjlee/MATLAB-Drive/mlio/src/+mlio/LogParser.m'                               }
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/extra_nii_hdr.m'           }
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/load_nii_ext.m'            }
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/load_nii_hdr.m'            }
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/load_untouch0_nii_hdr.m'   }
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/load_untouch_header_only.m'}
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/load_untouch_nii.m'        }
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/load_untouch_nii_hdr.m'    }
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/load_untouch_nii_img.m'    }
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/make_ana.m'                }
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/make_nii.m'                }
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/save_nii.m'                }
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/save_nii_ext.m'            }
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/save_nii_hdr.m'            }
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/save_untouch0_nii_hdr.m'   }
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/save_untouch_header_only.m'}
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/save_untouch_nii.m'        }
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/save_untouch_nii_hdr.m'    }
+% {'/Users/jjlee/MATLAB-Drive/mlniftitools/src/+mlniftitools/verify_nii_ext.m'          }
+% {'/Users/jjlee/MATLAB-Drive/mlpatterns/src/+mlpatterns/CellArrayList.m'               }
+% {'/Users/jjlee/MATLAB-Drive/mlpatterns/src/+mlpatterns/CellArrayListIterator.m'       }
+% {'/Users/jjlee/MATLAB-Drive/mlpatterns/src/+mlpatterns/DipNumerical.m'                }
+% {'/Users/jjlee/MATLAB-Drive/mlpatterns/src/+mlpatterns/HandleDipNumerical.m'          }
+% {'/Users/jjlee/MATLAB-Drive/mlpatterns/src/+mlpatterns/HandleNumerical.m'             }
+% {'/Users/jjlee/MATLAB-Drive/mlpatterns/src/+mlpatterns/Iterator.m'                    }
+% {'/Users/jjlee/MATLAB-Drive/mlpatterns/src/+mlpatterns/List.m'                        }
+% {'/Users/jjlee/MATLAB-Drive/mlpatterns/src/+mlpatterns/Numerical.m'                   }
+% {'/Users/jjlee/MATLAB-Drive/mlpatterns/src/+mlpatterns/Singleton2.m'                  }
+% {'/Users/jjlee/MATLAB-Drive/mlpipeline/src/+mlpipeline/AbstractBuilder.m'             }
+% {'/Users/jjlee/MATLAB-Drive/mlpipeline/src/+mlpipeline/AbstractLogger.m'              }
+% {'/Users/jjlee/MATLAB-Drive/mlpipeline/src/+mlpipeline/Finished.m'                    }
+% {'/Users/jjlee/MATLAB-Drive/mlpipeline/src/+mlpipeline/IBuilder.m'                    }
+% {'/Users/jjlee/MATLAB-Drive/mlpipeline/src/+mlpipeline/ILogger.m'                     }
+% {'/Users/jjlee/MATLAB-Drive/mlpipeline/src/+mlpipeline/Logger.m'                      }
+% {'/Users/jjlee/MATLAB-Drive/mlpipeline/src/+mlpipeline/Logger2.m'                     }
+% {'/Users/jjlee/MATLAB-Drive/mlpipeline/src/+mlpipeline/PipelineRegistry.m'            }
+% {'/Users/jjlee/MATLAB-Drive/mlpipeline/src/+mlpipeline/ResourcesRegistry.m'           }
+% {'/Users/jjlee/MATLAB-Drive/mlsurfer/src/+mlsurfer/InnerMGH.m'                        }
+% {'/Users/jjlee/MATLAB-Drive/mlsystem/src/+mlsystem/DirTool.m'                         }
+% {'/Users/jjlee/MATLAB-Drive/mlsystem/src/+mlsystem/TensorTools.m'                     }
+% {'/Users/jjlee/MATLAB-Drive/mlsystem/src/+mlsystem/VectorTools.m'                     }
+
+for ip = 1:7; disp(p(ip)); end % https://www.mathworks.com
+
+%              Name: 'MATLAB'
+%           Version: '9.10'
+%     ProductNumber: 1
+%           Certain: 1
+% 
+%              Name: 'Image Processing Toolbox'
+%           Version: '11.3'
+%     ProductNumber: 17
+%           Certain: 1
+% 
+%              Name: 'Statistics and Machine Learning Toolbox'
+%           Version: '12.1'
+%     ProductNumber: 19
+%           Certain: 1
+% 
+%              Name: 'Computer Vision Toolbox'
+%           Version: '10.0'
+%     ProductNumber: 96
+%           Certain: 1
+% 
+%              Name: 'Parallel Computing Toolbox'
+%           Version: '7.4'
+%     ProductNumber: 80
+%           Certain: 0
+% 
+%              Name: 'MATLAB Parallel Server'
+%           Version: '7.4'
+%     ProductNumber: 94
+%           Certain: 0
+% 
+%              Name: 'Polyspace Bug Finder'
+%           Version: '3.4'
+%     ProductNumber: 164
+%           Certain: 0
+    
