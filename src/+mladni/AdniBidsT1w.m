@@ -178,7 +178,7 @@ classdef AdniBidsT1w < mladni.AdniBids
                 if ~isfile(strcat(fn, '.gz'))
                     copyfile(nii{1}, fn, 'f');
                     gzip(fn);
-                    delete(fn);
+                    deleteExisting(fn);
                     fn = strcat(fn, '.gz');
                 end
             end
