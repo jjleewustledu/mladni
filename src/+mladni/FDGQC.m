@@ -66,9 +66,9 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                     handwarning(ME);
                 end
             end
-            save(fullfile(getenv('ADNI_HOME'), 'rerr.mat'), 'rerr')
-            save(fullfile(getenv('ADNI_HOME'), 'terr.mat'), 'terr')
-            save(fullfile(getenv('ADNI_HOME'), 'fcost.mat'), 'fcost')
+            save(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'rerr.mat'), 'rerr')
+            save(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'terr.mat'), 'terr')
+            save(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'fcost.mat'), 'fcost')
             t = toc(t0);
 
             disp('mladni.FDG.batch() completed')            

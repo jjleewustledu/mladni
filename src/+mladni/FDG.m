@@ -10,13 +10,13 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
     %  Developed on Matlab 9.11.0.1809720 (R2021b) Update 1 for MACI64.  Copyright 2021 John J. Lee.
 
     methods (Static)
-        function propcluster()            
+        function propcluster()
             c = parcluster;
             c.AdditionalProperties.EmailAddress = '';
             c.AdditionalProperties.EnableDebug = 1;
             c.AdditionalProperties.GpusPerNode = 0;
-            c.AdditionalProperties.MemUsage = '8000';
-            c.AdditionalProperties.Node = 2; % 16
+            c.AdditionalProperties.MemUsage = '16000';
+            c.AdditionalProperties.Node = 8; % 16
             c.AdditionalProperties.Partition = 'test';
             c.AdditionalProperties.WallTime = '1:00:00'; % 47 h
             c.saveProfile
@@ -27,16 +27,6 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             catch
                 c.getDebugLog(j.Tasks(end))
             end
-        end
-        function [j,c] = parcluster()
-            %% #PARCLUSTER
-            %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/
-            
-            c = parcluster;
-            disp(c.AdditionalProperties)
-            j = c.batch(@mladni.FDG.batch, 1, {'len', 4}, 'Pool', 4, ...
-                'CurrentFolder', '.', 'AutoAddClientPath', false); % {}, 'Pool', 31
-            
         end
         function [j,c] = parcluster_test()
             %% #PARCLUSTER
@@ -55,6 +45,41 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             clear('tempdir')
             setenv('TMPDIR', '/scratch/jjlee/tmp')
             disp(tempdir)
+        end
+        function [j,c] = parcluster()
+            %% #PARCLUSTER
+            %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/
+            %  --------------------------------------------------------------
+            %     Begin Slurm Epilogue Tue Mar 22 00:31:16 CDT 2022 1647927076
+            %     Name                : Job93
+            %     User                : jjlee
+            %     Partition           : test
+            %     Nodes               : node02
+            %     Cores               : 16
+            %     State               : FAILED
+            %     Submit              : 2022-03-22T00:24:39
+            %     Start               : 2022-03-22T00:24:40
+            %     End                 : 2022-03-22T00:31:14
+            %     Reserved Walltime   : 01:00:00
+            %     Used Walltime       : 00:06:34
+            %     Used CPU Time       : 00:42:45
+            %     % User (Computation): 95.20%
+            %     % System (I/O)      :  4.80%
+            %     Mem Reserved        : 250G
+            %     Max Mem Used        : 25.51G (27390685184.0)
+            %     Max Disk Write      : 21.34G (22911941345.3)
+            %     Max Disk Read       : 30.98G (33266304286.7)
+            %     Max-Mem-Used Node   : node02
+            %     Max-Disk-Write Node : node02
+            %     Max-Disk-Read Node  : node02
+            %     End Slurm Epilogue Tue Mar 22 00:31:16 CDT 2022 1647927076
+            %  --------------------------------------------------------------            
+            
+            c = parcluster;
+            disp(c.AdditionalProperties)
+            j = c.batch(@mladni.FDG.batch, 1, {'len', 15}, 'Pool', 15, ...
+                'CurrentFolder', '.', 'AutoAddClientPath', false); % {}, 'Pool', 31
+            
         end
         function t = batch(varargin)
             %% #BATCH
@@ -79,11 +104,17 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             save('/home/aris_data/ADNI_FDG/globbed.mat', 'globbed');
             fprintf('mladni.FDG.batch.globbed:\n')
             disp(size(globbed))      
-            clear('tempdir')            
-            setenv('TMPDIR', '/scratch/jjlee/tmp') % avoid TMP which Matlab may use 
+            try
+                deleteExisting(fullfile(tempdir, '*.nii*'));
+                deleteExisting(fullfile(tempdir, '*.4dfp.*'));
+            catch ME
+                handwarning(ME)
+            end
+            %clear('tempdir')            
+            %setenv('TMPDIR', '/scratch/jjlee/tmp') % avoid TMP which Matlab may use 
             parfor idx = 1:length(globbed)
             
-                setenv('TMPDIR', '/scratch/jjlee/tmp') % worker nodes
+                %setenv('TMPDIR', '/scratch/jjlee/tmp') % worker nodes
                 
                 setenv('ADNI_HOME', '/home/aris_data/ADNI_FDG') 
                 setenv('ANTSPATH', '/export/ants/ants-2.3.5/bin')
@@ -112,9 +143,10 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 try      
                     fdg_ = mlfourd.ImagingContext2(globbed{idx});
                     obj = mladni.FDG(fdg_);
-                    disp(obj)
-                    disp(obj.t1w)                    
-                    obj.call_resolve();
+                    %disp(obj)
+                    %disp(obj.t1w)    
+                    obj.call_resolve();                      
+                    %disp(obj.fdg)
                     obj.finalize();   
                 catch ME
                     handwarning(ME);
@@ -386,17 +418,24 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         end
         function this = deepmrseg_apply(this)
         end
+        function fn = duplicate_orig_file(~, obj)
+            if ~istext(obj)
+                obj = obj.fqfilename;
+            end
+            fn = strrep(obj, 'rawdata', 'derivatives');
+            fn = strrep(fn, '-orientstd', '');
+        end
         function finalize(this)
             deleteExisting(strcat(this.t1w.fqfp, sprintf('_b%i.*', 10*this.blur)));
             deleteExisting(strcat(this.t1w_on_atl_n4.fqfp, '_InverseWarped.*'));
-
+            
             if ~this.debug
-                deleteExisting(this.fdg);
+                deleteExisting(this.duplicate_orig_file(this.fdg));
                 deleteExisting(this.fdg_mask);
                 %deleteExisting(this.fdg_on_t1w);
                 %deleteExisting(this.fdg_on_atl);
-                deleteExisting(this.t1w);
-                deleteExisting(this.t1w_mask);
+                deleteExisting(this.duplicate_orig_file(this.t1w));
+                %deleteExisting(this.t1w_mask);
                 %deleteExisting(this.t1w_on_atl);
             end
         end
@@ -508,6 +547,8 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             movefile(this.niigz(t4rb.theImagesFinal{2}), this.niigz(this.fdg_on_t1w));
             movefile(this.json(t4rb.theImagesFinal{2}), this.json(this.fdg_on_t1w));    
             
+            t4rb.deleteFourdfp(t4rb.theImages);
+            t4rb.deleteFourdfp(t4rb.theImagesOp(:,1));
             popd(pwd0);
         end
         function [s,r] = view(this)
@@ -667,6 +708,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 end
                 mlbash(sprintf('cp -f %s %s', ic.fqfn, icd.filepath), 'echo', true);
                 mlbash(sprintf('cp -f %s %s', strcat(ic.fqfp, '.json'), icd.filepath), 'echo', true);
+                mlbash(sprintf('chmod -R 755 %s', icd.filepath));
             end
             %tmp = icd.fqfn;
             icd.reorient2std();

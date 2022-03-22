@@ -246,6 +246,19 @@ classdef Test_FDG < matlab.unittest.TestCase
                 %popd(pwd0);
             end
         end
+        function test_call_resolve_002S1268(this)            
+            setenv('DEBUG', '')
+            globbed = globT( ...
+                fullfile(getenv('ADNI_HOME'), sprintf('bids/rawdata/sub-002S1268/ses-20130326/pet/*-%s_pet.nii.gz', this.proc)));
+            fprintf('test_call_resolve_002S1268:  sampling %i FDGs\n', length(globbed)); % ~60 @ 185 sec
+            for ig = 1:length(globbed) % parfor fails for bids on pascal:/scratch
+                fdg_ = mlfourd.ImagingContext2(globbed{ig});
+                obj = mladni.FDG(fdg_);
+                obj.call_resolve();
+                obj.finalize();
+            end
+
+        end
     end
     
     methods (TestClassSetup)
