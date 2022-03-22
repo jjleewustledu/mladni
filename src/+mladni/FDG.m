@@ -10,23 +10,57 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
     %  Developed on Matlab 9.11.0.1809720 (R2021b) Update 1 for MACI64.  Copyright 2021 John J. Lee.
 
     methods (Static)
-        function j = parcluster()
+        function propcluster()            
+            c = parcluster;
+            c.AdditionalProperties.EmailAddress = '';
+            c.AdditionalProperties.EnableDebug = 1;
+            c.AdditionalProperties.GpusPerNode = 0;
+            c.AdditionalProperties.MemUsage = '8000';
+            c.AdditionalProperties.Node = 2; % 16
+            c.AdditionalProperties.Partition = 'test';
+            c.AdditionalProperties.WallTime = '1:00:00'; % 47 h
+            c.saveProfile
+        end
+        function getDebugLog(j,c)
+            try
+                c.getDebugLog(j)
+            catch
+                c.getDebugLog(j.Tasks(end))
+            end
+        end
+        function [j,c] = parcluster()
             %% #PARCLUSTER
             %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/
             
             c = parcluster;
-            c.AdditionalProperties.WallTime = '02:00:00';
-            c.AdditionalProperties.Node = 4;
-            c.AdditionalProperties.MemUsage = '10000';
             disp(c.AdditionalProperties)
-            j = c.batch(@mladni.FDG.batch, 1, {}, 'Pool', 2, ...
+            j = c.batch(@mladni.FDG.batch, 1, {'len', 4}, 'Pool', 4, ...
+                'CurrentFolder', '.', 'AutoAddClientPath', false); % {}, 'Pool', 31
+            
+        end
+        function [j,c] = parcluster_test()
+            %% #PARCLUSTER
+            %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/
+            
+            c = parcluster;
+            disp(c.AdditionalProperties)
+            j = c.batch(@mladni.FDG.batch_test, 1, {}, 'Pool', 2, ...
                 'CurrentFolder', '.', 'AutoAddClientPath', false);
             
+        end
+        function r = batch_test(varargin)
+            [~,r] = system('env');
+            disp(r)
+            disp(tempdir)
+            clear('tempdir')
+            setenv('TMPDIR', '/scratch/jjlee/tmp')
+            disp(tempdir)
         end
         function t = batch(varargin)
             %% #BATCH
             
             ip = inputParser;
+            addParameter(ip, 'len', [], @isnumeric)
             addParameter(ip, 'proc', 'CASU', @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;
@@ -35,32 +69,55 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             t0 = tic;
             globbed = globT( ...
-                fullfile(getenv('ADNI_HOME'), ...
-                sprintf('bids/rawdata/sub-*/ses-*/pet/*-%s_pet.nii.gz', ipr.proc)));
-            globbed = globbed(1:2);
+                fullfile( ...
+                    '/home/aris_data/ADNI_FDG/bids/rawdata', ...
+                    'sub-*', 'ses-*', 'pet', ...
+                    sprintf('*-%s_pet.nii.gz', ipr.proc)));
+            if ~isempty(ipr.len)
+                globbed = globbed(1:ipr.len);
+            end            
+            save('/home/aris_data/ADNI_FDG/globbed.mat', 'globbed');
+            fprintf('mladni.FDG.batch.globbed:\n')
+            disp(size(globbed))      
+            clear('tempdir')            
+            setenv('TMPDIR', '/scratch/jjlee/tmp') % avoid TMP which Matlab may use 
             parfor idx = 1:length(globbed)
             
-                setenv('ADNI_HOME', '/home/aris_data/ADNI_FDG')
+                setenv('TMPDIR', '/scratch/jjlee/tmp') % worker nodes
+                
+                setenv('ADNI_HOME', '/home/aris_data/ADNI_FDG') 
                 setenv('ANTSPATH', '/export/ants/ants-2.3.5/bin')
                 setenv('DEBUG', '');
                 setenv('FREESURFER_HOME', '/export/freesurfer/freesurfer-7.2.0')
                 setenv('FSLDIR', '/export/fsl/fsl-6.0.5')
+                
+                setenv('FSLOUTPUTTYPE', 'NIFTI_GZ')
+                setenv('FSLMULTIFILEQUIT', 'TRUE')
+                setenv('FSLMULTIFILEQUIT', 'TRUE')
+                setenv('FSLTCLSH', fullfile(getenv('FSLDIR'),'bin','fsltclsh'))
+                setenv('FSLWISH', fullfile(getenv('FSLDIR'),'bin','fslwish'))
+                setenv('FSLLOCKDIR', '')
+                setenv('FSLMACHINELIST', '')
+                setenv('FSLREMOTECALL', '')
+                setenv('FSLREMOTECALL', 'cuda.q')
+                
+                setenv('REFDIR', '/home/aris_data/ADNI_FDG/atlas')
                 setenv('RELEASE', '/home/aris_data/ADNI_FDG/lin64-tools')            
                 setenv('PATH', ...
                     strcat(getenv('RELEASE'), ':', ...
                            fullfile(getenv('FREESURFER_HOME'), 'bin'), ':', ...
                            fullfile(getenv('FSLDIR'), 'bin'), ':', ...
-                           getenv('PATH')))    
+                           getenv('PATH')))  
 
-                try
-                    %pwd0 = pushd(myfileparts(globbed{idx}));
+                try      
                     fdg_ = mlfourd.ImagingContext2(globbed{idx});
                     obj = mladni.FDG(fdg_);
+                    disp(obj)
+                    disp(obj.t1w)                    
                     obj.call_resolve();
-                    obj.finalize();    
-                    %popd(pwd0);
+                    obj.finalize();   
                 catch ME
-                    handerror(ME);
+                    handwarning(ME);
                 end
             end
             t = toc(t0);
@@ -68,14 +125,26 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             disp('mladni.FDG.batch() completed')            
         end
         function fn = niigz(obj)
+            if isa(obj, 'mlfourd.ImagingContext2')
+                fn = strcat(obj.fqfp, '.nii.gz');
+                return
+            end
             ic = mlfourd.ImagingContext2(obj);
             fn = strcat(ic.fqfp, '.nii.gz');
         end
         function fn = mat(obj)
+            if isa(obj, 'mlfourd.ImagingContext2')
+                fn = strcat(obj.fqfp, '.mat');
+                return
+            end
             ic = mlfourd.ImagingContext2(obj);
             fn = strcat(ic.fqfp, '.mat');
         end
         function fn = json(obj)
+            if isa(obj, 'mlfourd.ImagingContext2')
+                fn = strcat(obj.fqfp, '.json');
+                return
+            end
             ic = mlfourd.ImagingContext2(obj);
             fn = strcat(ic.fqfp, '.json');
         end
@@ -213,7 +282,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 g = this.t1w_on_atl_dmrs_;
                 return
             end
-            fqfp = this.t1w_on_atl.fqfp;
+            fqfp = this.t1w_on_atl_n4.fqfp;
             this.t1w_on_atl_dmrs_ = mlfourd.ImagingContext2(strcat(fqfp, '_dmrs.nii.gz'));
             g = this.t1w_on_atl_dmrs_;
         end
@@ -222,7 +291,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 g = this.t1w_on_atl_warped_;
                 return
             end
-            fqfp = this.t1w_on_atl.fqfp;
+            fqfp = this.t1w_on_atl_n4.fqfp;
             this.t1w_on_atl_warped_ = mlfourd.ImagingContext2(strcat(fqfp, '_Warped.nii.gz'));
             g = this.t1w_on_atl_warped_;
         end
@@ -231,7 +300,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 g = this.t1w_on_atl_1warp_;
                 return
             end
-            fqfp = this.t1w_on_atl.fqfp;
+            fqfp = this.t1w_on_atl_n4.fqfp;
             this.t1w_on_atl_1warp_ = mlfourd.ImagingContext2(strcat(fqfp, '_1Warp.nii.gz'));
             g = this.t1w_on_atl_1warp_;
         end
@@ -240,7 +309,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 g = this.t1w_on_atl_detJ_;
                 return
             end
-            fqfp = this.t1w_on_atl.fqfp;
+            fqfp = this.t1w_on_atl_n4.fqfp;
             this.t1w_on_atl_detJ_ = mlfourd.ImagingContext2(strcat(fqfp, '_detJ.nii.gz'));
             g = this.t1w_on_atl_detJ_;
         end
@@ -324,12 +393,11 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             if ~this.debug
                 deleteExisting(this.fdg);
                 deleteExisting(this.fdg_mask);
-                deleteExisting(this.fdg_on_t1w);
-                deleteExisting(this.fdg_on_atl);
+                %deleteExisting(this.fdg_on_t1w);
+                %deleteExisting(this.fdg_on_atl);
                 deleteExisting(this.t1w);
                 deleteExisting(this.t1w_mask);
-                deleteExisting(this.t1w_on_atl);
-                %deleteExisting(this.t1w_on_atl_detJ);
+                %deleteExisting(this.t1w_on_atl);
             end
         end
         function this = flirt_fdg2t1w(this)
@@ -420,6 +488,12 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         function this = resolve_fdg2t1w(this)
             
             pwd0 = pushd(this.fdg.filepath);
+            
+            %% ----- assessing flip(,1) -------
+            %this.fdg.selectNiftiTool();
+            %flip(this.fdg, 1);
+            %this.fdg.save();
+            %% --------------------------------
             
             msks{1} = this.t1w_mask;
             msks{2} = this.fdg_mask;
@@ -556,7 +630,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             [~,idx_anat] = min(abs(dts_ - dt_fdg_)); % idx of anat nearest in time to fdg
 
             globt1w_ = globT(fullfile(globpth_{idx_anat}, '*_T1w.nii.gz')); % /pth/to/rawdata/sub-123S4566/ses-yyyyMMdd/anat/sub-*_ses-*_acq-*_proc-*_T1w.nii.gz
-            globt1w_ = globt1w_(~contains(globt1w_, 'mask'));
+            globt1w_ = globt1w_(~contains(globt1w_, 'mask'));            
             proc_ = cell(size(globt1w_));
             for ip = 1:length(globt1w_)
                 [~,fp_] = myfileparts(globt1w_{ip});
@@ -564,19 +638,40 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 proc_{ip} = re.proc;
             end
             [~,idx_proc] = max(cell2mat(cellfun(@length , proc_, 'UniformOutput', false))); % idx of longest proc specification
-
+        
+            % ========== DEBUGGING chpc3 ==========
+            % fdgpth_
+            % sesfold_
+            % dt_fdg_
+            % subpth_
+            % fprintf('mladni.FDG.findT1w.globpth_:\n')
+            % disp(ascol(globpth_))
+            % dts_'
+            % idx_anat
+            % fprintf('mladni.FDG.findT1w.globt1w_:\n');
+            % disp(ascol(globt1w_))
+            % fprintf('mladni.FDG.findT1w.proc_:\n');
+            % disp(ascol(proc_))                
+            % idx_proc
+            
             fqfn = globt1w_{idx_proc};
+            assert(isfile(fqfn));
+            fprintf('mladn.FDG.findT1w:  found %s\n', fqfn);
         end
-        function ic = prepare_derivatives(~, ic)
+        function icd = prepare_derivatives(~, ic)
+            icd = copy(ic);
             if contains(ic.filepath, 'rawdata') % copy to derivatives
-                ic.selectNiftiTool();
-                ic.filepath = strrep(ic.filepath, 'rawdata', 'derivatives');
-                ic.save();
+                icd.filepath = strrep(ic.filepath, 'rawdata', 'derivatives');
+                if ~isfolder(icd.filepath)
+                    mkdir(icd.filepath);
+                end
+                mlbash(sprintf('cp -f %s %s', ic.fqfn, icd.filepath), 'echo', true);
+                mlbash(sprintf('cp -f %s %s', strcat(ic.fqfp, '.json'), icd.filepath), 'echo', true);
             end
-            ic.forceradiological();
-            tmp = ic.fqfn;
-            ic.reorient2std();
-            deleteExisting(tmp);
+            %tmp = icd.fqfn;
+            icd.reorient2std();
+            icd.forceradiological();
+            %deleteExisting(tmp);
         end
     end
     
