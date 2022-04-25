@@ -172,6 +172,9 @@ classdef AdniDemographics < handle
         end
         function g = get.mri_quality_file(~)
             g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "MRIQUALITY.csv");
+            if ~isfile(g)
+                g = fullfile(getenv("ADNI_HOME"), "studydata", "MRIQUALITY.csv");
+            end
             % unique RID ~ 840, unique LONIUID ~ 11573
         end
         function g = get.mri_quality_adni3_file(~)

@@ -6,6 +6,129 @@ classdef AdniBidsT1w < mladni.AdniBids
     %  Developed on Matlab 9.11.0.1837725 (R2021b) Update 2 for MACI64.  Copyright 2022 John J. Lee.
     
     methods (Static)
+        function [j,c] = parcluster()
+            %% #PARCLUSTER
+            %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/          
+            
+            c = parcluster;
+            disp(c.AdditionalProperties)
+            j = c.batch(@mladni.AdniBidsT1w.batch, 1, {'len', []}, 'Pool', 31, ...
+                'CurrentFolder', '.', 'AutoAddClientPath', false); % {'len', []}, 'Pool', 31            
+        end
+        function [j,c] = parcluster2()
+            %% #PARCLUSTER2
+            %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/          
+            
+            c = parcluster;
+            disp(c.AdditionalProperties)
+            j = c.batch(@mladni.AdniBidsT1w.batch2, 1, {'len', []}, 'Pool', 31, ...
+                'CurrentFolder', '.', 'AutoAddClientPath', false); % {'len', []}, 'Pool', 31            
+        end
+        function t = batch(varargin)
+            %% From subjectsDir, dcm -> nifti or nifti -> nifti, for ADNI preprocessed
+            %  Params:
+            %      len (numeric):  # subjects
+            %      subjectsDir (folder):  loni folders extracted from archives
+            %      bidsDir (folder):  default $SINGULARITY_HOME?ADNI/bids/rawdata
+            
+            disp('Start mladni.AdniBidsT1w.batch()')            
+            t0 = tic;
+
+            subjectsDir = fullfile('/home/aris_data', 'ADNI_FDG', 'loni_T1', 'loni', '');
+            bidsDir = fullfile('/home/aris_data', 'ADNI_FDG', 'bids', 'rawdata', '');
+            
+            ip = inputParser;
+            addParameter(ip, 'len', [], @isnumeric)
+            addParameter(ip, 'subjectsDir', subjectsDir, @isfolder)
+            addParameter(ip, 'bidsDir', bidsDir, @isfolder)
+            parse(ip, varargin{:});
+            ipr = ip.Results;      
+            
+            pwd0 = pushd(ipr.subjectsDir);
+            globbed = globFoldersT(fullfile(ipr.subjectsDir, '*_S_*'));
+            if ~isempty(ipr.len)
+                globbed = globbed(1:ipr.len);
+            end
+            fprintf('mladni.AdniBidsT1w.batch.globbed:\n')
+            disp(size(globbed))
+            
+            mladni.CHPC3.clean_tempdir();
+            parfor idx = 1:length(globbed)            
+                mladni.CHPC3.setenvs();
+                try
+                    im = globFoldersT(fullfile(globbed{idx}, '*/*-*-*_*_*_*/I*'));                    
+                    this = mladni.AdniBidsT1w();
+                    for i = 1:length(im)
+                        if ~isempty(glob(fullfile(im{i}, '*.dcm')))
+                            this.build_nifti(im{i}, ipr.bidsDir); %#ok<PFBNS>
+                        end
+                        if ~isempty(glob(fullfile(im{i}, '*.nii')))
+                            this.copy_nifti(im{i}, ipr.bidsDir);
+                        end
+                    end
+                catch ME
+                    handwarning(ME)
+                end
+            end
+            popd(pwd0);
+            
+            t = toc(t0);
+            disp('mladni.AdniBidsT1w.batch() completed')  
+        end
+        function t = batch2(varargin)
+            %% Requires completion of batch(). Generates json for LONI preprocessed files by searching for matching 
+            %  original files.
+            %  Params:
+            %      len (numeric):  # sessions
+            %      bidsDir (folder):  default $SINGULARITY_HOME?ADNI/bids/rawdata
+
+            import mladni.AdniBids.nii2json    
+            disp('Start mladni.AdniBidsT1w.batch2()')            
+            t0 = tic;
+
+            bidsDir = fullfile('/home/aris_data', 'ADNI_FDG', 'bids', 'rawdata', '');
+            
+            ip = inputParser;
+            addParameter(ip, 'len', [], @isnumeric)
+            addParameter(ip, 'bidsDir', bidsDir, @isfolder)
+            parse(ip, varargin{:})
+            ipr = ip.Results;
+
+            pwd0 = pushd(ipr.bidsDir);            
+            globbed = globFolders(fullfile(ipr.bidsDir, 'sub-*S*/ses-*/anat'));
+            if ~isempty(ipr.len)
+                globbed = globbed(1:ipr.len);
+            end
+            fprintf('mladni.AdniBidsT1w.batch2.globbed:\n')
+            disp(size(globbed))
+            
+            mladni.CHPC3.clean_tempdir();
+            parfor idx = 1:length(globbed)
+                mladni.CHPC3.setenvs();
+                pwd1 = pushd(globbed{idx});
+                niis = globT('sub-*_ses-*_acq-*_proc-*.nii.gz');
+                niis = niis(~contains(niis, '_proc-orig'));
+                for ni = 1:length(niis)
+                    if ~isfile(nii2json(niis{ni}))
+                        try
+                            re = regexp(niis{ni}, '(?<sub>sub-\d{3}S\d{4})_(?<ses>ses-\d{14})_\S+.nii.gz', 'names');
+                            globbed_json = glob(sprintf('%s_%s_*.json', re.sub, re.ses));
+                            if isempty(globbed_json)
+                                continue
+                            end
+                            mlbash(sprintf('cp -f %s %s', globbed_json{end}, nii2json(niis{ni})));
+                        catch ME
+                            handwarning(ME)
+                        end
+                    end
+                end
+                popd(pwd1);
+            end
+            popd(pwd0);
+            
+            t = toc(t0);
+            disp('mladni.AdniBidsT1w.batch5 g() completed')  
+        end
         function create(varargin)
             %% Creates, e.g., /path/to/bids/rawdata/sub-128S0230/ses-20090713/pet/sub-128S0230_ses-20090713133153_acq-noaccel_proc-orig_T1s.json
             %                 /path/to/bids/rawdata/sub-128S0230/ses-20090713/pet/sub-128S0230_ses-20090713133153_trc-FDG_proc-CAS.nii.gz
@@ -40,8 +163,10 @@ classdef AdniBidsT1w < mladni.AdniBids
             popd(pwd0);
 
             mladni.AdniBidsT1w.create_json_for_processed(varargin{:});
+            mladni.AdniBidsT1w.afni_3dresample(varargin{:});
         end
         function create_json_for_processed(varargin)
+            %% Requires completion of copy_nifti().
             %  Params:
             %      bidsDir (folder):  default $SINGULARITY_HOME?ADNI/bids/rawdata
 
@@ -66,6 +191,39 @@ classdef AdniBidsT1w < mladni.AdniBids
                             re = regexp(niis{ni}, 'sub-\d{3}S\d{4}_ses-\d{14}_acq-\w+_proc-(?<proc>\S+)_(T1w|IR).nii.gz', 'names');
                             nii_orig = strrep(niis{ni}, re.proc, 'orig');
                             copyfile(nii2json(nii_orig), nii2json(niis{ni}));
+                        catch ME
+                            handwarning(ME)
+                        end
+                    end
+                end
+                popd(pwd1);
+            end
+            popd(pwd0);
+        end
+        function afni_3dresample(varargin)
+            %% Requires completion of create_json_for_processed().
+            %  Params:
+            %      bidsDir (folder):  default $SINGULARITY_HOME?ADNI/bids/rawdata
+
+            import mladni.AdniBids.nii2json
+
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            bidsDir = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'rawdata', '');
+            addParameter(ip, 'bidsDir', bidsDir, @isfolder)
+            parse(ip, varargin{:})
+            ipr = ip.Results;
+
+            pwd0 = pushd(ipr.bidsDir);            
+            anat = globFolders(fullfile(ipr.bidsDir, 'sub-*S*/ses-*/anat'));
+            for ai = 1:length(anat)
+                pwd1 = pushd(anat{ai});
+                niis = globT('sub-*_ses-*.nii.gz');
+                for ni = 1:length(niis)
+                    if ~contains(niis{ni}, '_orient-rpi')
+                        try
+                            mladni.AdniBids.afni_3dresample(niis{ni});
+                            deleteExisting(niis{ni});
                         catch ME
                             handwarning(ME)
                         end
@@ -121,7 +279,8 @@ classdef AdniBidsT1w < mladni.AdniBids
                 s = []; r = '';
                 try
                     [s,r] = mlpipeline.Bids.dcm2niix(image_folder, 'f', base, 'o', dest_folder, 'version', 20180622);
-                    this.update_json(image_folder, rawdata_folder);
+                    fn = this.update_json(image_folder, rawdata_folder);
+                    fn = strrep(fn, '.json', '.nii.gz');
                 catch ME
                     if 0 ~= s
                         warning('mladni:RuntimeWarning', r)
@@ -275,16 +434,16 @@ classdef AdniBidsT1w < mladni.AdniBids
         end
 
         function this = AdniBidsT1w(varargin)
-            this = this@mladni.AdniBids(varargin{:})
+            this = this@mladni.AdniBids(varargin{:});
             
-            this.ad_ = mladni.AdniDemographics();
+            %this.ad_ = mladni.AdniDemographics();
         end
     end
     
     %% PROTECTED
 
     properties (Access = protected)
-        ad_
+        %ad_
     end
 
     %  Created with mlsystem.Newcl, inspired by Frank Gonzalez-Morphy's newfcn.

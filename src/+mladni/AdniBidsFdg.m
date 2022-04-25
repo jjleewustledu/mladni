@@ -1,18 +1,66 @@
 classdef AdniBidsFdg < mladni.AdniBids
     %% 
-    %  - determine aborted or over-ridden scans and remove
-    %  - foreach fdg find T1w nearest in time
-    %  - register fdg to T1w, saving transformation
-    %  - register T1w to MNI152, saving transformation
-    %  - record final costs
-    %  - inspect pet on MNI152
-    %  - create group pet, cross-sectionally, by CDR
-    %  - create group pet, longitudinally, by baseline CDR, by final CDR
     %  
     %  Created 10-Feb-2022 19:47:37 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.11.0.1837725 (R2021b) Update 2 for MACI64.  Copyright 2022 John J. Lee.
     
     methods (Static)
+        function [j,c] = parcluster()
+            %% #PARCLUSTER2
+            %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/          
+            
+            c = parcluster;
+            disp(c.AdditionalProperties)
+            j = c.batch(@mladni.AdniBidsFdg.batch, 1, {'len', []}, 'Pool', 31, ...
+                'CurrentFolder', '.', 'AutoAddClientPath', false); % {'len', []}, 'Pool', 31            
+        end
+        function t = batch(varargin)
+            %% From subjectsDir, dcm -> nifti or nifti -> nifti, for ADNI preprocessed
+            %  Params:
+            %      len (numeric):  # subjects
+            %      subjectsDir (folder):  loni folders extracted from archives
+            %      bidsDir (folder):  default $SINGULARITY_HOME?ADNI/bids/rawdata
+            
+            disp('Start mladni.AdniBidsFdg.batch()')            
+            t0 = tic;
+
+            subjectsDir = fullfile('/home/aris_data', 'ADNI_FDG', 'loni_FDG', 'loni', '');
+            bidsDir = fullfile('/home/aris_data', 'ADNI_FDG', 'bids', 'rawdata', '');
+            
+            ip = inputParser;
+            addParameter(ip, 'len', [], @isnumeric)
+            addParameter(ip, 'subjectsDir', subjectsDir, @isfolder)
+            addParameter(ip, 'bidsDir', bidsDir, @isfolder)
+            parse(ip, varargin{:});
+            ipr = ip.Results;      
+            
+            pwd0 = pushd(ipr.subjectsDir);
+            globbed = globFoldersT(fullfile(ipr.subjectsDir, '*_S_*'));
+            if ~isempty(ipr.len)
+                globbed = globbed(1:ipr.len);
+            end
+            fprintf('mladni.AdniBidsFdg.batch.globbed:\n')
+            disp(size(globbed))
+            
+            mladni.CHPC3.clean_tempdir();
+            parfor idx = 1:length(globbed)            
+                mladni.CHPC3.setenvs();
+                try
+                    im = globFoldersT(fullfile(globbed{idx}, 'Coreg*/*/I*'));                    
+                    this = mladni.AdniBidsFdg();
+                    for i = 1:length(im)
+                        this.build_nifti(im{i}, ipr.bidsDir); %#ok<PFBNS>
+                        this.update_json(im{i}, ipr.bidsDir);
+                    end
+                catch ME
+                    handwarning(ME)
+                end
+            end
+            popd(pwd0);
+            
+            t = toc(t0);
+            disp('mladni.AdniBidsT1w.batch() completed')  
+        end
         function create(varargin)
             %% creates, e.g., /path/to/bids/rawdata/sub-128S0230/ses-20090713/pet/sub-128S0230_ses-20090713133153_trc-FDG_proc-CAS_pet.json
             %                 /path/to/bids/rawdata/sub-128S0230/ses-20090713/pet/sub-128S0230_ses-20090713133153_trc-FDG_proc-CAS_pet.nii.gz
@@ -272,12 +320,12 @@ classdef AdniBidsFdg < mladni.AdniBids
         end
 
         function this = AdniBidsFdg(varargin)
-            this = this@mladni.AdniBids(varargin{:})
+            this = this@mladni.AdniBids(varargin{:});
             
             this.ad_ = mladni.AdniDemographics();      
             this.table_mri_quality_ = this.ad_.table_mri_quality();
-            this.t1_filenames_ = readtable(fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'rawdata', 'rosters', 't1_filenames.csv'));
-            assert(~isempty(this.t1_filenames_))
+            %this.t1_filenames_ = readtable(fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'rawdata', 'rosters', 't1_filenames.csv'));
+            %assert(~isempty(this.t1_filenames_))
             %this.table_qc_ = this.ad_.table_pet_qc();
             %this.table_c3_ = this.ad_.table_pet_c3();
         end

@@ -5,6 +5,81 @@ classdef AdniBids
     %  Developed on Matlab 9.11.0.1809720 (R2021b) Update 1 for MACI64.  Copyright 2021 John J. Lee.
     
     methods (Static)
+        function [j,c] = parcluster_3dresample()
+            %% #parcluster_3dresample
+            %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/          
+            
+            c = parcluster;
+            disp(c.AdditionalProperties)
+            j = c.batch(@mladni.AdniBids.batch_3dresample, 1, {'len', []}, 'Pool', 31, ...
+                'CurrentFolder', '.', 'AutoAddClientPath', false); % {'len', []}, 'Pool', 31            
+        end
+        function t = batch_3dresample(varargin)
+            %% Requires well-formed bidDir from batch() and batch2().  Applies 3dresample, updating bids filenames and
+            %  json file contents.
+            %  Params:
+            %      len (numeric):  # sessions
+            %      bidsDir (folder):  default $SINGULARITY_HOME?ADNI/bids/rawdata
+
+            import mladni.AdniBids.nii2json
+            disp('Start mladni.AdniBids.batch_3dresample()')            
+            t0 = tic;
+            
+            bidsDir = fullfile('/home/aris_data', 'ADNI_FDG', 'bids', 'rawdata', '');
+
+            ip = inputParser;
+            addParameter(ip, 'len', [], @isnumeric)
+            addParameter(ip, 'bidsDir', bidsDir, @isfolder)
+            parse(ip, varargin{:})
+            ipr = ip.Results;
+
+            pwd0 = pushd(ipr.bidsDir);            
+            globbed = globFolders(fullfile(ipr.bidsDir, 'sub-*S*/ses-*/*'));
+            mladni.CHPC3.clean_tempdir();
+            parfor idx = 1:length(globbed)
+                mladni.CHPC3.setenvs();
+                pwd1 = pushd(globbed{idx});
+                niis = globT('sub-*_ses-*.nii.gz');
+                for ni = 1:length(niis)
+                    if ~contains(niis{ni}, '_orient-rpi')
+                        try
+                            mladni.AdniBids.afni_3dresample(niis{ni});
+                        catch ME
+                            handwarning(ME)
+                        end
+                    end
+                end
+                popd(pwd1);
+            end
+            popd(pwd0);
+            
+            t = toc(t0);
+            disp('mladni.AdniBids.batch_3dresample completed')  
+        end
+        
+        function fn1 = afni_3dresample(fn)
+            assert(contains(fn, '.nii'))
+            if endsWith(fn, '.nii')
+                fn_ = fn;
+                fn = gzip(fn_);
+                delete(fn_);
+            end
+            [pth,fp,e] = myfileparts(fn);
+            re = regexp(fp, '(?<prefix>\S+)(?<suffix>(_T1\w*|_t1\w*|_pet))', 'names');
+            fn1 = fullfile(pth, strcat(re.prefix, '_orient-rpi', re.suffix, e));
+            cmd = sprintf('3dresample -debug 1 -orient rpi -prefix %s -input %s', fn1, fn);
+            [~,r] = mlbash(cmd);            
+            assert(isfile(fn1));
+            
+            % manage json
+            j0 = fileread(strcat(myfileprefix(fn), '.json'));
+            j1.afni_3dresample.cmd = cmd;
+            j1.afni_3dresample.cmdout = r;
+            jsonrecode(j0, j1, 'filenameNew', strcat(myfileprefix(fn1), '.json'));
+            
+            % clean previous
+            deleteExisting(fn);
+        end
         function dt = fqnifti2dt(fqniis)
             if ischar(fqniis) || isstring(fqniis)
                 fqniis = {fqniis};
@@ -30,7 +105,7 @@ classdef AdniBids
                 catch ME
                     handwarning(ME)
                     uid{fi} = 'unknown';
-                end;
+                end
             end
         end
         function move_niis(varargin)
