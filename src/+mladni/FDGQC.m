@@ -5,7 +5,7 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
     %  Created 21-Mar-2022 14:24:57 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.10.0.1851785 (R2021a) Update 6 for MACI64.  Copyright 2022 John J. Lee.
     methods (Static)
-        function propcluster()            
+        function propcluster()
             c = parcluster;
             c.AdditionalProperties.EmailAddress = '';
             c.AdditionalProperties.EnableDebug = 1;
@@ -41,12 +41,34 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             j = c.batch(@mladni.FDGQC.batch2, 1, {}, 'Pool', 31, ...
                 'CurrentFolder', '.', 'AutoAddClientPath', false);            
         end
+        function [j,c] = par_find_incomplete()
+            %% #PARCLUSTER
+            %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/
+            
+            c = parcluster;
+            disp(c.AdditionalProperties)
+            j = c.batch(@mladni.FDGQC.batch_find_incomplete, 1, {}, 'Pool', 31, ...
+                'CurrentFolder', '.', 'AutoAddClientPath', false);            
+        end
+        
+        function [j,c] = ser_foo()
+            % Get a handle to the cluster
+            c = parcluster;
+            disp(c.AdditionalProperties)
+
+            % Submit job to query where MATLAB is running on the cluster
+            j = c.batch(@mladni.FDGQC.foo, 1, {}, ...
+                'CurrentFolder', '.', 'AutoAddClientPath', false);
+        end
+        
         function t = batch(varargin)
-            %% #BATCH
+            %% for all globbed:  
+            %      find t4_resolve cost_final as rerr, terr, fcost
+            %  save rerr.mat, terr.mat, fcost.mat
             
             ip = inputParser;
             addParameter(ip, 'proc', 'CASU', @istext)
-            addParameter(ip, 'tag', '-orientstd', @istext)
+            addParameter(ip, 'tag', '_orient-rpi-std', @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;
             
@@ -83,13 +105,15 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             disp('mladni.FDG.batch() completed')            
         end
         function t = batch2(varargin)
-            %% Links FDG with resolve error > err to derivatives/QC/resolve_error_gt_error
+            %% for all FDG with resolve error > err:
+            %      symlink .nii.gz, .json to derivatives/QC/resolve_error_gt_error
+            %
             %  Args:
-            %      err (scalar):  default is 10 degrees/mm.
+            %      err (scalar):  default is 20 degrees/mm.
             
             ip = inputParser;
             addParameter(ip, 'proc', 'CASU', @istext)
-            addParameter(ip, 'tag', '-orientstd', @istext)
+            addParameter(ip, 'tag', '_orient-rpi-std', @istext)
             addParameter(ip, 'err', 20, @isscalar)
             parse(ip, varargin{:});
             ipr = ip.Results;
@@ -98,7 +122,7 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             t0 = tic;            
             setenv('ADNI_HOME', '/home/aris_data/ADNI_FDG')
-            qc_path = sprintf('/home/aris_data/ADNI_FDG/bids/derivatives/QC/resolve_error_gt_%g', ipr.err);
+            qc_pa th = sprintf('/home/aris_data/ADNI_FDG/bids/derivatives/QC/resolve_error_gt_%g', ipr.err);
             ensuredir(qc_path)
             globbed = globT( ...
                 fullfile( ...
@@ -126,6 +150,71 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             t = toc(t0);
 
             disp('mladni.FDG.batch() completed')            
+        end
+        function t = batch_find_incomplete(varargin)
+            
+            t0 = tic;
+            derpth = fullfile('/home', 'aris_data', 'ADNI_FDG', 'bids', 'derivatives', '');
+            subpth = glob(fullfile(derpth, 'sub-*', ''));
+            len = length(subpth);
+            gs = cell(len, 1);
+            parfor idx = 1:len                
+                % each subject path
+                
+                petpth = glob(fullfile(subpth{idx}, 'ses-*', 'pet', ''));
+                c = {};
+                for ip = 1:length(petpth)
+                    g = glob(fullfile(petpth{ip}, ...
+                        'sub-*_ses-*_trc-FDG_proc-CASU_orient-rpi-std_pet_final.nii.gz'));
+                    if isempty(g)
+                        c = vertcat(c, petpth{ip});
+                    end
+                end
+                gs{idx} = c;
+            end
+            save(fullfile(derpth, 'gs.mat'), 'gs');
+            gs = gs(cellfun(@(x) ~isempty(x), gs));
+            gs = vertcat(gs{:});
+            tbl = cell2table(gs, 'VariableNames', {'pet_path_incomplete'});
+            writetable(tbl, fullfile(derpth, 'pet_paths_incomplete.csv'));            
+            t = toc(t0);
+            
+            disp('mladni.FDG.batch_find_incomplete() completed')
+        end 
+        
+        function t = foo(varargin)
+            t0 = tic;
+            trash = '/scratch/jjlee/Singularity/ADNI/.Trash';
+            ensuredir(trash);
+            csv = fullfile('/home', 'aris_data', 'ADNI_FDG', 'bids', 'derivatives', 'pet_paths_incomplete.csv');
+            tbl = readtable(csv, 'Delimiter', ',');
+            for it = 1:size(tbl,1)
+                pth = tbl.pet_path_incomplete{it};
+                src = strrep(pth, '/home/aris_data/ADNI_FDG', '/scratch/jjlee/Singularity/ADNI');
+                dest = strrep(pth, '/home/aris_data/ADNI_FDG', '/scratch/jjlee/Singularity/ADNI/.Trash');
+                movefile(src, dest);
+            end
+            t = toc(t0);
+        end
+        
+        function histograms_final_costs()
+            f = load('fcost.mat'); % 12-affine corratio, T1w \rightarrow atlas
+            figure;
+            histogram(f.fcost, "NumBins", 100);
+            xlabel("12-affine corratio, T1w \rightarrow atlas");
+            saveFigures(pwd, 'closeFigure', true, 'prefix', 'fcost');
+            
+            r = load('rerr.mat'); % rotational err, degrees, T1w \rightarrow atlas
+            figure;
+            histogram(r.rerr, "NumBins", 100);
+            xlabel("rotational err, degrees, PET \rightarrow T1w");
+            saveFigures(pwd, 'closeFigure', true, 'prefix', 'rerr');
+            
+            t = load('terr.mat'); % translational err, mm, T1w \rightarrow atlas
+            figure;
+            histogram(t.terr, "NumBins", 100);
+            xlabel("translational err, mm, PET \rightarrow T1w");
+            saveFigures(pwd, 'closeFigure', true, 'prefix', 'terr');
         end
     end
     

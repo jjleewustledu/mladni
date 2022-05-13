@@ -32,6 +32,7 @@ classdef CHPC3
             setenv('FSLMACHINELIST', '')
             setenv('FSLREMOTECALL', '')
             setenv('FSLREMOTECALL', 'cuda.q')
+            setenv('PYOPENGL_PLATFORM', 'osmesa')
 
             setenv('REFDIR', '/home/aris_data/ADNI_FDG/atlas')
             setenv('RELEASE', '/home/aris_data/ADNI_FDG/lin64-tools')            

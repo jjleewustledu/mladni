@@ -728,6 +728,11 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             this = this.CreateJacobianDeterminantImage();            
             this = this.deepmrseg_warp();
         end
+        function this = call_warps_brain_only(this)
+            this = this.CreateJacobianDeterminantImageB();            
+            this = this.deepmrseg_warpB();            
+            this.fast_gray_on_atl_warped_ = this.fast_warp(this.fast_gray);            
+        end
         function this = CreateJacobianDeterminantImage(this)
             %% #CREATEJACOBIANDETERMINANTIMAGE
             
