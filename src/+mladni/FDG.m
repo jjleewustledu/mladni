@@ -15,10 +15,10 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             c.AdditionalProperties.EmailAddress = '';
             c.AdditionalProperties.EnableDebug = 1;
             c.AdditionalProperties.GpusPerNode = 0;
-            c.AdditionalProperties.MemUsage = '5000'; % deepmrseg requires 10 GB; else 5 GB
+            c.AdditionalProperties.MemUsage = '10000'; % deepmrseg requires 10 GB; else 5 GB
             c.AdditionalProperties.Node = '';
             c.AdditionalProperties.Partition = '';
-            c.AdditionalProperties.WallTime = '167:00:00'; % 47 h
+            c.AdditionalProperties.WallTime = '24:00:00'; % 24 h
             c.saveProfile
             disp(c.AdditionalProperties)
         end
@@ -47,7 +47,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             t = toc(t0);
         end
         
-        function [j,c] = parcluster()
+        function [j,c] = parcluster_tiny()
             %% #PARCLUSTER
             %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/
             %  --------------------------------------------------------------
@@ -106,8 +106,28 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             c = parcluster;
             disp(c.AdditionalProperties)
-            j = c.batch(@mladni.FDG.batch, 1, {'len', []}, 'Pool', 31, ...
-                'CurrentFolder', '.', 'AutoAddClientPath', false); % {'len', []}, 'Pool', 31            
+            j = c.batch(@mladni.FDG.batch_tiny, 1, {'len', [3]}, 'Pool', 3, ...
+                'CurrentFolder', '.', 'AutoAddClientPath', false); %#ok<NBRAK> % {'len', []}, 'Pool', 31            
+        end
+        function [j,c] = parcluster()
+            %% #PARCLUSTER
+            %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/
+            %  --------------------------------------------------------------
+            
+            c = parcluster;
+            disp(c.AdditionalProperties)
+            
+            globbing_file = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', 'globbed.mat');
+            if ~isfile(globbing_file)
+                j = c.batch(@mladni.FDG.batch_globbed, 1, {}, ...
+                    'CurrentFolder', '.', 'AutoAddClientPath', false);
+                return
+            end            
+            ld = load(globbing_file);
+            for ji = 1:length(ld.globbed)
+                j{ji} = c.batch(@mladni.FDG.batch, 1, {'globbed', ld.globbed{ji}}, 'Pool', 31, ...
+                    'CurrentFolder', '.', 'AutoAddClientPath', false);  %#ok<AGROW>
+            end
         end
         function [j,c] = parcluster2()
             %% #PARCLUSTER
@@ -121,175 +141,61 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             c = parcluster;
             disp(c.AdditionalProperties)
-            j = c.batch(@mladni.FDG.batch2, 1, {'len', []}, 'Pool', 31, ...
+            
+            globbing_file = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', 'globbed.mat');
+            assert(isfile(globbing_file));
+            ld = load(globbing_file);
+            g = [ld.globbed{:}];
+            g1 = cellfun(@(x) strrep(strrep(x, 'rawdata', 'derivatives'), '.nii.gz', '_on_T1w_Warped.nii.gz'), ...
+                g, 'UniformOutput', false);
+            select = cellfun(@(x) ~isfile(x), g1);
+            j = c.batch(@mladni.FDG.batch, 1, {'globbed', g(select)}, 'Pool', 31, ...
                 'CurrentFolder', '.', 'AutoAddClientPath', false); % {'len', []}, 'Pool', 31            
         end
-        function t = batch(varargin)
-            %% Requires completion of mladni.AdniBidsT1w.{batch,batch2}, mladniAdniBidsFdg.batch,
+        function t = batch_tiny(varargin)
+            %% Requires completion of mladni.AdniBidsT1w.batch, mladniAdniBidsFdg.batch,
             %  and mladni.AdniBids.adni_3dresample to populate ADNI_FDG/bids/rawdata.
             %  Params:
             %      len (numeric):  # FDG sessions
             %      proc (text):  default 'CASU'
             
             ip = inputParser;
-            addParameter(ip, 'len', [], @isnumeric)
+            addParameter(ip, 'len', [1 3], @isnumeric)
             addParameter(ip, 'proc', 'CASU', @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;
+            if isscalar(ipr.len)
+                ipr.len = 1:ipr.len;
+            end
             
             disp('Start mladni.FDG.batch()')        
             
-            t0 = tic;
             globbed = globT( ...
                 fullfile( ...
                     '/home/aris_data/ADNI_FDG/bids/rawdata', ...
                     'sub-*', 'ses-*', 'pet', ...
                     sprintf('*-%s_*_pet.nii.gz', ipr.proc))); % *_proc-CASU_orient-rpi_pet
-            if ~isempty(ipr.len)
-                globbed = globbed(1:ipr.len);
-            end
+            globbed = globbed(ipr.len);
             t = cell2table(globbed', 'VariableNames', {'rawdata_pet_filename'});
-            writetable(t, '/home/aris_data/ADNI_FDG/bids/derivatives/globbed.csv');
-            fprintf('size(mladni.FDG.batch.globbed) -> %s\n', mat2str(size(globbed)));
-            try
-                deleteExisting(fullfile(tempdir, '*.nii*'));
-                deleteExisting(fullfile(tempdir, '*.4dfp.*'));
-            catch ME
-                disp(ME)
-            end
-            %clear('tempdir')            
-            %setenv('TMPDIR', '/scratch/jjlee/tmp') % avoid TMP which Matlab may use 
-            %c = cell(size(globbed')); %% DEBUG            
-            parfor idx = 1:length(globbed)
+            writetable(t, '/home/aris_data/ADNI_FDG/bids/derivatives/globbed_tiny.csv');
+            fprintf('size(mladni.FDG.batch.globbed) -> %s\n', mat2str(size(globbed)));            
             
-                setenv('TMPDIR', '/scratch/jjlee/tmp') % worker nodes
-                
-                setenv('ADNI_HOME', '/home/aris_data/ADNI_FDG') 
-                setenv('AFNIPATH', '/export/afni/afni-20.3.03/linux_openmp_64')
-                setenv('ANTSPATH', '/export/ants/ants-2.3.5/bin')
-                setenv('DEBUG', '');
-                setenv('FREESURFER_HOME', '/export/freesurfer/freesurfer-7.2.0')
-                setenv('FSLDIR', '/export/fsl/fsl-6.0.5')
-                
-                setenv('FSLOUTPUTTYPE', 'NIFTI_GZ')
-                setenv('FSLMULTIFILEQUIT', 'TRUE')
-                setenv('FSLMULTIFILEQUIT', 'TRUE')
-                setenv('FSLTCLSH', fullfile(getenv('FSLDIR'),'bin','fsltclsh'))
-                setenv('FSLWISH', fullfile(getenv('FSLDIR'),'bin','fslwish'))
-                setenv('FSLLOCKDIR', '')
-                setenv('FSLMACHINELIST', '')
-                setenv('FSLREMOTECALL', '')
-                setenv('FSLREMOTECALL', 'cuda.q')
-                setenv('PYOPENGL_PLATFORM', 'osmesa')
-                
-                setenv('REFDIR', '/home/aris_data/ADNI_FDG/atlas')
-                setenv('RELEASE', '/home/aris_data/ADNI_FDG/lin64-tools')            
-                setenv('PATH', ...
-                    strcat(getenv('RELEASE'), ':', ...
-                           getenv('AFNIPATH'), ':', ...
-                           fullfile(getenv('FREESURFER_HOME'), 'bin'), ':', ...
-                           fullfile(getenv('FSLDIR'), 'bin'), ':', ...
-                           fullfile('/export/singularity/singularity-3.9.0/bin'), ':', ...
-                           getenv('PATH')))  
+            t0 = tic;
+            mladni.CHPC3.clean_tempdir();
+            parfor idx = 1:length(globbed)            
+                mladni.CHPC3.setenvs();
                 try
                     fdg_ = mlfourd.ImagingContext2(globbed{idx});
-                    derpth = strrep(fdg_.filepath, 'rawdata', 'derivatives');
-                    if ~isfolder(derpth) % /path/to/bids/derivatives/sub-*/ses-*/pet/
+                    %derpth = strrep(fdg_.filepath, 'rawdata', 'derivatives');
+                    %if ~isfolder(derpth) % /path/to/bids/derivatives/sub-*/ses-*/pet/
                         
                         %c{idx} = derpth; %% DEBUG
                         %continue
                         
                         this = mladni.FDG(fdg_);
                         if ~isempty(this.t1w)
-                            %this.call();
                             this.call_resolve(); 
                             this.finalize(); 
-                        end
-                    end
-                catch ME
-                    handwarning(ME)
-                    disp(struct2str(ME.stack))
-                end
-            end            
-            %save('/scratch/jjlee/Singularity/ADNI/bids/derivatives/c.mat', 'c'); %% DEBUG            
-            t = toc(t0);
-
-            disp('mladni.FDG.batch() completed')            
-        end
-        function t = batch2(varargin)
-            %% Requires completion of mladni.AdniBidsT1w.{batch,batch2}, mladniAdniBidsFdg.batch,
-            %  and mladni.AdniBids.adni_3dresample to populate ADNI_FDG/bids/rawdata.
-            %  Params:
-            %      len (numeric):  # FDG sessions
-            %      proc (text):  default 'CASU'
-            
-            ip = inputParser;
-            addParameter(ip, 'len', [], @isnumeric)
-            addParameter(ip, 'proc', 'CASU', @istext)
-            parse(ip, varargin{:});
-            ipr = ip.Results;
-            
-            disp('Start mladni.FDG.batch()')        
-            
-            t0 = tic;
-            globbed = globT( ...
-                fullfile( ...
-                    '/home/aris_data/ADNI_FDG/bids/rawdata', ...
-                    'sub-*', 'ses-*', 'pet', ...
-                    sprintf('*-%s_*_pet.nii.gz', ipr.proc))); % *_proc-CASU_orient-rpi_pet
-            if ~isempty(ipr.len)
-                globbed = globbed(1:ipr.len);
-            end
-            t = cell2table(globbed', 'VariableNames', {'rawdata_pet_filename'});
-            writetable(t, '/home/aris_data/ADNI_FDG/bids/derivatives/globbed.csv');
-            fprintf('size(mladni.FDG.batch.globbed) -> %s\n', mat2str(size(globbed)));
-            try
-                deleteExisting(fullfile(tempdir, '*.nii*'));
-                deleteExisting(fullfile(tempdir, '*.4dfp.*'));
-            catch ME
-                disp(ME)
-            end
-            %clear('tempdir')            
-            %setenv('TMPDIR', '/scratch/jjlee/tmp') % avoid TMP which Matlab may use 
-            %c = cell(size(globbed')); %% DEBUG            
-            parfor idx = 1:length(globbed)
-            
-                setenv('TMPDIR', '/scratch/jjlee/tmp') % worker nodes
-                
-                setenv('ADNI_HOME', '/home/aris_data/ADNI_FDG') 
-                setenv('AFNIPATH', '/export/afni/afni-20.3.03/linux_openmp_64')
-                setenv('ANTSPATH', '/export/ants/ants-2.3.5/bin')
-                setenv('DEBUG', '');
-                setenv('FREESURFER_HOME', '/export/freesurfer/freesurfer-7.2.0')
-                setenv('FSLDIR', '/export/fsl/fsl-6.0.5')
-                
-                setenv('FSLOUTPUTTYPE', 'NIFTI_GZ')
-                setenv('FSLMULTIFILEQUIT', 'TRUE')
-                setenv('FSLMULTIFILEQUIT', 'TRUE')
-                setenv('FSLTCLSH', fullfile(getenv('FSLDIR'),'bin','fsltclsh'))
-                setenv('FSLWISH', fullfile(getenv('FSLDIR'),'bin','fslwish'))
-                setenv('FSLLOCKDIR', '')
-                setenv('FSLMACHINELIST', '')
-                setenv('FSLREMOTECALL', '')
-                setenv('FSLREMOTECALL', 'cuda.q')
-                setenv('PYOPENGL_PLATFORM', 'osmesa')
-                
-                setenv('REFDIR', '/home/aris_data/ADNI_FDG/atlas')
-                setenv('RELEASE', '/home/aris_data/ADNI_FDG/lin64-tools')            
-                setenv('PATH', ...
-                    strcat(getenv('RELEASE'), ':', ...
-                           getenv('AFNIPATH'), ':', ...
-                           fullfile(getenv('FREESURFER_HOME'), 'bin'), ':', ...
-                           fullfile(getenv('FSLDIR'), 'bin'), ':', ...
-                           fullfile('/export/singularity/singularity-3.9.0/bin'), ':', ...
-                           getenv('PATH')))  
-                try
-                    fdg_ = mlfourd.ImagingContext2(globbed{idx});
-                    %derpth = strrep(fdg_.filepath, 'rawdata', 'derivatives');
-                    %if ~isfolder(derpth) % /path/to/bids/derivatives/sub-*/ses-*/pet/
-                        this = mladni.FDG(fdg_);
-                        if ~isempty(this.t1w)
-                            this.call_fast(); 
                         end
                     %end
                 catch ME
@@ -302,64 +208,111 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 
             disp('mladni.FDG.batch() completed')            
         end
-        
-        function [j,c] = parcluster_debug()
-            %% #PARCLUSTER
-            %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/          
+        function globbed = batch_globbed(varargin)
+            ip = inputParser;
+            addParameter(ip, 'proc', 'CASU', @istext)
+            parse(ip, varargin{:});
+            ipr = ip.Results;
             
-            c = parcluster;
-            disp(c.AdditionalProperties)
-            j = c.batch(@mladni.FDG.batch_debug, 1, {}, ...
-                'CurrentFolder', '.', 'AutoAddClientPath', false); 
+            g = globT( ...
+                fullfile( ...
+                    '/home/aris_data/ADNI_FDG/bids/rawdata', ...
+                    'sub-*', 'ses-*', 'pet', ...
+                    sprintf('*-%s_*_pet.nii.gz', ipr.proc))); % *_proc-CASU_orient-rpi_pet
+            len_part = ceil(length(g)/10);
+            globbed = cell(1,10);
+            for gi = 1:9
+                globbed{gi} = g((gi-1)*len_part+1:gi*len_part);
+            end
+            globbed{10} = g(9*len_part+1:end);                
             
+            t = cell2table(g', 'VariableNames', {'rawdata_pet_filename'});
+            writetable( ...
+                t, fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', 'globbed.csv'));
+            save( ...
+                fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', 'globbed.mat'), 'globbed');            
+            fprintf('mladni.FDG.batch.globbed:\n')
+            disp(globbed)
         end
-        function t = batch_debug(varargin)
+        function t = batch(varargin)
+            %% Requires completion of mladni.batch_globbed().
+            %  Params:
+            %      len (numeric):  # FDG sessions
+            %      proc (text):  default 'CASU'
             
-            disp('Start mladni.FDG.batch_debug()')   
+            ip = inputParser;
+            addParameter(ip, 'globbed', {}, @iscell)
+            addParameter(ip, 'proc', 'CASU', @istext)
+            parse(ip, varargin{:});
+            ipr = ip.Results;
             
-            setenv('TMPDIR', '/scratch/jjlee/tmp') % worker nodes
+            disp('Start mladni.FDG.batch()')        
 
-            setenv('ADNI_HOME', '/home/aris_data/ADNI_FDG') 
-            setenv('ANTSPATH', '/export/ants/ants-2.3.5/bin')
-            setenv('DEBUG', '');
-            setenv('FREESURFER_HOME', '/export/freesurfer/freesurfer-7.2.0')
-            setenv('FSLDIR', '/export/fsl/fsl-6.0.5')
-
-            setenv('FSLOUTPUTTYPE', 'NIFTI_GZ')
-            setenv('FSLMULTIFILEQUIT', 'TRUE')
-            setenv('FSLMULTIFILEQUIT', 'TRUE')
-            setenv('FSLTCLSH', fullfile(getenv('FSLDIR'),'bin','fsltclsh'))
-            setenv('FSLWISH', fullfile(getenv('FSLDIR'),'bin','fslwish'))
-            setenv('FSLLOCKDIR', '')
-            setenv('FSLMACHINELIST', '')
-            setenv('FSLREMOTECALL', '')
-            setenv('FSLREMOTECALL', 'cuda.q')
-
-            setenv('REFDIR', '/home/aris_data/ADNI_FDG/atlas')
-            setenv('RELEASE', '/home/aris_data/ADNI_FDG/lin64-tools')            
-            setenv('PATH', ...
-                strcat(getenv('RELEASE'), ':', ...
-                       fullfile(getenv('FREESURFER_HOME'), 'bin'), ':', ...
-                       fullfile(getenv('FSLDIR'), 'bin'), ':', ...
-                       getenv('PATH')))  
-
+            globbed = ipr.globbed;          
+            %t = size(globbed); % DEBUG
+            %disp(t) % DEBUG
+            %return
+            
             t0 = tic;
-            cmd = '/export/fsl/fsl-6.0.5/bin/flirt -in /home/aris_data/ADNI_FDG/bids/derivatives/sub-003S1074/ses-20080207/anat/sub-003S1074_ses-20080207120203_acq-noaccel_proc-gradwarp-n3-b1corr-scaled_orient-std_T1w.nii.gz -ref /export/fsl/fsl-6.0.5/data/standard/MNI152_T1_2mm.nii.gz -out /home/aris_data/ADNI_FDG/bids/derivatives/sub-003S1074/ses-20080207/anat/debug_T1w_on_atl.nii.gz -omat /home/aris_data/ADNI_FDG/bids/derivatives/sub-003S1074/ses-20080207/anat/sub-003S1074_ses-20080207120203_acq-noaccel_proc-gradwarp-n3-b1corr-scaled_orient-std_T1w_on_atl.mat -bins 256 -cost corratio -searchrx -90  90 -searchry -90  90 -searchrz -90  90 -dof 12 -refweight /export/fsl/fsl-6.0.5/data/standard/MNI152_T1_2mm_brain_mask_dil.nii.gz -inweight /mnt/beegfs/scratch/jjlee/Singularity/ADNI/bids/derivatives/sub-003S1074/ses-20080207/anat/sub-003S1074_ses-20080207120203_acq-noaccel_proc-gradwarp-n3-b1corr-scaled_orient-std_T1w_mskt.nii.gz -interp trilinear';
-            [s,r] = mlbash(cmd);
-            disp(s)
-            disp(r)            
+            mladni.CHPC3.clean_tempdir();
+            parfor idx = 1:length(globbed)            
+                mladni.CHPC3.setenvs();
+                try
+                    fdg_ = mlfourd.ImagingContext2(globbed{idx});
+                    %derpth = strrep(fdg_.filepath, 'rawdata', 'derivatives');
+                    %if ~isfolder(derpth) % /path/to/bids/derivatives/sub-*/ses-*/pet/
+
+                    %c{idx} = derpth; %% DEBUG
+                    %continue
+
+                    this = mladni.FDG(fdg_);
+                    if ~isempty(this.t1w)
+                        this.call_resolve(); 
+                        this.finalize(); 
+                    end
+                    %end
+                catch ME
+                    handwarning(ME)
+                    disp(struct2str(ME.stack))
+                end
+            end            
+            %save('/scratch/jjlee/Singularity/ADNI/bids/derivatives/c.mat', 'c'); %% DEBUG            
             t = toc(t0);
 
-            disp('mladni.FDG.batch_debug() completed')  
+            disp('mladni.FDG.batch() completed')            
         end
-        
-        function fn = niigz(obj)
+                
+        function fn = json(obj)
             if isa(obj, 'mlfourd.ImagingContext2')
-                fn = strcat(obj.fqfp, '.nii.gz');
+                fn = strcat(obj.fqfp, '.json');
                 return
             end
             ic = mlfourd.ImagingContext2(obj);
-            fn = strcat(ic.fqfp, '.nii.gz');
+            fn = strcat(ic.fqfp, '.json');
+        end
+        function jsonrecode(in, field, out)
+            if istext(in)
+                in = myfileprefix(in);
+            end
+            if isa(in, 'mlio.IOInterface')
+                in = in.fqfp;
+            end
+            if istext(out)
+                out = myfileprefix(out);
+            end
+            if isa(out, 'mlio.IOInterface')
+                out = out.fqfp;
+            end
+            
+            jsonrecode(strcat(in, '.json'), ...
+                struct(clientname(true, 3), field), ...
+                'filenameNew', strcat(out, '.json'));
+        end
+        function m = image_mass(ic)
+            dV = voxelVolume(ic);
+            ic1 = ic.thresh(0);
+            sumDensities = dipsum(ic1);            
+            m = sumDensities*dV;
         end
         function fn = mat(obj)
             if isa(obj, 'mlfourd.ImagingContext2')
@@ -369,13 +322,13 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             ic = mlfourd.ImagingContext2(obj);
             fn = strcat(ic.fqfp, '.mat');
         end
-        function fn = json(obj)
+        function fn = niigz(obj)
             if isa(obj, 'mlfourd.ImagingContext2')
-                fn = strcat(obj.fqfp, '.json');
+                fn = strcat(obj.fqfp, '.nii.gz');
                 return
             end
             ic = mlfourd.ImagingContext2(obj);
-            fn = strcat(ic.fqfp, '.json');
+            fn = strcat(ic.fqfp, '.nii.gz');
         end
     end
 
@@ -390,33 +343,38 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         debug % ~isempty(getenv('DEBUG'))
 
         atl
-        atlb % skull-stripped brain only
-        fdg % mlfourd.ImagingContext2        
-        t1w  
-        t1wb
-        t1w_dlicv
-        fast_gray
-        fast_white
-        fast_csf
-
+        atl_brain % skull-stripped brain only
         atl_mask 
         atl_mask1 
+        
+        fast_csf
+        fast_csf_detJ_warped
+        fast_gray
+        fast_gray_detJ_warped
+        fast_white
+        fast_white_detJ_warped
+        
+        fdg % mlfourd.ImagingContext2
         fdg_mask % mlfourd.ImagingContext2 
         fdg_mskt
-        t1w_mskt
-
-        fdg_on_t1w % mlfourd.ImagingContext2 
-        t1w_on_atl
-        t1w_on_atl_n4
-        t1w_on_atl_dmrs
-        t1w_on_atl_warped
-        t1w_on_atl_1warp
-        t1w_on_atl_detJ        
-        fast_gray_on_atl
         fdg_on_atl
-        fdg_final % affine registered to atl, warped to atl, weighted by det(J)
-        t1w_dlicv_on_atl_warped
-        fast_gray_on_atl_warped
+        fdg_on_t1w % mlfourd.ImagingContext2 
+        fdg_detJ_warped % warped to atl, weighted by det(J)
+        fdg_detJ_warped_mask % generated from dlicv, binarized, 8mm blurring, thresh 0.1, binarized
+        
+        t1w  
+        t1w_blurred
+        t1w_brain
+        t1w_detJ
+        t1w_dlicv
+        t1w_dlicv_detJ_warped
+        t1w_mskt
+        t1w_n4
+        t1w_on_atl
+        t1w_warped
+        t1w_0genericaffine
+        t1w_1warp
+        t1w_2warp % the composition of t1w_1warp \odot t1w_0genericaffine
     end
 
     methods
@@ -433,55 +391,79 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         function g = get.atl(this)
             g = this.atl_;
         end
-        function g = get.atlb(this)
+        function g = get.atl_brain(this)
             fqfn = strcat(this.atl.fqfp, '_brain', '.nii.gz');
             g = mlfourd.ImagingContext2(fqfn);
         end
-        function g = get.fdg(this)
-            g = this.fdg_;
-        end
-        function g = get.t1w(this)
-            g = this.t1w_;
-        end
-        function g = get.t1wb(this)
-            g = this.t1wb_;
-            if ~isfile(g.fqfn)
-                g.save();
-            end
-        end
-        function g = get.t1w_dlicv(this)
-            if ~isempty(this.t1w_dlicv_)
-                g = this.t1w_dlicv_;
+        function g = get.atl_mask(this)
+            if ~isempty(this.atl_mask_)
+                g = this.atl_mask_;
                 return
             end
-            this.t1w_dlicv_ = mlfourd.ImagingContext2(strcat(this.t1w.fqfp, '_dlicv', '.nii.gz'));
-            g = this.t1w_dlicv_;
+            this.atl_mask_ = mlfourd.ImagingContext2(strcat(this.atl.fqfp, '_brain_mask_dil', '.nii.gz'));
+            g = this.atl_mask_;
+        end
+        function g = get.atl_mask1(this)
+            if ~isempty(this.atl_mask1_)
+                g = this.atl_mask1_;
+                return
+            end
+            this.atl_mask1_ = mlfourd.ImagingContext2(strcat(this.atl.fqfp, '_brain_mask_dil1', '.nii.gz'));
+            g = this.atl_mask1_;
+        end
+        
+        function g = get.fast_csf(this)
+            if ~isempty(this.fast_csf_)
+                g = this.fast_csf_;
+                return
+            end
+            this.fast_csf_ = mlfourd.ImagingContext2(strcat(this.t1w_brain.fqfp, '_pve_0', '.nii.gz'));
+            g = this.fast_csf_;
+        end
+        function g = get.fast_csf_detJ_warped(this)
+            if ~isempty(this.fast_csf_detJ_warped_)
+                g = this.fast_csf_detJ_warped_;
+                return
+            end
+            this.fast_csf_detJ_warped_ = mlfourd.ImagingContext2(strcat(this.fast_csf.fqfp, '_detJ_Warped.nii.gz'));
+            g = this.fast_csf_detJ_warped_;
         end
         function g = get.fast_gray(this)
             if ~isempty(this.fast_gray_)
                 g = this.fast_gray_;
                 return
             end
-            this.fast_gray_ = mlfourd.ImagingContext2(strcat(this.t1w.fqfp, '_pve_1', '.nii.gz'));
+            this.fast_gray_ = mlfourd.ImagingContext2(strcat(this.t1w_brain.fqfp, '_pve_1', '.nii.gz'));
             g = this.fast_gray_;
+        end
+        function g = get.fast_gray_detJ_warped(this)
+            if ~isempty(this.fast_gray_detJ_warped_)
+                g = this.fast_gray_detJ_warped_;
+                return
+            end
+            this.fast_gray_detJ_warped_ = mlfourd.ImagingContext2(strcat(this.fast_gray.fqfp, '_detJ_Warped.nii.gz'));
+            g = this.fast_gray_detJ_warped_;
         end
         function g = get.fast_white(this)
             if ~isempty(this.fast_white_)
                 g = this.fast_white_;
                 return
             end
-            this.fast_white_ = mlfourd.ImagingContext2(strcat(this.t1w.fqfp, '_pve_2', '.nii.gz'));
+            this.fast_white_ = mlfourd.ImagingContext2(strcat(this.t1w_brain.fqfp, '_pve_2', '.nii.gz'));
             g = this.fast_white_;
         end
-        function g = get.fast_csf(this)
-            if ~isempty(this.fast_csf_)
-                g = this.fast_csf_;
+        function g = get.fast_white_detJ_warped(this)
+            if ~isempty(this.fast_white_detJ_warped_)
+                g = this.fast_white_detJ_warped_;
                 return
             end
-            this.fast_csf_ = mlfourd.ImagingContext2(strcat(this.t1w.fqfp, '_pve_0', '.nii.gz'));
-            g = this.fast_csf_;
+            this.fast_white_detJ_warped_ = mlfourd.ImagingContext2(strcat(this.fast_white.fqfp, '_detJ_Warped.nii.gz'));
+            g = this.fast_white_detJ_warped_;
         end
-
+  
+        function g = get.fdg(this)
+            g = this.fdg_;
+        end
         function g = get.fdg_mask(this)
             if ~isempty(this.fdg_mskt_)
                 g = this.fdg_mskt_;
@@ -506,6 +488,104 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             g = this.fdg_mskt_;
             popd(pwd0);
         end
+        function g = get.fdg_on_atl(this)
+            if ~isempty(this.fdg_on_atl_)
+                g = this.fdg_on_atl_;
+                return
+            end
+            fqfp = this.in_derivatives_path(this.fdg.fqfp);
+            this.fdg_on_atl_ = mlfourd.ImagingContext2(strcat(fqfp, '_on_atl.nii.gz'));
+            g = this.fdg_on_atl_;
+        end
+        function g = get.fdg_on_t1w(this)
+            if ~isempty(this.fdg_on_t1w_)
+                g = this.fdg_on_t1w_;
+                return
+            end
+            fqfp = this.in_derivatives_path(this.fdg.fqfp);
+            this.fdg_on_t1w_ = mlfourd.ImagingContext2(strcat(fqfp, '_on_T1w.nii.gz'));
+            g = this.fdg_on_t1w_;
+        end
+        function g = get.fdg_detJ_warped(this)
+            if ~isempty(this.fdg_detJ_warped_)
+                g = this.fdg_detJ_warped_;
+                return
+            end
+            fqfp = this.in_derivatives_path(this.fdg_on_t1w.fqfp);
+            this.fdg_detJ_warped_ = mlfourd.ImagingContext2(strcat(fqfp, '_detJ_Warped.nii.gz'));
+            g = this.fdg_detJ_warped_;
+        end        
+        function g = get.fdg_detJ_warped_mask(this)
+            if ~isempty(this.fdg_detJ_warped_mask_)
+                g = this.fdg_detJ_warped_mask_;
+                return
+            end
+            fqfp = this.fdg_detJ_warped.fqfp;
+            this.fdg_detJ_warped_mask_ = mlfourd.ImagingContext2(strcat(fqfp, '_mask.nii.gz'));
+            g = this.fdg_detJ_warped_mask_;
+        end  
+        
+        function g = get.t1w(this)
+            g = this.t1w_;
+        end
+        function g = get.t1w_blurred(this)
+            if ~isempty(this.t1w_blurred_)
+                g = this.t1w_blurred_;
+                return
+            end
+            if ~isempty(this.t1w_n4_)
+                this.t1w_blurred_ = this.t1w_n4.blurred(this.blur);
+            else
+                this.t1w_blurred_ = this.t1w.blurred(this.blur);
+            end
+            g = this.t1w_blurred_;
+            if ~isfile(g.fqfn)
+                g.save();
+            end
+        end
+        function g = get.t1w_brain(this)
+            if ~isempty(this.t1w_brain_)
+                g = this.t1w_brain_;
+                return
+            end
+            if isfile(this.t1w_n4.fqfn) && isfile(this.t1w_dlicv.fqfn)
+                fqfp = this.t1w_n4.fqfp;
+                this.t1w_brain_ = this.t1w_n4 .* this.t1w_dlicv;
+            else                
+                fqfp = this.in_derivatives_path(this.t1w.fqfp);
+                this.t1w_brain_ = this.t1w .* this.t1w_mskt;
+            end
+            this.t1w_brain_.fqfp = strcat(fqfp, '_brain.nii.gz');
+            this.t1w_brain_.save();
+            g = this.t1w_brain_;
+        end
+        function g = get.t1w_detJ(this)
+            if ~isempty(this.t1w_detJ_)
+                g = this.t1w_detJ_;
+                return
+            end
+            fqfp = this.t1w_brain.fqfp;
+            this.t1w_detJ_ = mlfourd.ImagingContext2(strcat(fqfp, '_detJ.nii.gz'));
+            g = this.t1w_detJ_;
+        end
+        function g = get.t1w_dlicv(this)
+            if ~isempty(this.t1w_dlicv_)
+                g = this.t1w_dlicv_;
+                return
+            end
+            fqfp = this.t1w_n4.fqfp;
+            this.t1w_dlicv_ = mlfourd.ImagingContext2(strcat(fqfp, '_dlicv', '.nii.gz'));
+            g = this.t1w_dlicv_;
+        end
+        function g = get.t1w_dlicv_detJ_warped(this)
+            if ~isempty(this.t1w_dlicv_detJ_warped_)
+                g = this.t1w_dlicv_detJ_warped_;
+                return
+            end
+            fqfp = this.t1w_dlicv.fqfp;
+            this.t1w_dlicv_detJ_warped_ = mlfourd.ImagingContext2(strcat(fqfp, '_detJ_Warped.nii.gz'));
+            g = this.t1w_dlicv_detJ_warped_;
+        end
         function g = get.t1w_mskt(this)
             if ~isempty(this.t1w_mask_)
                 g = this.t1w_mask_;
@@ -516,32 +596,20 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             g = this.t1w_mask_;
             popd(pwd0);
         end
-        function g = get.atl_mask(this)
-            if ~isempty(this.atl_mask_)
-                g = this.atl_mask_;
+        function g = get.t1w_n4(this)
+            if ~isempty(this.t1w_n4_)
+                g = this.t1w_n4_;
                 return
             end
-            this.atl_mask_ = mlfourd.ImagingContext2(strcat(this.atl.fqfp, '_brain_mask_dil', '.nii.gz'));
-            g = this.atl_mask_;
-        end
-        function g = get.atl_mask1(this)
-            if ~isempty(this.atl_mask1_)
-                g = this.atl_mask1_;
-                return
-            end
-            this.atl_mask1_ = mlfourd.ImagingContext2(strcat(this.atl.fqfp, '_brain_mask_dil1', '.nii.gz'));
-            g = this.atl_mask1_;
-        end
-        
-        function g = get.fdg_on_t1w(this)
-            if ~isempty(this.fdg_on_t1w_)
-                g = this.fdg_on_t1w_;
-                return
-            end
-            fqfp = this.in_derivatives_path(this.fdg.fqfp);
-            this.fdg_on_t1w_ = mlfourd.ImagingContext2(strcat(fqfp, '_on_T1w.nii.gz'));
-            g = this.fdg_on_t1w_;
-        end
+            fqfp = this.t1w.fqfp;
+            %if ~contains(fqfp, 'n3') && ~contains(fqfp, 'n4')
+            this.t1w_n4_ = mlfourd.ImagingContext2( ...
+                strcat(strrep(fqfp, '_orient', '-n4_orient'), '.nii.gz'));
+            g = this.t1w_n4_;
+            %else
+            %    g = this.t1w;
+            %end
+        end        
         function g = get.t1w_on_atl(this)
             if ~isempty(this.t1w_on_atl_)
                 g = this.t1w_on_atl_;
@@ -551,87 +619,43 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             this.t1w_on_atl_ = mlfourd.ImagingContext2(strcat(fqfp, '_on_atl.nii.gz'));
             g = this.t1w_on_atl_;
         end
-        function g = get.t1w_on_atl_n4(this)
-            if ~isempty(this.t1w_on_atl_n4_)
-                g = this.t1w_on_atl_n4_;
+        function g = get.t1w_warped(this)
+            if ~isempty(this.t1w_warped_)
+                g = this.t1w_warped_;
                 return
             end
-            fqfp = this.t1w_on_atl.fqfp;
-            this.t1w_on_atl_n4_ = mlfourd.ImagingContext2( ...
-                strcat(strrep(fqfp, '_T1w', '-n4_T1w'), '.nii.gz'));
-            g = this.t1w_on_atl_n4_;
+            fqfp = this.t1w_brain.fqfp;
+            this.t1w_warped_ = mlfourd.ImagingContext2(strcat(fqfp, '_Warped.nii.gz'));
+            g = this.t1w_warped_;
         end
-        function g = get.t1w_on_atl_warped(this)
-            if ~isempty(this.t1w_on_atl_warped_)
-                g = this.t1w_on_atl_warped_;
+        function g = get.t1w_0genericaffine(this)
+            if ~isempty(this.t1w_0genericaffine_)
+                g = this.t1w_0genericaffine_;
                 return
             end
-            fqfp = this.t1w_on_atl_n4.fqfp;
-            this.t1w_on_atl_warped_ = mlfourd.ImagingContext2(strcat(fqfp, '_Warped.nii.gz'));
-            g = this.t1w_on_atl_warped_;
+            fqfp = this.t1w_brain.fqfp;
+            this.t1w_0genericaffine_ = mlfourd.ImagingContext2(strcat(fqfp, '_0GenericAffine.nii.gz'));
+            g = this.t1w_0genericaffine_;
         end
-        function g = get.t1w_on_atl_1warp(this)
-            if ~isempty(this.t1w_on_atl_1warp_)
-                g = this.t1w_on_atl_1warp_;
+        function g = get.t1w_1warp(this)
+            if ~isempty(this.t1w_1warp_)
+                g = this.t1w_1warp_;
                 return
             end
-            fqfp = this.t1w_on_atl_n4.fqfp;
-            this.t1w_on_atl_1warp_ = mlfourd.ImagingContext2(strcat(fqfp, '_1Warp.nii.gz'));
-            g = this.t1w_on_atl_1warp_;
+            fqfp = this.t1w_brain.fqfp;
+            this.t1w_1warp_ = mlfourd.ImagingContext2(strcat(fqfp, '_1Warp.nii.gz'));
+            g = this.t1w_1warp_;
         end
-        function g = get.t1w_on_atl_detJ(this)
-            if ~isempty(this.t1w_on_atl_detJ_)
-                g = this.t1w_on_atl_detJ_;
+        function g = get.t1w_2warp(this)
+            %% the composition of t1w_1warp \odot t1w_0genericaffine
+            
+            if ~isempty(this.t1w_2warp_)
+                g = this.t1w_2warp_;
                 return
             end
-            fqfp = this.t1w_on_atl_n4.fqfp;
-            this.t1w_on_atl_detJ_ = mlfourd.ImagingContext2(strcat(fqfp, '_detJ.nii.gz'));
-            g = this.t1w_on_atl_detJ_;
-        end
-        function g = get.fast_gray_on_atl(this)
-            if ~isempty(this.fast_gray_on_atl_)
-                g = this.fast_gray_on_atl_;
-                return
-            end
-            fqfp = this.in_derivatives_path(this.fast_gray.fqfp);
-            this.fast_gray_on_atl_ = mlfourd.ImagingContext2(strcat(fqfp, '_on_atl.nii.gz'));
-            g = this.fast_gray_on_atl_;
-        end
-        function g = get.fdg_on_atl(this)
-            if ~isempty(this.fdg_on_atl_)
-                g = this.fdg_on_atl_;
-                return
-            end
-            fqfp = this.in_derivatives_path(this.fdg.fqfp);
-            this.fdg_on_atl_ = mlfourd.ImagingContext2(strcat(fqfp, '_on_atl.nii.gz'));
-            g = this.fdg_on_atl_;
-        end
-        function g = get.fdg_final(this)
-            if ~isempty(this.fdg_final_)
-                g = this.fdg_final_;
-                return
-            end
-            fqfp = this.in_derivatives_path(this.fdg.fqfp);
-            this.fdg_final_ = mlfourd.ImagingContext2(strcat(fqfp, '_final.nii.gz'));
-            g = this.fdg_final_;
-        end
-        function g = get.t1w_dlicv_on_atl_warped(this)
-            if ~isempty(this.t1w_dlicv_on_atl_warped_)
-                g = this.t1w_dlicv_on_atl_warped_;
-                return
-            end
-            fqfp = this.t1w_dlicv.fqfp;
-            this.t1w_dlicv_on_atl_warped_ = mlfourd.ImagingContext2(strcat(fqfp, '_Warped.nii.gz'));
-            g = this.t1w_dlicv_on_atl_warped_;
-        end
-        function g = get.fast_gray_on_atl_warped(this)
-            if ~isempty(this.fast_gray_on_atl_warped_)
-                g = this.fast_gray_on_atl_warped_;
-                return
-            end
-            fqfp = this.fast_gray_on_atl.fqfp;
-            this.fast_gray_on_atl_warped_ = mlfourd.ImagingContext2(strcat(fqfp, '_Warped.nii.gz'));
-            g = this.fast_gray_on_atl_warped_;
+            fqfp = this.t1w_brain.fqfp;
+            this.t1w_2warp_ = mlfourd.ImagingContext2(strcat(fqfp, '_2Warp.nii.gz'));
+            g = this.t1w_2warp_;
         end
 
         %%
@@ -654,7 +678,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 jsonrecode(j0, j1, 'filenameNew', this.json(flirt_on_atl_.out));
             end
         end
-        function out = applyXfm_fast2atl(this, in)
+        function out  = applyXfm_fast2atl(this, in)
             %% #APPLYXFM_FAST2ATL
             %  Args:
             %      in (any): any imaging object in the space of this.t1w.
@@ -667,18 +691,18 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 flirt_on_atl_ = copy(this.flirt_t1w);
                 flirt_on_atl_.in = in;
                 flirt_on_atl_.ref = this.atl;
-                flirt_on_atl_.out = this.fast_gray_on_atl;
+                flirt_on_atl_.out = this.fast_gray;
             else
                 flirt_on_atl_ = mlfsl.Flirt( ...
                     'in', in, ...
                     'ref', this.atl, ...
-                    'out', this.fast_gray_on_atl, ...
+                    'out', this.fast_gray, ...
                     'omat', this.mat(this.t1w_on_atl), ...
                     'interp', 'trilinear');
             end
             flirt_on_atl_.applyXfm();
         end
-        function out = applyXfm_t1wlike2atl(this, in)
+        function out  = applyXfm_t1wlike2atl(this, in)
             %% #APPLYXFM_T1WLIKE2ATL
             %  Args:
             %      in (any): any imaging object in the space of this.t1w.
@@ -699,72 +723,120 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 [~,j1] = this.flirt_t1w.cost_final();
                 jsonrecode(j0, j1, 'filenameNew', this.json(flirt_on_atl_.out));
             end
-        end
-        function this = call(this)
-            %% #CALL
+        end        
+        function this = build_deepmrseg_warped(this) 
+            % warp to atlas    
+
+            t1w_dlicv_w = mlfourd.ImagingContext2( ...
+                this.ants.antsApplyTransforms(this.t1w_dlicv, this.atl_brain, this.t1w_brain));            
+            this.t1w_dlicv_detJ_warped_ = this.t1w_detJ .* t1w_dlicv_w;
+            this.t1w_dlicv_detJ_warped_.fqfp = strcat(this.t1w_dlicv.fqfp, '_detJ_Warped');
+            this.t1w_dlicv_detJ_warped_.save();
             
-            %this = this.deepmrseg_apply();
-            this = this.deepmrseg_copy();
-            this = this.flirt_t1w2atl();
-            this = this.flirt_fdg2t1w2atl();
-            this = this.N4BiasFieldCorrection();
-            this = this.CreateJacobianDeterminantImage();   
-            %this = this.deepmrseg_warp();         
+            mladni.FDG.jsonrecode( ...
+                t1w_dlicv_w, ...
+                struct('state_changes', 'this.t1w_dlicv_detJ_warped_ = this.t1w_detJ .* t1w_dlicv_w', ...
+                       'image_mass', this.image_mass(this.t1w_dlicv_detJ_warped_)), ...
+                this.t1w_dlicv_detJ_warped_);
+
+            deleteExisting(t1w_dlicv_w);
         end
-        function this = call_fast(this)
-            %% #CALL_FAST
+        function this = build_fast_warped(this)
+            % warp all segs to atlas    
+            % Args:
+            %     in (any): pve from fast understood by ImagingContext2.
             
-            this = this.fast();
-            this.fast_gray_on_atl_warped_ = this.fast_warp(this.fast_gray);
+            for pve = {'fast_csf', 'fast_gray', 'fast_white'}                
+                this.([pve{1} '_detJ_warped_']) = this.build_fast_warped_seg(this.(pve{1}));
+            end
+        end
+        function outw = build_fast_warped_seg(this, in)
+            inw = mlfourd.ImagingContext2( ...
+                this.ants.antsApplyTransforms(in, this.atl_brain, this.t1w_brain));
+            outw = this.t1w_detJ .* inw;
+            outw.fqfp = strcat(in.fqfp, '_detJ_Warped');
+            outw.save();
+
+            mladni.FDG.jsonrecode( ...
+                inw, ...
+                struct('state_changes', 'outw = this.t1w_detJ .* inw', ...
+                       'image_mass', this.image_mass(outw)), ...
+                outw);
+
+            deleteExisting(inw);
+        end
+        function this = build_fdg_warped(this)
+            fdgw = mlfourd.ImagingContext2( ...
+                this.ants.antsApplyTransforms(this.fdg_on_t1w, this.atl_brain, this.t1w_brain));
+            fdgw = fdgw.thresh(0);
+            this.fdg_detJ_warped_ = this.t1w_detJ .* fdgw;
+            this.fdg_detJ_warped_.fqfp = strcat(this.fdg_on_t1w.fqfp, '_detJ_Warped');
+            this.fdg_detJ_warped_.save();
+            
+            mladni.FDG.jsonrecode(...
+                fdgw, ...
+                struct('state_changes', 'fdgw = fdgw.thresh(0); this.fdg_detJ_warped_ = this.t1w_detJ .* fdgw', ...
+                       'image_activity', this.image_mass(this.fdg_detJ_warped_)), ...
+                this.fdg_detJ_warped_);
+
+            deleteExisting(fdgw);
+        end
+        function this = build_nmf_inputs(this)
+            %% builds fdg_detJ_warped_mask
+            
+            msk = this.t1w_dlicv_detJ_warped;
+            msk = msk.binarized();
+            msk.fqfp = strcat(this.fdg_detJ_warped.fqfp, '_mask'); 
+            msk.save();
+            msk = msk.blurred(8);
+            
+            for thr = 0.5:-0.1:0.1
+                msk_ = msk.thresh(thr);
+                msk_ = msk_.binarized();
+                msk_.fqfp = strcat(this.fdg_detJ_warped.fqfp, sprintf('_mask_%g', thr));
+                msk_.save();
+            end  
+            this.fdg_detJ_warped_mask_ = msk_;
         end
         function this = call_resolve(this)
             %% #CALL_RESOLVE
             
-            this = this.deepmrseg_apply();
-            this = this.flirt_t1w2atl();
-            this = this.resolve_fdg2t1w();            
-            this = this.applyXfm_fdg2atl();
             this = this.N4BiasFieldCorrection();
-            this = this.CreateJacobianDeterminantImage();            
-            this = this.deepmrseg_warp();
+            this = this.deepmrseg_apply();
+            this = this.resolve_fdg2t1w();
+            this = this.fast();
+            this = this.CreateJacobianDeterminantImages();
+            this = this.build_deepmrseg_warped();
+            this = this.build_fast_warped();
+            this = this.build_fdg_warped();
+            this = this.build_nmf_inputs();
+            %this = this.save_qc();
         end
-        function this = CreateJacobianDeterminantImage(this)
-            %% #CREATEJACOBIANDETERMINANTIMAGE
+        function this = CreateJacobianDeterminantImages(this)
+            %% #CREATEJACOBIANDETERMINANTIMAGE creates warping files, t1w_detJ.
             
-            this.t1w_on_atl_warped_ = mlfourd.ImagingContext2( ...
-                this.ants.antsRegistrationSyNQuick(this.atl, this.t1w_on_atl_n4));
-            fdg_warped = mlfourd.ImagingContext2( ...
-                this.ants.antsApplyTransforms(this.fdg_on_atl, this.atl, this.t1w_on_atl_n4));
-            this.ants.CreateJacobianDeterminantImage(this.t1w_on_atl_1warp, this.t1w_on_atl_detJ);
-            this.fdg_final_ = this.t1w_on_atl_detJ .* fdg_warped;
-            this.fdg_final_.addLog(char(this.t1w_on_atl_detJ.logger));
-            this.fdg_final_.addLog(char(fdg_warped));
-            this.fdg_final_.fqfileprefix = strcat(this.fdg.fqfileprefix, '_final');
-            this.fdg_final_.save();
-            copyfile(strcat(fdg_warped.fqfp, '.json'), strcat(this.fdg_final_.fqfp, '.json'))
-
-            deleteExisting(fdg_warped);
+            this.t1w_warped_ = mlfourd.ImagingContext2( ...
+                this.ants.antsRegistrationSyNQuick(this.atl_brain, this.t1w_brain));
+            this.ants.antsApplyTransforms2(this.t1w_brain, this.atl_brain, this.t1w_brain);
+            this.ants.CreateJacobianDeterminantImage(this.t1w_2warp, this.t1w_detJ);
         end
         function this = deepmrseg_apply(this)
             if isfile(this.t1w_dlicv.fqfn)
                 return
-            end            
-            cwd = this.t1w.filepath;
-            sif = fullfile(getenv('ADNI_HOME'), 'bin', 'deepmrseg_image_20220420.sif');
-            cmd = sprintf('singularity exec --bind %s:/scratch %s "deepmrseg_apply" "--task" "dlicv" "--inImg" "/scratch/%s" "--outImg" "/scratch/%s"', ...
-                cwd, sif, this.t1w.filename, this.t1w_dlicv.filename);
+            end
+            
+            sif = fullfile(getenv('SINGULARITY_HOME'), 'deepmrseg_image_20220515.sif');
+            cmd = sprintf('singularity exec --bind %s:/data %s "deepmrseg_apply" "--task" "dlicv" "--inImg" "/data/%s" "--outImg" "/data/%s"', ...
+                this.t1w_n4.filepath, sif, this.t1w_n4.filename, this.t1w_dlicv.filename);
             mlbash(cmd);
+
+            mladni.FDG.jsonrecode( ...
+                this.t1w_n4, ...
+                struct('bash', cmd, ...
+                       'image_mass', this.image_mass(this.t1w_dlicv)), ...
+                this.t1w_dlicv);
         end
-        function this = deepmrseg_copy(this)
-            error('mladni:NotImplementedError', 'FDG.deepmrseg_copy()')
-        end
-        function this = deepmrseg_warp(this) 
-            % warp to atlas    
-            t1w_dlicv_on_atl = this.applyXfm_t1wlike2atl(this.t1w_dlicv);
-            this.t1w_dlicv_on_atl_warped_ = mlfourd.ImagingContext2( ...
-                this.ants.antsApplyTransforms(t1w_dlicv_on_atl, this.atl, this.t1w_on_atl_n4));
-        end
-        function fn = duplicate_orig_file(~, obj)
+        function fn   = duplicate_orig_file(~, obj)
             if ~istext(obj)
                 obj = obj.fqfilename;
             end
@@ -772,38 +844,28 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             fn = strrep(fn, '_orient-rpi-std', '_orient-rpi');
         end
         function this = fast(this)
-            pwd0 = pushd(this.t1w.filepath);
-            in = this.t1w_dlicv .* this.t1w;
-            tn = tempname;
-            in.fqfp = tn;
-            in.save();
-            cmd = sprintf('fast -o %s %s', this.t1w.fqfp, in.fqfn);
+            pwd0 = pushd(this.t1w_brain.filepath);
+            
+            cmd = sprintf('fast -o %s %s', this.t1w_brain.fqfp, this.t1w_brain.fqfn);
             mlbash(cmd);
-            deleteExisting(in.fqfn);
+            
+            for pve = {'fast_csf', 'fast_gray', 'fast_white'}
+                mladni.FDG.jsonrecode( ...
+                    this.t1w_brain, ...
+                    struct('bash', cmd, ...
+                           'image_mass', this.image_mass(this.(pve{1}))), ...
+                    this.(pve{1}));
+            end
+            
             popd(pwd0);
         end
-        function out = fast_warp(this, in)
-            % warp to atlas    
-            % Args:
-            %     in (any): pve from fast understood by ImagingContext2.
-            
-            fast_on_atl = this.applyXfm_fast2atl(in);
-            out = mlfourd.ImagingContext2( ...
-                this.ants.antsApplyTransforms(fast_on_atl, this.atl, this.t1w_on_atl_n4));            
-        end
-        function finalize(this)
+        function        finalize(this)
             deleteExisting(strcat(this.t1w.fqfp, sprintf('_b%i.*', 10*this.blur)));
-            deleteExisting(strcat(this.t1w_on_atl_n4.fqfp, '_InverseWarped.*'));
+            deleteExisting(strcat(this.t1w_n4.fqfp, sprintf('_b%i.*', 10*this.blur)));
             
             if ~this.debug
-                deleteExisting(this.duplicate_orig_file(this.fdg));
-                deleteExisting(this.fdg_mask);
-                deleteExisting(this.fdg_mskt);
-                %deleteExisting(this.fdg_on_t1w); % for QC
-                %deleteExisting(this.fdg_on_atl); % for QC
-                deleteExisting(this.duplicate_orig_file(this.t1w));
-                %deleteExisting(this.t1w_mskt); % for QC
-                %deleteExisting(this.t1w_on_atl); % for QC
+                deleteExisting(this.t1w);
+                deleteExisting(this.fdg);
             end
         end
         function this = flirt_fdg2t1w(this)
@@ -811,7 +873,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 
             this.flirt_fdg = mlfsl.Flirt( ...
                 'in', this.fdg.fqfilename, ...
-                'ref', this.t1wb.fqfilename, ...
+                'ref', this.t1w_blurred.fqfilename, ...
                 'out', this.niigz(this.fdg_on_t1w), ...
                 'omat', this.mat(this.fdg_on_t1w), ...
                 'bins', 256, ...
@@ -833,7 +895,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 
             this.flirt_fdg = mlfsl.Flirt( ...
                 'in', this.fdg.fqfilename, ...
-                'ref', this.t1wb.fqfilename, ...
+                'ref', this.t1w_blurred.fqfilename, ...
                 'out', this.niigz(this.fdg_on_t1w), ...
                 'omat', this.mat(this.fdg_on_t1w), ...
                 'bins', 256, ...
@@ -890,19 +952,23 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             fqfn = fullfile(pth, fp, x);
         end
         function this = N4BiasFieldCorrection(this)
-            if contains(this.t1w_on_atl.fileprefix, '-n3') || contains(this.t1w_on_atl.fileprefix, '-n4')
-                this.t1w_on_atl_n4_ = copy(this.t1w_on_atl);
-                return
-            end
-            this.ants.N4BiasFieldCorrection(this.t1w_on_atl, this.t1w_on_atl_n4);
+            %if contains(this.t1w_on_atl.fileprefix, '-n3') || contains(this.t1w_on_atl.fileprefix, '-n4')
+            %    this.t1w_n4_ = copy(this.t1w);
+            %    return
+            %end
+            this.ants.N4BiasFieldCorrection(this.t1w, this.t1w_n4);
+            
+            mladni.FDG.jsonrecode( ...
+                this.t1w, ...
+                struct('image_mass', this.image_mass(this.t1w_n4)), ...
+                this.t1w_n4);
         end
         function this = resolve_fdg2t1w(this)
-            
             pwd0 = pushd(this.fdg.filepath);
             
-            msks{1} = this.t1w_mskt;
+            msks{1} = this.t1w_dlicv;
             msks{2} = mlfourd.ImagingContext2('none.nii.gz');
-            imgs{1} = this.t1wb;
+            imgs{1} = this.t1w_blurred;
             imgs{2} = this.fdg;
             t4rb = mlfourd.SimpleT4ResolveBuilder( ...
                 'workpath', this.fdg.filepath, ...
@@ -913,6 +979,10 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             movefile(this.niigz(t4rb.theImagesFinal{2}), this.niigz(this.fdg_on_t1w));
             movefile(this.json(t4rb.theImagesFinal{2}), this.json(this.fdg_on_t1w));    
+            mladni.FDG.jsonrecode( ...
+                this.fdg_on_t1w, ...
+                struct('image_activity', this.image_mass(this.fdg_on_t1w)), ...
+                this.fdg_on_t1w);
             
             if ~this.debug
                 t4rb.deleteFourdfp(t4rb.theImages);
@@ -921,8 +991,26 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 
             popd(pwd0);
         end
+        function this = save_qc(this)
+            import mladni.FDGQC.*;
+            
+            % DEBUG
+            %disp(this.atl)
+            %disp(this.t1w_warped)
+            %disp(this.fast_gray_detJ_warped)
+            %disp(this.fdg_detJ_warped)
+            
+            try
+                this.atl.save_qc(this.t1w_warped);
+                this.t1w_warped.save_qc(this.fast_csf_detJ_warped)
+                this.t1w_warped.save_qc(this.fast_gray_detJ_warped)
+                this.t1w_warped.save_qc(this.fast_white_detJ_warped)
+                this.t1w_warped.save_qc(this.fdg_detJ_warped)
+            catch
+            end
+        end
         function [s,r] = view(this)
-            cmd = sprintf('fsleyes %s %s %s', this.fdg_final.fqfn, this.t1w_on_atl_warped.fqfn, this.atl.fqfn);
+            cmd = sprintf('fsleyes %s %s %s %s', this.fdg_detJ_warped.fqfn, this.fast_gray_detJ_warped.fqfn, this.t1w_warped.fqfn, this.atl.fqfn);
             [s,r] = mlbash(cmd);            
         end
 
@@ -953,8 +1041,9 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 
             % construct blur
             this.blur_ = ipr.blur;
-            if contains(this.fdg_.fileprefix, 'CASU') % match blur
-                this.blur_ = 7;
+            if contains(this.fdg_.fileprefix, 'CASU') 
+                % match blur; https://adni.loni.usc.edu/methods/pet-analysis-method/pet-analysis/
+                this.blur_ = 8; % mm FWHM
             end
             
             % construct t1w
@@ -966,8 +1055,6 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 return
             end
             this.t1w_ = this.prepare_derivatives(mlfourd.ImagingContext2(ipr.t1w), deriv_pth);
-            this.t1wb_ = this.t1w_.blurred(this.blur);
-            save(this.t1wb_);
 
             % construct atl
             this.atl_ = mlfourd.ImagingContext2(ipr.atl);
@@ -994,30 +1081,36 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         blur_
         
         atl_
-        fdg_
-        t1w_
-        t1wb_
-        t1w_dlicv_
-        fast_gray_
-        fast_white_
-        fast_csf_
-        
-        fdg_mskt_
-        t1w_mask_
         atl_mask_
         atl_mask1_
-
-        fdg_on_t1w_
-        t1w_on_atl_
-        t1w_on_atl_n4_
-        t1w_on_atl_warped_
-        t1w_on_atl_1warp_
-        t1w_on_atl_detJ_
-        fast_gray_on_atl_
+        
+        fast_csf_
+        fast_csf_detJ_warped_
+        fast_gray_
+        fast_gray_detJ_warped_
+        fast_white_
+        fast_white_detJ_warped_
+        
+        fdg_
+        fdg_mskt_
         fdg_on_atl_
-        fdg_final_
-        t1w_dlicv_on_atl_warped_
-        fast_gray_on_atl_warped_
+        fdg_on_t1w_
+        fdg_detJ_warped_
+        fdg_detJ_warped_mask_
+        
+        t1w_
+        t1w_brain_
+        t1w_blurred_
+        t1w_detJ_
+        t1w_dlicv_   
+        t1w_dlicv_detJ_warped_     
+        t1w_mask_
+        t1w_n4_
+        t1w_on_atl_
+        t1w_warped_
+        t1w_0genericaffine_
+        t1w_1warp_
+        t1w_2warp_
 
         derivatives_path_
         rawdata_path_
@@ -1052,6 +1145,9 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 if isempty(globpth_)
                     return
                 end
+                
+                
+                
                 dts_ = NaT(size(globpth_));
                 for ig = 1:length(globpth_)
                     sesfold_ = mybasename(myfileparts(globpth_{ig}));
@@ -1065,12 +1161,17 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 if isempty(idx_anat)
                     return
                 end
+                
+                
 
                 globt1w_ = globT(fullfile(globpth_{idx_anat}, '*_T1w.nii.gz')); % /pth/to/rawdata/sub-123S4566/ses-yyyyMMdd/anat/sub-*_ses-*_acq-*_proc-*_T1w.nii.gz
                 globt1w_ = globt1w_(~contains(globt1w_, 'mask'));
                 if isempty(globt1w_)
                     return
                 end
+                
+                
+                
                 proc_ = cell(size(globt1w_));
                 for ip = 1:length(globt1w_)
                     [~,fp_] = myfileparts(globt1w_{ip});
@@ -1101,27 +1202,32 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 if ~isfile(fqfn)
                     return
                 end
-                fprintf('mladn.FDG.findT1w:  found %s\n', fqfn);            
+                if ~isempty(getenv('DEBUG'))
+                    fprintf('mladn.FDG.findT1w:  found %s\n', fqfn);
+                end
             catch ME
                 handwarning(ME)
             end
         end
-        function icd = prepare_derivatives(~, ic, deriv_pth)
+        function icd  = prepare_derivatives(~, ic, deriv_pth)
             if ~isfolder(deriv_pth)
                 mkdir(deriv_pth);
             end
-            mlbash(sprintf('cp -f %s %s', ic.fqfn, deriv_pth), 'echo', true);
-            mlbash(sprintf('cp -f %s %s', strcat(ic.fqfp, '.json'), deriv_pth), 'echo', true);
+            try
+                mlbash(sprintf('cp -f %s %s', ic.fqfn, deriv_pth), 'echo', true);
+                mlbash(sprintf('cp -f %s %s', strcat(ic.fqfp, '.json'), deriv_pth), 'echo', true);
+            catch
+            end
             mlbash(sprintf('chmod -R 755 %s', deriv_pth));
 
             icd = mlfourd.ImagingContext2(fullfile(deriv_pth, ic.filename));
-            if ~contains(icd.fileprefix, '-std')
-                tmp = icd.fqfn;
-                icd.reorient2std();
-                icd.selectNiftiTool();
-                icd.save();
-                deleteExisting(tmp);
-            end
+%             if ~contains(icd.fileprefix, '-std')
+%                 tmp = icd.fqfn;
+%                 icd.reorient2std();
+%                 icd.selectNiftiTool();
+%                 icd.save();
+%                 deleteExisting(tmp);
+%             end
         end
     end
     
