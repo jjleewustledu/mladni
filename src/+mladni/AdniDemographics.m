@@ -251,13 +251,25 @@ classdef AdniDemographics < handle
             end
         end  
         function t = table_fdg1(this, varargin)
+            cache_file = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', strcat(clientname(true, 2), '.mat'));
+            if isfile(cache_file)
+                ld = load(cache_file);
+                this = ld.this;
+                t = this.fdg1_;
+                if ~isempty(varargin)
+                    t = t(varargin{:});
+                end      
+                return
+            end
+            
             if isempty(this.fdg1_)
                 this.fdg1_ = this.buildTableFdg1();
             end
-            t = this.fdg1_;
+            save(cache_file, 'this');
+            t = this.fdg1_;            
             if ~isempty(varargin)
                 t = t(varargin{:});
-            end
+            end            
         end
         function t = table_fdgproc_filenames(this, varargin)
             if isempty(this.fdgproc_filenames_)
@@ -612,6 +624,7 @@ classdef AdniDemographics < handle
             t.MergeMmse = nan(sz);
             t.MergeDx = cell(sz);
             t.MergeExamDateBl = NaT(sz);
+            t.MergeCdrsbBl = nan(sz);
             t.MergeFdgBl = nan(sz);
             t.MergePibBl = nan(sz);
             t.MergeAv45Bl = nan(sz);
@@ -670,6 +683,7 @@ classdef AdniDemographics < handle
                         t_s1(acqdi, 'MergeMmse') = merge_s1(merge_near, 'MMSE');
                         t_s1(acqdi, 'MergeDx') = merge_s1(merge_near, 'DX');
                         t_s1(acqdi, 'MergeExamDateBl') = merge_s1(merge_near, 'EXAMDATE_bl');
+                        t_s1(acqdi, 'MergeCdrsbBl') = merge_s1(merge_near, 'CDRSB_bl');
                         t_s1(acqdi, 'MergeFdgBl') = merge_s1(merge_near, 'FDG_bl');
                         t_s1(acqdi, 'MergePibBl') = merge_s1(merge_near, 'PIB_bl');
                         t_s1(acqdi, 'MergeAv45Bl') = merge_s1(merge_near, 'AV45_bl');

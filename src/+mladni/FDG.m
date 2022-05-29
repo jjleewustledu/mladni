@@ -149,6 +149,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             g1 = cellfun(@(x) strrep(strrep(x, 'rawdata', 'derivatives'), '.nii.gz', '_on_T1w_Warped.nii.gz'), ...
                 g, 'UniformOutput', false);
             select = cellfun(@(x) ~isfile(x), g1);
+            %assert(length(select) < 100);
             j = c.batch(@mladni.FDG.batch, 1, {'globbed', g(select)}, 'Pool', 31, ...
                 'CurrentFolder', '.', 'AutoAddClientPath', false); % {'len', []}, 'Pool', 31            
         end
@@ -260,8 +261,6 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 try
                     fdg_ = mlfourd.ImagingContext2(globbed{idx});
                     %derpth = strrep(fdg_.filepath, 'rawdata', 'derivatives');
-                    %if ~isfolder(derpth) % /path/to/bids/derivatives/sub-*/ses-*/pet/
-
                     %c{idx} = derpth; %% DEBUG
                     %continue
 
@@ -270,7 +269,6 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                         this.call_resolve(); 
                         this.finalize(); 
                     end
-                    %end
                 catch ME
                     handwarning(ME)
                     disp(struct2str(ME.stack))
@@ -1135,46 +1133,40 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             fqfn = '';
             
             try
+                % find /pth/to/rawdata/sub-123S4566/ses-yyyymmdd/anat/*-T1w.nii.gz
                 fdgpth_ = strrep(this.fdg.filepath, 'derivatives', 'rawdata'); % /pth/to/rawdata/sub-123S4566/ses-yyyymmdd/pet
                 sesfold_ = mybasename(myfileparts(fdgpth_)); % ses-yyyymmdd
                 re = regexp(sesfold_, 'ses-(?<dt>\d{8})', 'names');
                 dt_fdg_ = datetime(re.dt, 'InputFormat', 'yyyyMMdd');
 
                 subpth_ = fileparts(myfileparts(fdgpth_)); % /pth/to/rawdata/sub-123S4566
-                globpth_ = globT(fullfile(subpth_, 'ses-*', 'anat', ''));
-                if isempty(globpth_)
-                    return
+                globt1w_ = globT(fullfile(subpth_, 'ses-*', 'anat', '*_T1w.nii.gz'));
+                globt1w_ = globt1w_(~contains(globt1w_, 'mask'));
+                if any(contains(globt1w_, 'irspgr')) % KLUDGE for irspgr containing t1w and t1w containing localizer                    
+                    globt1w_ = globt1w_(contains(globt1w_, 'irspgr'));
                 end
+                if isempty(globt1w_)
+                    return
+                end                
                 
-                
-                
-                dts_ = NaT(size(globpth_));
-                for ig = 1:length(globpth_)
-                    sesfold_ = mybasename(myfileparts(globpth_{ig}));
+                % find globt1w__ for T1w datetime closest to FDG datetime
+                dts_ = NaT(size(globt1w_));
+                for ig = 1:length(globt1w_)
+                    sesfold_ = mybasename(myfileparts(myfileparts(globt1w_{ig})));
                     re = regexp(sesfold_, 'ses-(?<dt>\d{8})', 'names');
                     dts_(ig) = datetime(re.dt, 'InputFormat', 'yyyyMMdd');
                 end
                 if isempty(dts_)
                     return
                 end
-                [~,idx_anat] = min(abs(dts_ - dt_fdg_)); % idx of anat nearest in time to fdg
-                if isempty(idx_anat)
-                    return
-                end
+                ddt = min(abs(dts_ - dt_fdg_)); % ddt of anat nearest in time to fdg
+                select = abs(dts_ - dt_fdg_) == ddt;
+                globt1w__ = globt1w_(select);
                 
-                
-
-                globt1w_ = globT(fullfile(globpth_{idx_anat}, '*_T1w.nii.gz')); % /pth/to/rawdata/sub-123S4566/ses-yyyyMMdd/anat/sub-*_ses-*_acq-*_proc-*_T1w.nii.gz
-                globt1w_ = globt1w_(~contains(globt1w_, 'mask'));
-                if isempty(globt1w_)
-                    return
-                end
-                
-                
-                
-                proc_ = cell(size(globt1w_));
-                for ip = 1:length(globt1w_)
-                    [~,fp_] = myfileparts(globt1w_{ip});
+                % find idx_proc of proc_ with longest processing descriptor
+                proc_ = cell(size(globt1w__));
+                for ip = 1:length(globt1w__)
+                    [~,fp_] = myfileparts(globt1w__{ip});
                     re = regexp(fp_, 'sub-\d{3}S\d{4}_ses-\d+_acq-\w+_proc-(?<proc>\S+)_T1w', 'names');
                     proc_{ip} = re.proc;
                 end
@@ -1198,7 +1190,8 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 % disp(ascol(proc_))                
                 % idx_proc
 
-                fqfn = globt1w_{idx_proc};
+                % find globt1w__{idx_proc}
+                fqfn = globt1w__{idx_proc};
                 if ~isfile(fqfn)
                     return
                 end
@@ -1221,13 +1214,6 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             mlbash(sprintf('chmod -R 755 %s', deriv_pth));
 
             icd = mlfourd.ImagingContext2(fullfile(deriv_pth, ic.filename));
-%             if ~contains(icd.fileprefix, '-std')
-%                 tmp = icd.fqfn;
-%                 icd.reorient2std();
-%                 icd.selectNiftiTool();
-%                 icd.save();
-%                 deleteExisting(tmp);
-%             end
         end
     end
     

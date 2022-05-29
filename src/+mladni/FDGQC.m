@@ -10,11 +10,12 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             c.AdditionalProperties.EmailAddress = '';
             c.AdditionalProperties.EnableDebug = 1;
             c.AdditionalProperties.GpusPerNode = 0;
-            c.AdditionalProperties.MemUsage = '4000';
+            c.AdditionalProperties.MemUsage = '10000'; % deepmrseg requires 10 GB; else 5 GB
             c.AdditionalProperties.Node = '';
-            c.AdditionalProperties.Partition = 'test';
-            c.AdditionalProperties.WallTime = '1:00:00';
+            c.AdditionalProperties.Partition = '';
+            c.AdditionalProperties.WallTime = '24:00:00'; % 24 h
             c.saveProfile
+            disp(c.AdditionalProperties)
         end
         function getDebugLog(j,c)
             try
@@ -40,6 +41,12 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             disp(c.AdditionalProperties)
             j = c.batch(@mladni.FDGQC.batch2, 1, {}, 'Pool', 31, ...
                 'CurrentFolder', '.', 'AutoAddClientPath', false);            
+        end        
+        function [j,c] = par_build_geom_stats()
+            c = parcluster;
+            disp(c.AdditionalProperties)
+            j = c.batch(@mladni.FDGQC.batch_build_geom_stats, 1, {}, 'Pool', 3, ...
+                'CurrentFolder', '.', 'AutoAddClientPath', false);
         end
         function [j,c] = par_find_incomplete()
             %% #PARCLUSTER
@@ -49,26 +56,16 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             disp(c.AdditionalProperties)
             j = c.batch(@mladni.FDGQC.batch_find_incomplete, 1, {}, 'Pool', 31, ...
                 'CurrentFolder', '.', 'AutoAddClientPath', false);            
-        end
-        
-        function [j,c] = ser_foo()
-            % Get a handle to the cluster
-            c = parcluster;
-            disp(c.AdditionalProperties)
-
-            % Submit job to query where MATLAB is running on the cluster
-            j = c.batch(@mladni.FDGQC.foo, 1, {}, ...
-                'CurrentFolder', '.', 'AutoAddClientPath', false);
-        end
+        end        
         
         function t = batch(varargin)
             %% for all globbed:  
-            %      find t4_resolve cost_final as rerr, terr, fcost
+            %      find t4_resolve cost_final as rerr, terr
             %  save rerr.mat, terr.mat, fcost.mat
             
             ip = inputParser;
             addParameter(ip, 'proc', 'CASU', @istext)
-            addParameter(ip, 'tag', '_orient-rpi-std', @istext)
+            addParameter(ip, 'tag', '_orient-rpi', @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;
             
@@ -78,28 +75,24 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             setenv('ADNI_HOME', '/home/aris_data/ADNI_FDG')
             globbed = globT( ...
                 fullfile( ...
-                    '/home/aris_data/ADNI_FDG/bids/derivatives', ...
-                    'sub-*', 'ses-*', 'pet', ...
-                    sprintf('*-%s%s_pet_final.json', ipr.proc, ipr.tag)));
+                    getenv('ADNI_HOME'), 'bids', 'derivatives', 'sub-*', 'ses-*', 'pet', ...
+                    sprintf('*-%s%s_pet_on_T1w.json', ipr.proc, ipr.tag)));
             fprintf('mladni.FDG.batch.globbed.size:\n')
             disp(size(globbed))
             rerr = nan(size(globbed));
             terr = nan(size(globbed));
-            fcost = nan(size(globbed));
             
             parfor idx = 1:length(globbed)
                 try
                     j = jsondecode(fileread(globbed{idx}));
                     rerr(idx) = str2double(j.mlfourdfp_SimpleT4ResolveBuilder.cost_final.pairs_rotation_error.err); %#ok<PFOUS>
                     terr(idx) = str2double(j.mlfourdfp_SimpleT4ResolveBuilder.cost_final.pairs_translation_error.err); %#ok<PFOUS>
-                    fcost(idx) = j.mlfsl_Flirt.cost_final.cost; %#ok<PFOUS>
                 catch ME
                     handwarning(ME);
                 end
             end
             save(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'rerr.mat'), 'rerr')
             save(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'terr.mat'), 'terr')
-            save(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'fcost.mat'), 'fcost')
             t = toc(t0);
 
             disp('mladni.FDG.batch() completed')            
@@ -181,7 +174,48 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             disp('mladni.FDG.batch_find_incomplete() completed')
         end 
-        
+        function c = batch_build_geom_stats(varargin)               
+            
+            disp('Start mladni.FDG.batch_build_geom_stats()')  
+            
+            t0 = tic;            
+            mladni.CHPC3.setenvs();
+            conditions = {'cn', 'mci', 'dementia'};
+            c = cell(1, 3);
+            
+            parfor idx = 1:length(conditions)
+                try                    
+                    csv_file = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', ...
+                        strcat('globbed_', conditions{idx},'.csv'));
+                    assert(isfile(csv_file));
+                    tbl = readtable(csv_file, 'ReadVariableNames', true, 'Delimiter', ' ');
+                    fns = strrep(strrep(tbl.rawdata_pet_filename, ...
+                        'rawdata', 'derivatives'), '.nii.gz', '_on_T1w_Warped.nii.gz');
+                    ic = mlfourd.ImagingContext2(fns{1});
+                    len = length(fns);
+                    for ifn = 2:len
+                        ic = ic + mlfourd.ImagingContext2(fns{ifn});
+                    end
+                    c{idx} = ic;
+                catch ME
+                    handwarning(ME);
+                end
+            end              
+            t = toc(t0);
+            
+            disp('mladni.FDG.batch_build_geom_stats() completed')   
+        end
+
+        function out = build_fast_geom_stats()
+        end
+        function check_conservation_of_fdg_activity()
+        end
+        function check_conservation_of_dlicv_mass()
+        end
+        function check_conservation_of_fast_mass()
+        end        
+        function check_positivity_of_fdg_warped()
+        end
         function t = foo(varargin)
             t0 = tic;
             trash = '/scratch/jjlee/Singularity/ADNI/.Trash';
@@ -196,7 +230,6 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end
             t = toc(t0);
         end
-        
         function histograms_final_costs()
             f = load('fcost.mat'); % 12-affine corratio, T1w \rightarrow atlas
             figure;

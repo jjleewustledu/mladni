@@ -152,6 +152,9 @@ classdef AdniBidsT1w < mladni.AdniBids
             for si = 1:length(s)
                 im = globFoldersT(fullfile(s{si}, '*/*-*-*_*_*_*/I*'));
                 for i = 1:length(im)
+                    if contains(im{i}, 'localizer', 'IgnoreCase', true)
+                        continue
+                    end
                     if ~isempty(glob(fullfile(im{i}, '*.dcm')))
                         this.build_nifti(im{i}, ipr.bidsDir);
                     end
@@ -278,7 +281,7 @@ classdef AdniBidsT1w < mladni.AdniBids
             if ~isfile(fullfile(dest_folder, strcat(base, '.nii.gz')))
                 s = []; r = '';
                 try
-                    [s,r] = mlpipeline.Bids.dcm2niix(image_folder, 'f', base, 'o', dest_folder, 'version', 20180622);
+                    [s,r] = mlpipeline.Bids.dcm2niix(image_folder, 'f', base, 'o', dest_folder, 'version', 20180627);
                     fn = this.update_json(image_folder, rawdata_folder);
                     fn = strrep(fn, '.json', '.nii.gz');
                 catch ME
@@ -312,8 +315,8 @@ classdef AdniBidsT1w < mladni.AdniBids
                 year(dt), month(dt), day(dt), hour(dt), minute(dt), second(dt));
             ses8 = sprintf('ses-%i%02i%02i', ...
                 year(dt), month(dt), day(dt));
-            ses14 = sprintf('ses-%i%02i%02i%02i%02i%02i', ...
-                year(dt), month(dt), day(dt), hour(dt), minute(dt), second(dt));
+            %ses14 = sprintf('ses-%i%02i%02i%02i%02i%02i', ...
+            %    year(dt), month(dt), day(dt), hour(dt), minute(dt), second(dt));
 
             % acq
             [~,seq_str] = fileparts(fileparts(dt_folder));
@@ -344,7 +347,7 @@ classdef AdniBidsT1w < mladni.AdniBids
         end
         function cont = guess_contrast(~, nii)
             if contains(nii, 'IR', 'IgnoreCase', true) && contains(nii, 'SPGR', 'IgnoreCase', true)
-                cont = 'IR';
+                cont = 'irspgr_T1w';
             else
                 cont = 'T1w';
             end

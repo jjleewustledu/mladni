@@ -14,8 +14,9 @@ classdef CHPC3
             end
         end
         function setenvs()
-            setenv('TMPDIR', '/scratch/jjlee/tmp') % worker nodes
+            setenv('TMPDIR', '/scratch/jjlee/tmp') % worker nodesk
 
+            setenv('SINGULARITY_HOME', '/scratch/jjlee/Singularity')
             setenv('ADNI_HOME', '/home/aris_data/ADNI_FDG') 
             setenv('AFNIPATH', '/export/afni/afni-20.3.03/linux_openmp_64')
             setenv('ANTSPATH', '/export/ants/ants-2.3.5/bin')
@@ -24,7 +25,6 @@ classdef CHPC3
             setenv('FSLDIR', '/export/fsl/fsl-6.0.5')
 
             setenv('FSLOUTPUTTYPE', 'NIFTI_GZ')
-            setenv('FSLMULTIFILEQUIT', 'TRUE')
             setenv('FSLMULTIFILEQUIT', 'TRUE')
             setenv('FSLTCLSH', fullfile(getenv('FSLDIR'),'bin','fsltclsh'))
             setenv('FSLWISH', fullfile(getenv('FSLDIR'),'bin','fslwish'))
@@ -41,8 +41,10 @@ classdef CHPC3
                        getenv('AFNIPATH'), ':', ...
                        fullfile(getenv('FREESURFER_HOME'), 'bin'), ':', ...
                        fullfile(getenv('FSLDIR'), 'bin'), ':', ...
-                       '/export/gsl/gsl-2.7.1/bin:/export/afni/afni-20.3.03/linux_openmp_64:/export/singularity/singularity-3.9.0/bin:/export/cuda/cuda-10.2/bin:/usr/bin:/export/freesurfer/freesurfer-7.2.0/bin:/export/freesurfer/freesurfer-7.2.0/fsfast/bin:/export/freesurfer/freesurfer-7.2.0/tktools:/export/freesurfer/freesurfer-7.2.0/mni/bin:/export/ants/ants-2.3.5/bin:/export/fsl/fsl-6.0.5/bin:/home/aris_data/ADNI_FDG/lin64-tools:/home/jjlee/.local/bin:/home/jjlee/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin'), ':', ...
-                       fullfile('/export/singularity/singularity-3.9.0/bin'))
+                       '/export/singularity/singularity-3.9.0/bin', ':', ...
+                       getenv('PATH')))
+            setenv('LD_LIBRARY_PATH', ...
+                strcat('/usr/lib64', ':', getenv('LD_LIBRARY_PATH'))) % need libOSMesa.so.8 for fsleyes render
                    
             %disp("mladni.CHPC3.setenvs():getenv('PATH'):")
             %disp(getenv('PATH'))
