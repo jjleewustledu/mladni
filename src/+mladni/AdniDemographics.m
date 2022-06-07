@@ -115,6 +115,7 @@ classdef AdniDemographics < handle
     end
 
     properties (Dependent)
+        amyloid_file
         cdr_file
         fdg_orig_file
         fdg_proc1_file
@@ -134,14 +135,18 @@ classdef AdniDemographics < handle
         registry_file
         subjects
         t1_filenames_file
+        ucberkeleyfdg_file
     end
 
     methods
 
         %% GET
-
+        function g = get.amyloid_file(~)
+            g = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'studydata', 'ucberkeleyav45_skinny.csv');
+            % unique RID ~ 1325
+        end
         function g = get.cdr_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "CDR.csv");
+            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "CDR.csv"); %"cdr_20220602.csv");
             % unique RID ~ 3418
         end
         function g = get.fdg_orig_file(~)
@@ -163,7 +168,7 @@ classdef AdniDemographics < handle
             g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "bids", "rawdata", "rosters", "fdgproc_filenames.csv");
         end
         function g = get.merge_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "ADNIMERGE.csv");
+            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "ADNIMERGE.csv"); %"adnimerge_20220602.csv");
             % unique PTID ~ 1855, unique IMAGEUID ~ 13923
         end
         function g = get.mpr_meta_file(~)
@@ -206,7 +211,7 @@ classdef AdniDemographics < handle
             % unique RID ~ 1413, unique LONIUID ~ 3950
         end
         function g = get.registry_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "REGISTRY.csv");
+            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "REGISTRY.csv"); %"registry_20220602.csv");
             % unique RID ~ 4045, unique ID ~ 15637
         end
         function g = get.subjects(this)
@@ -219,6 +224,9 @@ classdef AdniDemographics < handle
         function g = get.t1_filenames_file(~)
             g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "bids", "rawdata", "rosters", "t1_filenames.csv");
         end
+        function g = get.ucberkeleyfdg_file(~)
+            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "UCBERKELEYFDG_03_25_22.csv");
+        end
 
         %%
 
@@ -226,6 +234,17 @@ classdef AdniDemographics < handle
             warning('off', 'MATLAB:table:ModifiedAndSavedVarnames') 
         end
 
+        function t = table_amyloid(this, varargin)
+            if isempty(this.amyloid_)
+                t_ = readtable(this.amyloid_file);            
+                t_.EXAMDATE = datetime(t_.EXAMDATE);
+                this.amyloid_ = t_;
+            end
+            t = this.amyloid_;
+            if ~isempty(varargin)
+                t = t(varargin{:});
+            end
+        end
         function t = table_cdr(this, varargin)
             if isempty(this.cdr_)
                 this.cdr_ = this.cdrRevisions(readtable(this.cdr_file));
@@ -243,7 +262,7 @@ classdef AdniDemographics < handle
             if ~isempty(varargin)
                 t = t(varargin{:});
             end
-        end        
+        end
         function t = table_fdg_select_description(this, varargin)
             t = this.fdg_(strcmp(this.fdg_.Description, this.description), :);
             if ~isempty(varargin)
@@ -388,6 +407,17 @@ classdef AdniDemographics < handle
                 this.pet_qc_ = readtable(this.pet_qc_file);
             end
             t = this.pet_qc_;
+            if ~isempty(varargin)
+                t = t(varargin{:});
+            end
+        end
+        function t = table_ucberkeleyfdg(this, varargin)
+            if isempty(this.ucberkeleyfdg_)
+                t_ = readtable(this.ucberkeleyfdg_file);            
+                t_.EXAMDATE = datetime(t_.EXAMDATE);
+                this.ucberkeleyfdg_ = t_;
+            end
+            t = this.ucberkeleyfdg_;
             if ~isempty(varargin)
                 t = t(varargin{:});
             end
@@ -583,6 +613,7 @@ classdef AdniDemographics < handle
     %% PROTECTED
 
     properties (Access = protected)
+        amyloid_
         cdr_
         fdg_
         fdg1_
@@ -598,6 +629,7 @@ classdef AdniDemographics < handle
         registry_
         subjects_
         t1_filenames_
+        ucberkeleyfdg_
     end
 
     methods (Access = protected)
@@ -607,6 +639,7 @@ classdef AdniDemographics < handle
             sz = size(t.AcqDate);
 
             t.AcqDate = datetime(t.AcqDate);
+            t.AmyloidStatus = nan(sz);
             t.MergeVisCode = cell(sz);
             t.MergeExamDate = NaT(sz);
             t.MergeAge = nan(sz);
@@ -634,6 +667,7 @@ classdef AdniDemographics < handle
             t.MergeMmseBl = nan(sz);
             t.MergeDxBl = cell(sz);
             t.MergeYearsBl = nan(sz);
+            t.PonsVermis = nan(sz);
             t.VISCODE2 = cell(sz);
             t.USERDATE = NaT(sz);
             t.EXAMDATE = NaT(sz);
@@ -661,13 +695,23 @@ classdef AdniDemographics < handle
                     rid = merge_s1.RID(1);
                     assert(all(rid == merge_s1.RID))
                     cdr_s1 = this.table_cdr(this.table_cdr.RID == rid, ':');
+                    try
+                        amyloid_s1 = this.table_amyloid(this.table_amyloid.RID == rid, ':');
+                        amy_sorted = sort(amyloid_s1.EXAMDATE);
+                        amy_initial = amy_sorted(1) - years(1); % init av45 - 1 year
+                        amy_future = t_s1.AcqDate > amy_initial; % future fdg following av45
+                    catch
+                    end
+                    berkeley_s1 = this.table_ucberkeleyfdg(this.table_ucberkeleyfdg.RID == rid, ':');
+                    berkeley_s1 = berkeley_s1(contains(berkeley_s1.ROINAME, 'pons-vermis'), :);
     
-                    for acqdi = 1:size(t_s1, 1)
+                    numrows_s1 = size(t_s1, 1);
+                    for acqdi = 1:numrows_s1
                         acqdate = t_s1.AcqDate(acqdi);
 
                         [~,merge_near] = min(abs(acqdate - merge_s1.EXAMDATE));
                         t_s1(acqdi, 'MergeVisCode') = merge_s1(merge_near, 'VISCODE');
-                        t_s1(acqdi, 'MergeExamDate') = merge_s1(merge_near, 'EXAMDATE');
+                        t_s1(acqdi, 'MergeExamDate') = merge_s1(merge_near, 'EXAMDATE'); % ------- EXAMDATE -------
                         t_s1(acqdi, 'MergeAge') = merge_s1(merge_near, 'AGE');
                         t_s1(acqdi, 'MergePtGender') = merge_s1(merge_near, 'PTGENDER');
                         t_s1(acqdi, 'MergePtEducat') = merge_s1(merge_near, 'PTEDUCAT');
@@ -697,7 +741,7 @@ classdef AdniDemographics < handle
                         [~,cdr_near] = min(abs(acqdate - cdr_s1.USERDATE));
                         t_s1(acqdi, 'VISCODE2') = cdr_s1{cdr_near, 'VISCODE2'};
                         t_s1{acqdi, 'USERDATE'} = cdr_s1{cdr_near, 'USERDATE'};
-                        t_s1{acqdi, 'EXAMDATE'} = cdr_s1{cdr_near, 'EXAMDATE'};
+                        t_s1{acqdi, 'EXAMDATE'} = cdr_s1{cdr_near, 'EXAMDATE'}; % ------- EXAMDATE -------
                         t_s1(acqdi, 'CDMEMORY') = cdr_s1(cdr_near, 'CDMEMORY');
                         t_s1(acqdi, 'CDORIENT') = cdr_s1(cdr_near, 'CDORIENT');
                         t_s1(acqdi, 'CDJUDGE') = cdr_s1(cdr_near, 'CDJUDGE');
@@ -708,7 +752,28 @@ classdef AdniDemographics < handle
                         t_s1(acqdi, 'Phase') = cdr_s1(cdr_near, 'Phase');
                         t_s1(acqdi, 'ID') = cdr_s1(cdr_near, 'ID');
                         t_s1(acqdi, 'RID') = cdr_s1(cdr_near, 'RID');
-                        t_s1(acqdi, 'SITEID') = cdr_s1(cdr_near, 'SITEID');
+                        t_s1(acqdi, 'SITEID') = cdr_s1(cdr_near, 'SITEID');   
+                        
+                        if isnat(t_s1{acqdi, 'EXAMDATE'}) && ~isnat(acqdate) % ------- EXAMDATE -------
+                            t_s1{acqdi, 'EXAMDATE'} = acqdate;
+                        end
+                        
+                        % amyloid status should remain true after initially true amyloid status
+                        try
+                            [~,amyloid_near] = min(abs(acqdate - amyloid_s1.EXAMDATE));
+                            t_s1(acqdi, 'AmyloidStatus') = amyloid_s1(amyloid_near, 'SUMMARYSUVR_WHOLECEREBNORM_1_11CUTOFF');
+                            if any(amy_future > acqdate)
+                                t_s1(acqdi, 'AmyloidStatus') = 1;
+                            end
+                        catch
+                        end
+
+                        % find pons-vermis reference values
+                        try
+                            [~,berkeley_near] = min(abs(acqdate - berkeley_s1.EXAMDATE));
+                            t_s1(acqdi, 'PonsVermis') = berkeley_s1(berkeley_near, 'MEAN');
+                        catch 
+                        end
                     end
                     
                     t(strcmp(t.Subject, s{1}), :) = t_s1;
@@ -717,18 +782,8 @@ classdef AdniDemographics < handle
                 end
             end
             
-            %t = t(~isnan(t.RID), :);
-
             % update t with table_registry.EXAMDATE (cf. ADNI Google Group)
             t_reg = this.table_registry();
-%             for ti = 1:size(t, 1)
-%                 t_ti = t(ti, :);
-%                 ED = t_ti.EXAMDATE;
-%                 ED1 = t_reg(t_reg.RID == t_ti.RID & t_reg.ID == t_ti.ID, :).EXAMDATE;
-%                 if isnat(ED) && ~all(isnat(ED1))
-%                     t(ti, :).EXAMDATE = ED1;
-%                 end
-%             end
             for ti = 1:size(t, 1)
                 t_ti = t(ti, :);
                 ED1 = t_reg(t_reg.ID == t_ti.ID, :).EXAMDATE;
@@ -738,6 +793,8 @@ classdef AdniDemographics < handle
             end
         end
         function t = cdrRevisions(~, t)
+            return
+            
             v2 = t.VISCODE2;
             v2(strcmp(v2, 'sc')) = {'bl'};
             v2(strcmp(v2, 'f')) = {'bl'};

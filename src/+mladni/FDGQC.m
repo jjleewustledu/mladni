@@ -1,6 +1,11 @@
 classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
     %% line1
-    %  line2
+    %  
+    %  num_scans(conditions) ~ [1025, 1647, 794], sum ~ 3466
+    %  num_scans regardless of known conditions ~ 3735
+    %  num_scans(completed_fdg_warped) ~ 3709
+    %  num_scans(t4_resolve_rerr <= 10) ~ 3560
+    %  num_scans(t4_resolve_terr <= 10) ~ 3566
     %  
     %  Created 21-Mar-2022 14:24:57 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.10.0.1851785 (R2021a) Update 6 for MACI64.  Copyright 2022 John J. Lee.
@@ -45,7 +50,13 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         function [j,c] = par_build_geom_stats()
             c = parcluster;
             disp(c.AdditionalProperties)
-            j = c.batch(@mladni.FDGQC.batch_build_geom_stats, 1, {}, 'Pool', 3, ...
+            j = c.batch(@mladni.FDGQC.batch_build_geom_stats, 1, {}, 'Pool', 9, ...
+                'CurrentFolder', '.', 'AutoAddClientPath', false);
+        end
+        function [j,c] = par_build_fast_stats()
+            c = parcluster;
+            disp(c.AdditionalProperties)
+            j = c.batch(@mladni.FDGQC.batch_build_fast_stats, 1, {}, 'Pool', 9, ...
                 'CurrentFolder', '.', 'AutoAddClientPath', false);
         end
         function [j,c] = par_find_incomplete()
@@ -174,39 +185,185 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             disp('mladni.FDG.batch_find_incomplete() completed')
         end 
-        function c = batch_build_geom_stats(varargin)               
+        function t = batch_build_geom_stats(varargin)
+            %% 
             
-            disp('Start mladni.FDG.batch_build_geom_stats()')  
+            ip = inputParser;
+            addParameter(ip, 'new_tag', '_on_T1w_detJ_Warped', @istext); % '_on_T1w_Warped'
+            addParameter(ip, 'proc', 'proc-CASU-ponsvermis', @istext); % 'proc-CASU'
+            addParameter(ip, 'conditions', {'cn', 'mci', 'dementia', ...
+                                            'cn_amypos', 'mci_amypos', 'dementia_amypos', ...
+                                            'cn_amyneg', 'mci_amyneg', 'dementia_amyneg'}, @iscell);
+            parse(ip, varargin{:});
+            ipr = ip.Results;
+            new_tag = ipr.new_tag;
+            proc = ipr.proc;
+            conditions = ipr.conditions;
             
-            t0 = tic;            
-            mladni.CHPC3.setenvs();
-            conditions = {'cn', 'mci', 'dementia'};
-            c = cell(1, 3);
+            disp('Start mladni.FDGQC.batch_build_geom_stats()')  
+            
+            t0 = tic;
+            c = cell(1, length(conditions));
+            fileprefix_mean = strcat('sub-all_ses-all_trc-FDG_', proc, '_orient-rpi_pet', new_tag, '_mean');
+            fileprefix_var = strcat('sub-all_ses-all_trc-FDG_', proc, '_orient-rpi_pet', new_tag, '_var');
+            fileprefix_std = strcat('sub-all_ses-all_trc-FDG_', proc, '_orient-rpi_pet', new_tag, '_std');
             
             parfor idx = 1:length(conditions)
-                try                    
+                try         
+                    mladni.CHPC3.setenvs();
                     csv_file = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', ...
                         strcat('globbed_', conditions{idx},'.csv'));
+                    fprintf('########## mladni.FDGQC.batch_build_geom_stats().csv_file -> %s ##########\n', csv_file)
                     assert(isfile(csv_file));
                     tbl = readtable(csv_file, 'ReadVariableNames', true, 'Delimiter', ' ');
-                    fns = strrep(strrep(tbl.rawdata_pet_filename, ...
-                        'rawdata', 'derivatives'), '.nii.gz', '_on_T1w_Warped.nii.gz');
-                    ic = mlfourd.ImagingContext2(fns{1});
+                    fns = strrep(tbl.(['rawdata_pet_filename_' conditions{idx}]), ...
+                        'rawdata', 'derivatives');
+                    fns = strrep(fns, ...
+                        '.nii.gz', strcat(new_tag, '.nii.gz'));
+                    fns = strrep(fns, ...
+                        'proc-CASU', proc);
                     len = length(fns);
+                    
+                    % mean
+                    ic = mlfourd.ImagingContext2(fns{1});
+                    fprintf('read %s\n', fns{1});
+                    e_count = 0;
                     for ifn = 2:len
-                        ic = ic + mlfourd.ImagingContext2(fns{ifn});
+                        try
+                            ic = ic + mlfourd.ImagingContext2(fns{ifn});
+                            ic.fileprefix = fileprefix_mean;
+                            %fprintf('read %s\n', fns{ifn});
+                        catch ME
+                            e_count = e_count + 1;
+                            handwarning(ME);
+                        end
                     end
-                    c{idx} = ic;
+                    len = len - e_count;
+                    ic = ic/len;
+                    ic.filepath = myfileparts(csv_file);
+                    ic.fileprefix = fileprefix_mean;
+                    c{idx}.mean = ic;
+                    c{idx}.mean_len = len;
+                    c{idx}.mean_exception_count = e_count;
+                    
+                    % var
+                    ic1 = (mlfourd.ImagingContext2(fns{1}) - c{idx}.mean).^2;
+                    for ifn = 2:len
+                        try
+                            ic1 = ic1 + (mlfourd.ImagingContext2(fns{ifn}) - c{idx}.mean).^2;
+                            ic1.fileprefix = fileprefix_var;                        
+                        catch ME
+                            e_count = e_count + 1;
+                            handwarning(ME);
+                        end
+                    end
+                    len = len - e_count;
+                    ic1 = ic1/(len - 1);
+                    ic1.filepath = myfileparts(csv_file);
+                    ic1.fileprefix = fileprefix_var;
+                    c{idx}.var = ic1;
+                    c{idx}.var_len = len;
+                    c{idx}.var_exception_count = e_count;
+                    
+                    % std
+                    c{idx}.std = sqrt(c{idx}.var);
+                    c{idx}.std.filepath = myfileparts(csv_file);
+                    c{idx}.std.fileprefix = fileprefix_std;
                 catch ME
                     handwarning(ME);
                 end
-            end              
+            end   
+            
+            save( ...
+                fullfile('/scratch', 'jjlee', 'Singularity', ...
+                'ADNI', 'bids', 'derivatives', strcat('FDGQC_batch_build_geom_stats', new_tag, '_', proc, '.mat')), 'c');
             t = toc(t0);
             
-            disp('mladni.FDG.batch_build_geom_stats() completed')   
+            disp('mladni.FDGQC.batch_build_geom_stats() completed')   
         end
-
-        function out = build_fast_geom_stats()
+        function t = batch_build_fast_stats(varargin)
+            %% 
+            
+            disp('Start mladni.FDGQC.batch_build_fast_stats()')  
+            
+            t0 = tic;            
+            conditions = {'pve0_cn', 'pve0_mci', 'pve0_dementia', ...
+                          'pve1_cn', 'pve1_mci', 'pve1_dementia', ...
+                          'pve2_cn', 'pve2_mci', 'pve2_dementia'};
+            c = cell(1, 9);
+            new_tag = '_detJ_Warped'; 
+            
+            parfor idx = 1:length(conditions)
+                try         
+                    mladni.CHPC3.setenvs();
+                    
+                    fileprefix_mean = strcat('sub-all_ses-all_orient-rpi_T1w_brain_', conditions{idx}, '_mean');
+                    fileprefix_var = strcat('sub-all_ses-all_orient-rpi_T1w_brain_', conditions{idx}, '_var');
+                    fileprefix_std = strcat('sub-all_ses-all_orient-rpi_T1w_brain_', conditions{idx}, '_std');
+                    csv_file = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', ...
+                        strcat('globbed_', conditions{idx},'.csv'));
+                    fprintf('########## mladni.FDGQC.batch_build_fast_stats().csv_file -> %s ##########\n', csv_file)
+                    assert(isfile(csv_file));
+                    tbl = readtable(csv_file, 'ReadVariableNames', true, 'Delimiter', ' ');
+                    fns = tbl.(['filename_' conditions{idx}]);
+                    len = length(fns);
+                    
+                    % mean
+                    ic = mlfourd.ImagingContext2(fns{1});
+                    fprintf('read %s\n', fns{1});
+                    e_count = 0;
+                    for ifn = 2:len
+                        try
+                            ic = ic + mlfourd.ImagingContext2(fns{ifn});
+                            ic.fileprefix = fileprefix_mean;
+                            %fprintf('read %s\n', fns{ifn});
+                        catch ME
+                            e_count = e_count + 1;
+                            handwarning(ME);
+                        end
+                    end
+                    len = len - e_count;
+                    ic = ic/(len - 1);
+                    ic.filepath = myfileparts(csv_file);
+                    ic.fileprefix = fileprefix_mean;
+                    c{idx}.mean = ic;
+                    c{idx}.mean_len = len;
+                    c{idx}.mean_exception_count = e_count;
+                    
+                    % var
+                    ic1 = (mlfourd.ImagingContext2(fns{1}) - c{idx}.mean).^2;
+                    for ifn = 2:len
+                        try
+                            ic1 = ic1 + (mlfourd.ImagingContext2(fns{ifn}) - c{idx}.mean).^2;
+                            ic1.fileprefix = fileprefix_var;
+                        catch ME
+                            e_count = e_count + 1;
+                            handwarning(ME);
+                        end
+                    end
+                    len = len - e_count;
+                    ic1 = ic1/(len - 1);
+                    ic1.filepath = myfileparts(csv_file);
+                    ic1.fileprefix = fileprefix_var;
+                    c{idx}.var = ic1;
+                    c{idx}.var_len = len;
+                    c{idx}.var_exception_count = e_count;
+                     
+                    % std
+                    c{idx}.std = sqrt(c{idx}.var);
+                    c{idx}.std.filepath = myfileparts(csv_file);
+                    c{idx}.std.fileprefix = fileprefix_std;
+                catch ME
+                    handwarning(ME);
+                end
+            end   
+            
+            save( ...
+                fullfile('/scratch', 'jjlee', 'Singularity', ...
+                'ADNI', 'bids', 'derivatives', strcat('batch_build_fast_stats', new_tag, '.mat')), 'c');
+            t = toc(t0);
+            
+            disp('mladni.FDGQC.batch_build_fast_stats() completed')   
         end
         function check_conservation_of_fdg_activity()
         end
@@ -251,19 +408,127 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         end
     end
     
+    properties (Dependent)
+        filepath
+    end
+    
     methods
+        
+        %% GET
+        
+        function g = get.filepath(~)
+            g = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', '');
+        end
+        
+        %%
+        
         function this = FDGQC(varargin)
-            %% FDGQC 
+            %%
             %  Args:
-            %      arg1 (its_class): Description of arg1.
+            %      load_tables (logical)
             
             ip = inputParser;
-            addParameter(ip, "arg1", [], @(x) false)
+            addParameter(ip, "load_tables", true, @islogical);
             parse(ip, varargin{:})
-            ipr = ip.Results;
+            ipr = ip.Results;  
             
+            try
+                if ipr.load_tables
+                    this.table_cn();
+                    this.table_mci();
+                    this.table_dementia();
+                end            
+            catch ME
+                handwarning(ME)
+            end
+        end
+        
+        function t = table_cn(this)
+            if ~isempty(this.table_cn_)
+                t = this.table_cn_;
+                return
+            end
+            fn = fullfile(this.filepath, 'globbed_cn.csv');
+            this.table_cn_ = readtable(fn, 'ReadVariableNames', true, 'Delimiter', ' ');
+            t = this.table_cn_;
+        end
+        function t = table_mci(this)
+            if ~isempty(this.table_mci_)
+                t = this.table_mci_;
+                return
+            end
+            fn = fullfile(this.filepath, 'globbed_mci.csv');
+            this.table_mci_ = readtable(fn, 'ReadVariableNames', true, 'Delimiter', ' ');
+            t = this.table_mci_;
+        end
+        function t = table_dementia(this)
+            if ~isempty(this.table_dementia_)
+                t = this.table_dementia_;
+                return
+            end
+            fn = fullfile(this.filepath, 'globbed_dementia.csv');
+            this.table_dementia_ = readtable(fn, 'ReadVariableNames', true, 'Delimiter', ' ');
+            t = this.table_dementia_;
+        end
+        
+        function t = table_dx_amyloid(this, varargin)
+            ip = inputParser;
+            addRequired(ip, 'dx', @istext);
+            addOptional(ip, 'amyloid_status', nan, @isscalar)
+            parse(ip, varargin{:});        
+            ipr = ip.Results;
+            ipr.dx = lower(ipr.dx);
+            
+            switch ipr.dx
+                case 'cn'
+                    t = this.table_cn();
+                case 'mci'
+                    t = this.table_mci();
+                case 'dementia'
+                    t = this.table_dementia();
+                otherwise
+                    error('mladni:RuntimeError', 'FDGQC.table_dx_amyloid');
+            end
+            if isnan(ipr.amyloid_status) || ipr.amyloid_status < 0 
+                return
+            end
+            
+            ad = mladni.AdniDemographics();
+            tad = ad.table_fdg1();
+            as = tad.AmyloidStatus;
+            as(isnan(as)) = -1;
+            sub = strrep(tad.Subject, '_', '');
+            dt = string(datestr(tad.AcqDate, 'yyyymmdd'));
+            if 0 == ipr.amyloid_status
+                v = strcat(t.Properties.VariableNames{1}, '_amyneg');
+                cells = t{:,:};
+                rid_ = sub(0 == as);
+                dt_ = dt(0 == as);
+                select = cellfun(@(x) contains(x, rid_) && contains(x, dt_), cells);
+                t = table(cells(select));
+                t.Properties.VariableNames = {v};
+                writetable(t, fullfile(this.filepath, strcat('globbed_', ipr.dx, '_amyneg.csv')));
+            end
+            if ipr.amyloid_status > 0
+                v = strcat(t.Properties.VariableNames{1}, '_amypos');
+                cells = t{:,:};
+                rid_ = sub(1 == as);
+                dt_ = dt(1 == as);
+                select = cellfun(@(x) contains(x, rid_) && contains(x, dt_), cells);
+                t = table(cells(select));
+                t.Properties.VariableNames = {v};
+                writetable(t, fullfile(this.filepath, strcat('globbed_', ipr.dx, '_amypos.csv')));
+            end
         end
     end
+    
+    %% PROTECTED
+    
+    properties (Access = protected)  
+        table_cn_
+        table_mci_
+        table_dementia_
+    end    
     
     %  Created with mlsystem.Newcl, inspired by Frank Gonzalez-Morphy's newfcn.
 end
