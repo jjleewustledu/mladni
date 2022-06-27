@@ -471,6 +471,16 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end
             tbl = table(c);
         end
+        function scrub_missing_from_csv(fn)
+            assert(isfile(fn));
+            tbl = readtable(fn, 'ReadVariableNames', false, 'Delimiter', ' ');
+            
+            select = ~isfile(tbl.Var1);
+            tbl(select,:) = [];
+            if sum(select) > 0
+                writetable(tbl, fn, 'WriteVariableNames', false);
+            end
+        end
         function scrub_nans_from_csv(fn)
             assert(isfile(fn));
             tbl = readtable(fn, 'ReadVariableNames', false, 'Delimiter', ' ');
