@@ -15,10 +15,10 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             c.AdditionalProperties.EmailAddress = '';
             c.AdditionalProperties.EnableDebug = 1;
             c.AdditionalProperties.GpusPerNode = 0;
-            c.AdditionalProperties.MemUsage = '10000'; % deepmrseg requires 10 GB; else 5 GB
+            c.AdditionalProperties.MemUsage = '6000'; % in MB; deepmrseg requires 10 GB; else 6 GB
             c.AdditionalProperties.Node = '';
             c.AdditionalProperties.Partition = '';
-            c.AdditionalProperties.WallTime = '24:00:00'; % 24 h
+            c.AdditionalProperties.WallTime = '4:00:00'; % 24 h
             c.saveProfile
             disp(c.AdditionalProperties)
         end
@@ -112,6 +112,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             %% #PARCLUSTER
             %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/
             %  --------------------------------------------------------------
+            %  Use for call_resolved()
             
             c = parcluster;
             disp(c.AdditionalProperties)
@@ -132,11 +133,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             %% #PARCLUSTER
             %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/
             %  --------------------------------------------------------------
-            %
-            % >> mladni.FDG.getDebugLog(j, c)
-            % LOG FILE OUTPUT:
-            % --------------------------------------------------------------
-            % --------------------------------------------------------------
+            %  Use for build_renormalized()
             
             c = parcluster;
             disp(c.AdditionalProperties)
@@ -145,12 +142,77 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             assert(isfile(globbing_file));
             ld = load(globbing_file);
             g = [ld.globbed{:}];
-            g1 = cellfun(@(x) strrep(strrep(x, 'rawdata', 'derivatives'), '.nii.gz', '_on_T1w_Warped.nii.gz'), ...
+            g1 = cellfun(@(x) strrep(x, 'rawdata', 'derivatives'), ...
                 g, 'UniformOutput', false);
-            select = cellfun(@(x) ~isfile(x), g1);
-            %assert(length(select) < 100);
-            j = c.batch(@mladni.FDG.batch, 1, {'globbed', g(select)}, 'Pool', 31, ...
+            select = cellfun(@(x) isfile(x), g1);
+            j = c.batch(@mladni.FDG.batch2, 1, {'globbed', g(select)}, 'Pool', 31, ...
                 'CurrentFolder', '.', 'AutoAddClientPath', false); % {'len', []}, 'Pool', 31            
+        end
+        function parlocal2()
+            %% renormalizes all FDG by {pons, cerebellar_vermis} per Susan Landau's methods
+
+            globbing_file = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', 'globbed.mat');
+            assert(isfile(globbing_file));
+            ld = load(globbing_file);
+            g = [ld.globbed{:}];
+            g1 = cellfun(@(x) ...
+                strrep(x, 'rawdata', 'derivatives'), ...
+                g, 'UniformOutput', false);
+            g2 = cellfun(@(x) ...
+                strrep(x, '/home/aris_data/ADNI_FDG', '/mnt/CHPC_scratch/Singularity/ADNI'), ...
+                g1, 'UniformOutput', false);
+            select = cellfun(@(x) isfile(x), g2);
+            globbed = g2(select);
+            
+            t0 = tic;
+            parfor idx = 1:length(globbed)   
+                try
+                    fdg_ = mlfourd.ImagingContext2(globbed{idx});
+                    this = mladni.FDG(fdg_);
+                    if ~isempty(this.t1w)
+                        this.build_renormalized();
+                    end
+                catch ME
+                    handwarning(ME)
+                    disp(struct2str(ME.stack))
+                end
+            end            
+            %save('/scratch/jjlee/Singularity/ADNI/bids/derivatives/c.mat', 'c'); %% DEBUG            
+            fprintf('mladni.FDG.parlocal2() completed in: ');
+            toc(t0)
+        end
+        function parlocal3()
+            %% binarize dlicv_detJ_Warped; use mask to extract brain from pet_on_T1w_Warped
+
+            globbing_file = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', 'globbed.mat');
+            assert(isfile(globbing_file));
+            ld = load(globbing_file);
+            g = [ld.globbed{:}];
+            g1 = cellfun(@(x) ...
+                strrep(x, 'rawdata', 'derivatives'), ...
+                g, 'UniformOutput', false);
+            g2 = cellfun(@(x) ...
+                strrep(x, '/home/aris_data/ADNI_FDG', '/mnt/CHPC_scratch/Singularity/ADNI'), ...
+                g1, 'UniformOutput', false);
+            select = cellfun(@(x) isfile(x), g2);
+            globbed = g2(select);
+            
+            t0 = tic;
+            parfor idx = 1:length(globbed)   
+                try
+                    fdg_ = mlfourd.ImagingContext2(globbed{idx});
+                    this = mladni.FDG(fdg_);
+                    if ~isempty(this.t1w)
+                        this.build_pet_warped_brain();
+                    end
+                catch ME
+                    handwarning(ME)
+                    disp(struct2str(ME.stack))
+                end
+            end            
+            %save('/scratch/jjlee/Singularity/ADNI/bids/derivatives/c.mat', 'c'); %% DEBUG            
+            fprintf('mladni.FDG.parlocal3() completed in: ');
+            toc(t0)
         end
         function t = batch_tiny(varargin)
             %% Requires completion of mladni.AdniBidsT1w.batch, mladniAdniBidsFdg.batch,
@@ -199,6 +261,8 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             disp('mladni.FDG.batch_tiny() completed')
         end
         function globbed = batch_globbed(varargin)
+            %% creates globbed.mat
+            
             ip = inputParser;
             addParameter(ip, 'proc', 'CASU', @istext)
             parse(ip, varargin{:});
@@ -255,8 +319,50 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 
                     this = mladni.FDG(fdg_);
                     if ~isempty(this.t1w)
-                        %this.call_resolve(); 
-                        %this.finalize(); 
+                        this.call_resolve(); 
+                        this.finalize(); 
+                    end
+                catch ME
+                    handwarning(ME)
+                    disp(struct2str(ME.stack))
+                end
+            end            
+            %save('/scratch/jjlee/Singularity/ADNI/bids/derivatives/c.mat', 'c'); %% DEBUG            
+            t = toc(t0);
+
+            disp('mladni.FDG.batch() completed')            
+        end
+        function t = batch2(varargin)
+            %% Requires completion of mladni.batch_globbed().
+            %  Params:
+            %      len (numeric):  # FDG sessions
+            %      proc (text):  default 'CASU'
+            
+            ip = inputParser;
+            addParameter(ip, 'globbed', {}, @iscell)
+            addParameter(ip, 'proc', 'CASU', @istext)
+            parse(ip, varargin{:});
+            ipr = ip.Results;
+            
+            disp('Start mladni.FDG.batch()')        
+
+            globbed = ipr.globbed;          
+            %t = size(globbed); % DEBUG
+            %disp(t) % DEBUG
+            %return
+            
+            t0 = tic;
+            mladni.CHPC3.clean_tempdir();
+            parfor idx = 1:length(globbed)            
+                mladni.CHPC3.setenvs();
+                try
+                    fdg_ = mlfourd.ImagingContext2(globbed{idx});
+                    %derpth = strrep(fdg_.filepath, 'rawdata', 'derivatives');
+                    %c{idx} = derpth; %% DEBUG
+                    %continue
+
+                    this = mladni.FDG(fdg_);
+                    if ~isempty(this.t1w)
                         this.build_renormalized();
                     end
                 catch ME
@@ -270,6 +376,17 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             disp('mladni.FDG.batch() completed')            
         end
         
+        function ic = add_proc(ic, proc0, proc1)
+            assert(istext(proc0));
+            assert(istext(proc1));
+            if ~startsWith(proc1, '-')
+                proc1 = strcat('-', proc1);
+            end
+            ic.fileprefix = strrep( ...
+                ic.fileprefix, ...
+                strcat('proc-', proc0), ...
+                strcat('proc-', proc0, proc1));
+        end
         function dt = AcqDate(fp)
             %% per mladni.AdniDemographics
             
@@ -281,7 +398,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end
             re = regexp(fp, 'sub-\d{3}S\d{4}_ses-(?<date>\d{8})', 'names');
             dt = datetime(re.date, 'InputFormat', 'yyyyMMdd');
-        end
+        end        
         function m  = image_mass(ic)
             dV = voxelVolume(ic);
             ic1 = ic.thresh(0);
@@ -329,6 +446,56 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end
             ic = mlfourd.ImagingContext2(obj);
             fn = strcat(ic.fqfp, '.nii.gz');
+        end        
+        function tbl = find_nans()
+            %% find images with nans according to pons-vermis reference
+            
+            globbed = readlines(fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', 'globbed.csv'));
+            ad = mladni.AdniDemographics();
+            fdg1 = ad.table_fdg1();
+            
+            c = {};
+            for gi = 1:length(globbed)
+                re = regexp(globbed{gi}, ...
+                    '/home/aris_data/ADNI_FDG/bids/rawdata/sub-(?<site>\d{3})S(?<rid>\d{4})/\S+', 'names');
+                adniSub = sprintf('%s_S_%s', re.site, re.rid);
+                select = contains(fdg1.Subject, adniSub);
+                select1 = contains(fdg1.Description, 'Coreg, Avg, Standardized Image and Voxel Size');
+                pv = fdg1.PonsVermis(select & select1);
+                if isnan(pv)
+                    stem = myfileprefix(globbed{gi});
+                    stem = strrep(stem, 'rawdata', 'derivatives');
+                    stem = strrep(stem, 'proc-CASU', 'proc-CASU-ponsvermis');
+                    c = [c; glob([stem '*.nii.gz'])];   %#ok<AGROW>
+                end
+            end
+            tbl = table(c);
+        end
+        function scrub_nans_from_csv(fn)
+            assert(isfile(fn));
+            tbl = readtable(fn, 'ReadVariableNames', false, 'Delimiter', ' ');
+            
+            tbl_nans = readtable( ...
+                fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', 'globbed_nan.csv'), ...
+                'ReadVariableNames', false, 'Delimiter', ' ');
+            if contains(tbl.Var1{1}, 'derivatives')
+                Var1 = cellfun(@(x) strrep(x, 'rawdata', 'derivatives'), tbl_nans.Var1, 'UniformOutput', false);
+                tbl_nans = table(Var1);
+            end
+            if contains(tbl.Var1{1}, 'CASU-ponsvermis')
+                Var1 = cellfun(@(x) strrep(x, 'CASU', 'CASU-ponsvermis'), tbl_nans.Var1, 'UniformOutput', false);
+                tbl_nans = table(Var1);
+            end
+            if contains(tbl.Var1{1}, '_on_T1w_Warped.nii.gz')
+                Var1 = cellfun(@(x) strrep(x, '.nii.gz', '_on_T1w_Warped.nii.gz'), tbl_nans.Var1, 'UniformOutput', false);
+                tbl_nans = table(Var1);
+            end
+            
+            select = contains(tbl.Var1, tbl_nans.Var1);
+            tbl(select,:) = [];
+            if sum(select) > 0
+                writetable(tbl, fn, 'WriteVariableNames', false);
+            end
         end
         function S  = Subject(fp)
             %% per mladni.AdniDemographics
@@ -341,7 +508,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end
             re = regexp(fp, 'sub-(?<pre>\d{3})S(?<rid>\d{4})_\S+', 'names');
             S = sprintf('%s_S_%s', re.pre, re.rid);
-        end
+        end        
     end
 
     properties
@@ -374,7 +541,8 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         fdg_on_t1w % mlfourd.ImagingContext2         
         fdg_proc % e.g., 'CASU'
         fdg_detJ_warped % warped to atl, weighted by det(J)
-        fdg_detJ_warped_mask % generated from dlicv, binarized, 8mm blurring, thresh 0.1, binarized        
+        fdg_detJ_warped_mask % generated from dlicv, binarized, 8mm blurring, thresh 0.1, binarized    
+        fdg_reference % for renormalizing, e.g., ADNI, ponsvermis
         fdg_warped % warped to atl, not weighted by det(J)
         
         t1w  
@@ -394,7 +562,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 
     methods
 
-        %% GET
+        %% GET, SET
 
         function g = get.blur(this)
             g = this.blur_;
@@ -533,6 +701,9 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end
             fqfp = this.in_derivatives_path(this.fdg.fqfp);
             this.fdg_on_t1w_ = mlfourd.ImagingContext2(strcat(fqfp, '_on_T1w.nii.gz'));
+            if strcmp(this.fdg_reference, 'ponsvermis')
+                this.fdg_on_t1w_ = this.add_proc(this.fdg_on_t1w_, this.fdg_proc, 'ponsvermis');
+            end
             g = this.fdg_on_t1w_;
         end
         function g = get.fdg_proc(this)
@@ -556,6 +727,18 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             this.fdg_detJ_warped_mask_ = mlfourd.ImagingContext2(strcat(fqfp, '_mask.nii.gz'));
             g = this.fdg_detJ_warped_mask_;
         end  
+        function g = get.fdg_reference(this)
+            g = this.fdg_reference_;
+        end
+        function     set.fdg_reference(this, s)
+            assert(contains(s, {'ADNI', 'ponsvermis'}, 'IgnoreCase', false));
+            this.fdg_reference_ = s;
+
+            % reset caches
+            this.fdg_on_t1w_ = [];
+            this.fdg_detJ_warped_ = [];
+            this.fdg_warped_ = [];
+        end
         function g = get.fdg_warped(this)
             if ~isempty(this.fdg_warped_)
                 g = this.fdg_warped_;
@@ -839,14 +1022,38 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end  
             this.fdg_detJ_warped_mask_ = msk_;
         end
+        function this = build_pet_warped_brain(this)
+            %% binarize dlicv_detJ_Warped; use mask to extract brain from pet_on_T1w_Warped
+
+            try
+                bin = this.t1w_dlicv_detJ_warped.binarized();
+                fdg_fqfn0 = this.fdg_warped.fqfn;
+                this.fdg_reference = 'ponsvermis';
+                if ~isfile(this.fdg_warped)
+                    return
+                end
+                brain = this.fdg_warped .* bin;
+                brain.fqfp = strcat(this.fdg_warped.fqfp, '_dlicv');
+                brain.save();
+
+                mladni.FDG.jsonrecode( ...
+                    fdg_fqfn0, ...
+                    struct('build_pet_warped_brain', 'bin = this.t1w_dlicv_detJ_warped.binarized()'), ...
+                    brain);
+            catch ME
+                handwarning(ME)
+            end
+
+        end
         function this = build_renormalized(this)
             %% renormalizes all FDG by {pons, cerebellar_vermis} per Susan Landau's methods
             
             try
                 for ic = {this.fdg_on_t1w, this.fdg_warped, this.fdg_detJ_warped}
                     suvr = this.suvr_pons_vermis();
+                    assert(suvr > 0.5 && suvr < 2);
                     
-                    %fprintf('suvr->%g\n', suvr)                    
+                    %fprintf('suvr->%g\n', suvr)
                     ic_ = ic{1};
                     ic_.selectNiftiTool();
                     ic_ = ic_./suvr;
@@ -856,7 +1063,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                         strcat('proc-', this.fdg_proc, '-ponsvermis'));
                     %disp(ic_)
                     ic_.save();
-
+                    
                     mladni.FDG.jsonrecode( ...
                         ic{1}, ...
                         struct('suvr_pons_vermis', suvr), ...
@@ -1085,12 +1292,20 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             %disp(this.AcqDate(this.fdg_on_t1w))
             
             select = contains(t.Subject, this.Subject(this.fdg_on_t1w));
-            select1 = t.AcqDate == this.AcqDate(this.fdg_on_t1w);
-            select2 = contains(t.Description, 'Coreg, Avg, Standardized Image and Voxel Size');
+            select1 = contains(t.Description, 'Coreg, Avg, Standardized Image and Voxel Size');
+            select2 = t.AcqDate == this.AcqDate(this.fdg_on_t1w);
+
             s = t{select & select1 & select2, 'PonsVermis'};
+            s = s(~isnan(s));
+            s = s(1);
         end
         function t    = table_fdg1(this)
-            t = this.demog_.adni_demographics.table_fdg1();
+            if ~isempty(this.table_fdg1_)
+                t = this.table_fdg1_;
+                return
+            end
+            this.table_fdg1_ = this.demog_.adni_demographics.table_fdg1();
+            t = this.table_fdg1_;
         end
         function [s,r] = view(this)
             cmd = sprintf('fsleyes %s %s %s %s', this.fdg_detJ_warped.fqfn, this.fast_gray_detJ_warped.fqfn, this.t1w_warped.fqfn, this.atl.fqfn);
@@ -1161,6 +1376,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             % AdniDemographics
             this.demog_ = mladni.FDGDemographics();
+            this.fdg_reference_ = 'ADNI';
         end
     end
 
@@ -1187,7 +1403,10 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         fdg_detJ_warped_
         fdg_detJ_warped_mask_
         fdg_proc_
+        fdg_reference_
         fdg_warped_
+        
+        table_fdg1_
         
         t1w_
         t1w_brain_

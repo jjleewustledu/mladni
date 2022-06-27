@@ -31,7 +31,7 @@ classdef FDGDemographics < handle
             addParameter(ip, 'description', 'Coreg, Avg, Std Img and Vox Siz, Uniform Resolution', @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;           
-            globbed_tbl = readtable(ipr.globbed_csv, 'ReadVariableNames', true, 'Delimiter', ' '); % 3735 x 1 table
+            globbed_tbl = readtable(ipr.globbed_csv, 'ReadVariableNames', false, 'Delimiter', ' '); % 3735 x 1 table
             
             globbed_dx_csv = strcat(myfileprefix(ipr.globbed_csv), '_', lower(ipr.merge_dx), '.csv');
             
@@ -85,7 +85,7 @@ classdef FDGDemographics < handle
             addParameter(ip, 'description', 'Coreg, Avg, Std Img and Vox Siz, Uniform Resolution', @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;           
-            globbed_tbl = readtable(ipr.globbed_csv, 'ReadVariableNames', true, 'Delimiter', ' '); % 3735 x 1 table
+            globbed_tbl = readtable(ipr.globbed_csv, 'ReadVariableNames', false, 'Delimiter', ' '); % 3735 x 1 table
             
             globbed_amyloid_csv = strcat(myfileprefix(ipr.globbed_csv), '_amyloid.csv');
             
@@ -140,7 +140,7 @@ classdef FDGDemographics < handle
             addParameter(ip, 'pve', 1, @isscalar)
             parse(ip, varargin{:});
             ipr = ip.Results;           
-            globbed_tbl = readtable(ipr.globbed_csv, 'ReadVariableNames', true, 'Delimiter', ' '); % 3735 x 1 table
+            globbed_tbl = readtable(ipr.globbed_csv, 'ReadVariableNames', false, 'Delimiter', ' '); % 3735 x 1 table
             
             globbed_dx_csv = sprintf('%s_pve%i_%s.csv', ...
                 myfileprefix(ipr.globbed_csv), ipr.pve, lower(ipr.merge_dx));

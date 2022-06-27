@@ -189,7 +189,7 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             %% 
             
             ip = inputParser;
-            addParameter(ip, 'new_tag', '_on_T1w_detJ_Warped', @istext); % '_on_T1w_Warped'
+            addParameter(ip, 'new_tag', '_on_T1w_Warped', @istext); % '_on_T1w_Warped'
             addParameter(ip, 'proc', 'proc-CASU-ponsvermis', @istext); % 'proc-CASU'
             addParameter(ip, 'conditions', {'cn', 'mci', 'dementia', ...
                                             'cn_amypos', 'mci_amypos', 'dementia_amypos', ...
@@ -215,7 +215,7 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                         strcat('globbed_', conditions{idx},'.csv'));
                     fprintf('########## mladni.FDGQC.batch_build_geom_stats().csv_file -> %s ##########\n', csv_file)
                     assert(isfile(csv_file));
-                    tbl = readtable(csv_file, 'ReadVariableNames', true, 'Delimiter', ' ');
+                    tbl = readtable(csv_file, 'ReadVariableNames', false, 'Delimiter', ' ');
                     fns = strrep(tbl.(['rawdata_pet_filename_' conditions{idx}]), ...
                         'rawdata', 'derivatives');
                     fns = strrep(fns, ...
@@ -230,7 +230,9 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                     e_count = 0;
                     for ifn = 2:len
                         try
-                            ic = ic + mlfourd.ImagingContext2(fns{ifn});
+                            ic_ = mlfourd.ImagingContext2(fns{ifn});
+                            assert(dipsum(isnan(ic_)) == 0)
+                            ic = ic + ic_;
                             ic.fileprefix = fileprefix_mean;
                             %fprintf('read %s\n', fns{ifn});
                         catch ME
@@ -250,7 +252,9 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                     ic1 = (mlfourd.ImagingContext2(fns{1}) - c{idx}.mean).^2;
                     for ifn = 2:len
                         try
-                            ic1 = ic1 + (mlfourd.ImagingContext2(fns{ifn}) - c{idx}.mean).^2;
+                            ic1_ = mlfourd.ImagingContext2(fns{ifn});
+                            assert(dipsum(isnan(ic1_)) == 0)
+                            ic1 = ic1 + (ic1_ - c{idx}.mean).^2;
                             ic1.fileprefix = fileprefix_var;                        
                         catch ME
                             e_count = e_count + 1;
@@ -304,7 +308,7 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                         strcat('globbed_', conditions{idx},'.csv'));
                     fprintf('########## mladni.FDGQC.batch_build_fast_stats().csv_file -> %s ##########\n', csv_file)
                     assert(isfile(csv_file));
-                    tbl = readtable(csv_file, 'ReadVariableNames', true, 'Delimiter', ' ');
+                    tbl = readtable(csv_file, 'ReadVariableNames', false, 'Delimiter', ' ');
                     fns = tbl.(['filename_' conditions{idx}]);
                     len = length(fns);
                     
@@ -449,7 +453,7 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 return
             end
             fn = fullfile(this.filepath, 'globbed_cn.csv');
-            this.table_cn_ = readtable(fn, 'ReadVariableNames', true, 'Delimiter', ' ');
+            this.table_cn_ = readtable(fn, 'ReadVariableNames', false, 'Delimiter', ' ');
             t = this.table_cn_;
         end
         function t = table_mci(this)
@@ -458,7 +462,7 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 return
             end
             fn = fullfile(this.filepath, 'globbed_mci.csv');
-            this.table_mci_ = readtable(fn, 'ReadVariableNames', true, 'Delimiter', ' ');
+            this.table_mci_ = readtable(fn, 'ReadVariableNames', false, 'Delimiter', ' ');
             t = this.table_mci_;
         end
         function t = table_dementia(this)
@@ -467,7 +471,7 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 return
             end
             fn = fullfile(this.filepath, 'globbed_dementia.csv');
-            this.table_dementia_ = readtable(fn, 'ReadVariableNames', true, 'Delimiter', ' ');
+            this.table_dementia_ = readtable(fn, 'ReadVariableNames', false, 'Delimiter', ' ');
             t = this.table_dementia_;
         end
         
