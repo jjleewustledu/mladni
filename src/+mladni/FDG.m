@@ -17,7 +17,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             c.AdditionalProperties.GpusPerNode = 0;
             c.AdditionalProperties.MemUsage = '6000'; % in MB; deepmrseg requires 10 GB; else 6 GB
             c.AdditionalProperties.Node = '';
-            c.AdditionalProperties.Partition = '';
+            c.AdditionalProperties.Partition = 'test';
             c.AdditionalProperties.WallTime = '4:00:00'; % 24 h
             c.saveProfile
             disp(c.AdditionalProperties)
@@ -105,8 +105,18 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             c = parcluster;
             disp(c.AdditionalProperties)
-            j = c.batch(@mladni.FDG.batch_tiny, 1, {'len', [3]}, 'Pool', 3, ...
-                'CurrentFolder', '.', 'AutoAddClientPath', false); %#ok<NBRAK> % {'len', []}, 'Pool', 31            
+
+            globbing_file = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', 'globbed.mat');
+            if ~isfile(globbing_file)
+                j = c.batch(@mladni.FDG.batch_globbed, 1, {}, ...
+                    'CurrentFolder', '.', 'AutoAddClientPath', false);
+                return
+            end            
+            ld = load(globbing_file);
+            globbed = ld.globbed{1};
+            globbed = globbed(1:3);
+            j = c.batch(@mladni.FDG.batch_revisit_pve1, 1, {'globbed', globbed}, 'Pool', 3, ...
+                    'CurrentFolder', '.', 'AutoAddClientPath', false);      
         end
         function [j,c] = parcluster()
             %% #PARCLUSTER
@@ -125,7 +135,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end            
             ld = load(globbing_file);
             for ji = 1:length(ld.globbed)
-                j{ji} = c.batch(@mladni.FDG.batch, 1, {'globbed', ld.globbed{ji}}, 'Pool', 31, ...
+                j{ji} = c.batch(@mladni.FDG.batch_revisit_pve1, 1, {'globbed', ld.globbed{ji}}, 'Pool', 31, ...
                     'CurrentFolder', '.', 'AutoAddClientPath', false);  %#ok<AGROW>
             end
         end
@@ -375,7 +385,44 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 
             disp('mladni.FDG.batch() completed')            
         end
-        
+        function t = batch_revisit_pve1(varargin)
+            %% Requires completion of mladni.batch_globbed().
+            %  Params:
+            %      len (numeric):  # FDG sessions
+            %      proc (text):  default 'CASU'
+            
+            ip = inputParser;
+            addParameter(ip, 'globbed', {}, @iscell)
+            addParameter(ip, 'proc', 'CASU', @istext)
+            parse(ip, varargin{:});
+            ipr = ip.Results;
+            
+            disp('Start mladni.FDG.batch()')        
+
+            globbed = ipr.globbed;
+            
+            t0 = tic;
+            mladni.CHPC3.clean_tempdir();
+            parfor idx = 1:length(globbed)            
+                mladni.CHPC3.setenvs();
+                try
+                    fdg_ = mlfourd.ImagingContext2(globbed{idx});
+
+                    this = mladni.FDG(fdg_);
+                    if ~isempty(this.t1w)
+                        this.call_revisit_pve1();
+                    end
+                catch ME
+                    handwarning(ME)
+                    disp(struct2str(ME.stack))
+                end
+            end            
+            %save('/scratch/jjlee/Singularity/ADNI/bids/derivatives/c.mat', 'c'); %% DEBUG            
+            t = toc(t0);
+
+            disp('mladni.FDG.batch_revisit_pve1() completed')            
+        end
+
         function ic = add_proc(ic, proc0, proc1)
             assert(istext(proc0));
             assert(istext(proc1));
@@ -473,6 +520,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         end
         function scrub_missing_from_csv(fn)
             assert(isfile(fn));
+            assert(contains(hostname, 'cluster'));
             tbl = readtable(fn, 'ReadVariableNames', false, 'Delimiter', ' ');
             
             select = ~isfile(tbl.Var1);
@@ -539,10 +587,13 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         
         fast_csf
         fast_csf_detJ_warped
+        fast_csf_warped
         fast_gray
         fast_gray_detJ_warped
+        fast_gray_warped
         fast_white
-        fast_white_detJ_warped
+        fast_white_detJ_warped        
+        fast_white_warped
         
         fdg % mlfourd.ImagingContext2
         fdg_mask % mlfourd.ImagingContext2 
@@ -635,6 +686,14 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             this.fast_csf_detJ_warped_ = mlfourd.ImagingContext2(strcat(this.fast_csf.fqfp, '_detJ_Warped.nii.gz'));
             g = this.fast_csf_detJ_warped_;
         end
+        function g = get.fast_csf_warped(this)
+            if ~isempty(this.fast_csf_warped_)
+                g = this.fast_csf_warped_;
+                return
+            end
+            this.fast_csf_warped_ = mlfourd.ImagingContext2(strcat(this.fast_csf.fqfp, '_Warped.nii.gz'));
+            g = this.fast_csf_detJ_warped_;
+        end
         function g = get.fast_gray(this)
             if ~isempty(this.fast_gray_)
                 g = this.fast_gray_;
@@ -651,6 +710,14 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             this.fast_gray_detJ_warped_ = mlfourd.ImagingContext2(strcat(this.fast_gray.fqfp, '_detJ_Warped.nii.gz'));
             g = this.fast_gray_detJ_warped_;
         end
+        function g = get.fast_gray_warped(this)
+            if ~isempty(this.fast_gray_warped_)
+                g = this.fast_gray_warped_;
+                return
+            end
+            this.fast_gray_warped_ = mlfourd.ImagingContext2(strcat(this.fast_gray.fqfp, '_Warped.nii.gz'));
+            g = this.fast_gray_detJ_warped_;
+        end
         function g = get.fast_white(this)
             if ~isempty(this.fast_white_)
                 g = this.fast_white_;
@@ -665,6 +732,14 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 return
             end
             this.fast_white_detJ_warped_ = mlfourd.ImagingContext2(strcat(this.fast_white.fqfp, '_detJ_Warped.nii.gz'));
+            g = this.fast_white_detJ_warped_;
+        end
+        function g = get.fast_white_warped(this)
+            if ~isempty(this.fast_white_warped_)
+                g = this.fast_white_warped_;
+                return
+            end
+            this.fast_white_warped_ = mlfourd.ImagingContext2(strcat(this.fast_white.fqfp, '_Warped.nii.gz'));
             g = this.fast_white_detJ_warped_;
         end
   
@@ -984,6 +1059,15 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 this.([pve{1} '_detJ_warped_']) = this.build_fast_warped_seg(this.(pve{1}));
             end
         end
+        function this = build_fast_warped2(this)
+            % warp all segs to atlas    
+            % Args:
+            %     in (any): pve from fast understood by ImagingContext2.
+            
+            for pve = {'fast_csf', 'fast_gray', 'fast_white'}                
+                this.([pve{1} '_warped_']) = this.build_fast_warped_seg2(this.(pve{1}));
+            end
+        end
         function outw = build_fast_warped_seg(this, in)
             inw = mlfourd.ImagingContext2( ...
                 this.ants.antsApplyTransforms(in, this.atl_brain, this.t1w_brain));
@@ -998,6 +1082,16 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 outw);
 
             deleteExisting(inw);
+        end
+        function inw = build_fast_warped_seg2(this, in)
+            inw = mlfourd.ImagingContext2( ...
+                this.ants.antsApplyTransforms(in, this.atl_brain, this.t1w_brain));
+
+            mladni.FDG.jsonrecode( ...
+                inw, ...
+                struct('state_changes', 'no use of this.t1w_detJ', ...
+                       'image_mass', this.image_mass(inw)), ...
+                inw);
         end
         function this = build_fdg_warped(this)
             fdgw = mlfourd.ImagingContext2( ...
@@ -1097,6 +1191,11 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             this = this.build_nmf_inputs();
             this = this.build_renormalized();
             %this = this.save_qc();
+        end
+        function this = call_revisit_pve1(this)
+            %% #CALL_RESOLVE
+            
+            this = this.build_fast_warped2();
         end
         function this = CreateJacobianDeterminantImages(this)
             %% #CREATEJACOBIANDETERMINANTIMAGE creates warping files, t1w_detJ.
@@ -1401,10 +1500,13 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         
         fast_csf_
         fast_csf_detJ_warped_
+        fast_csf_warped_
         fast_gray_
-        fast_gray_detJ_warped_
+        fast_gray_detJ_warped_        
+        fast_gray_warped_
         fast_white_
         fast_white_detJ_warped_
+        fast_white_warped_
         
         fdg_
         fdg_mskt_
