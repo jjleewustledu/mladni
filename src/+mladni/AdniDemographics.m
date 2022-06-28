@@ -270,10 +270,21 @@ classdef AdniDemographics < handle
             end
         end  
         function t = table_fdg1(this, varargin)
+
+            % cached in memory
+            if ~isempty(this.fdg1_)
+                t = this.fdg1_;
+                if ~isempty(varargin)
+                    t = t(varargin{:});
+                end       
+                return
+            end
+
+            % cached on filesystem
             cache_file = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', strcat(clientname(true, 2), '.mat'));
             if isfile(cache_file)
                 ld = load(cache_file);
-                this = ld.this;
+                this.fdg1_ = ld.this.fdg1_;
                 t = this.fdg1_;
                 if ~isempty(varargin)
                     t = t(varargin{:});
@@ -281,9 +292,8 @@ classdef AdniDemographics < handle
                 return
             end
             
-            if isempty(this.fdg1_)
-                this.fdg1_ = this.buildTableFdg1();
-            end
+            % build caches
+            this.fdg1_ = this.buildTableFdg1();
             save(cache_file, 'this');
             t = this.fdg1_;            
             if ~isempty(varargin)
