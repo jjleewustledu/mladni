@@ -1,6 +1,8 @@
-classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
-    %% line1
-    %  line2
+ classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
+    %% baseline5 ~ 22 bases
+    %  baseline4 ~ 20 bases
+    %  baseline_pve1_msk ~ 16 bases
+    %  baseline_pve1_msk_fdg ~ 14 bases
     %  
     %  Created 23-Jun-2022 13:02:04 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.10.0.1851785 (R2021a) Update 6 for MACI64.  Copyright 2022 John J. Lee.
@@ -83,8 +85,154 @@ classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end
             warning('mladni:NotImplementedWarning', 'NMF.create_montage: nothing to be done');
         end
+        function create_mean_imaging(varargin)
+            ip = inputParser;
+            addRequired(ip, 'csv', @isfile);
+            addParameter(ip, 'filepath', pwd, @isfolder);
+            parse(ip, varargin{:});
+            ipr = ip.Results;            
+            
+            csv = readlines(ipr.csv); % string vector
+
+            % create mean
+            ic = mlfourd.ImagingContext2(char(csv(1)));
+            ic.selectMatlabTool();
+            re = regexp(ic.fileprefix, '(?<sub>sub-\d{3}S\d{4}_)(?<ses>ses-\d+_)(?<descrip>\S+)', 'names');
+            fp = sprintf('all_%s_mean', re.descrip);
+            for i = 2:length(csv)
+                try
+                    ic = ic + mlfourd.ImagingContext2(char(csv(i)));
+                    ic.fileprefix = fp;
+                catch
+                end
+            end
+            ic = ic/length(csv);
+            ic.fileprefix = fp;
+            ic.filepath = ipr.filepath;
+            ic.save();
+            
+            % create variance
+            ic1 = mlfourd.ImagingContext2(char(csv(1)));
+            ic1.selectMatlabTool();
+            ic1 = (ic1 - ic).^2;
+            re1 = regexp(ic.fileprefix, '(?<descrip>\S+)_mean', 'names');
+            fp1 = sprintf('all_%s_variance', re1.descrip);
+            for i = 2:length(csv)
+                try
+                    ic1 = ic1 + (mlfourd.ImagingContext2(char(csv(i))) - ic).^2;
+                    ic1.fileprefix = fp1;
+                catch
+                end
+            end
+            ic1 = ic1/(length(csv) - 1);
+            ic1.fileprefix = fp1;
+            ic1.filepath = ipr.filepath;
+            ic1.save();
+        end
+        function create_median_imaging(varargin)
+            ip = inputParser;
+            addRequired(ip, 'csv', @isfile);
+            addParameter(ip, 'filepath', pwd, @isfolder);
+            parse(ip, varargin{:});
+            ipr = ip.Results;            
+            
+            csv = readlines(ipr.csv); % string vector
+            ifc = mlfourd.ImagingFormatContext2(char(csv(1)));
+            re = regexp(ifc.fileprefix, '(?<sub>sub-\d{3}S\d{4}_)(?<ses>ses-\d+_)(?<descrip>\S+)', 'names');
+            fp = sprintf('all_%s_median', re.descrip);
+            size3d = size(ifc.img);
+            for i = 2:length(csv)
+                try
+                    ifc1 = mlfourd.ImagingFormatContext2(char(csv(i)));
+                    if isempty(ifc1.img)
+                        ifc.img(:,:,:,i) = nan(size3d);
+                    else
+                        ifc.img(:,:,:,i) = ifc1.img;
+                    end
+                catch
+                    ifc.img(:,:,:,i) = nan(size3d);
+                end
+            end
+            ifc.img = median(ifc.img, 4, 'omitnan');
+            ifc.fileprefix = fp;
+            ifc.filepath = ipr.filepath;
+            ifc.save();            
+        end
+        function csv_out = filter_missing_images(varargin)
+            ip = inputParser;
+            addRequired(ip, 'csv', @isfile);
+            addParameter(ip, 'csv_out', '', @istext)
+            addParameter(ip, 'singularity_home', getenv('SINGULARITY_HOME'), @isfolder);
+            parse(ip, varargin{:});
+            ipr = ip.Results;  
+            if isempty(ipr.csv_out)
+                [pth,fp,x] = fileparts(ipr.csv);
+                ipr.csv_out = fullfile(pth, strcat(fp, '_', x));
+            end
+
+            fprintf('mladni.NMF.filter_missing_images():\n')
+            
+            lines = readlines(ipr.csv); % string vector
+            lines1 = {};
+            Nmissing = 0;
+            for li = 1:length(lines)
+                line_ = lines{li};
+                if isempty(line_)
+                    break
+                end
+                if ~contains(line_, ipr.singularity_home)
+                    ss = strsplit(line_, 'Singularity');
+                    line_ = strcat(ipr.singularity_home, ss{2});
+                end
+                if isfile(line_)
+                    lines1 = [lines1; lines{li}];
+                else
+                    fprintf('\tmissing %s\n', line_);
+                    Nmissing = Nmissing + 1;
+                end
+            end
+
+            writetable(table(lines1), ipr.csv_out, 'WriteVariableNames', false);
+            fprintf('\tdiscovered %i missing files\n', Nmissing);
+            fprintf('\tread %s\n', ipr.csv);
+            fprintf('\twrote %s\n', ipr.csv_out);
+            csv_out = ipr.csv_out;
+        end
+        function split_nifti_files(csv)
+            [pth,fp,x] = myfileparts(csv);
+            if isempty(pth)
+                pth = pwd;
+            end
+            assert(isfolder(pth));
+            assert(strcmp(x, '.csv'));
+            pth1 = strcat(pth, '_split1');
+            if ~isfolder(pth1)
+                mkdir(pth1)
+            end
+            pth2 = strcat(pth, '_split2');
+            if ~isfolder(pth2)
+                mkdir(pth2)
+            end
+
+            % read table to split
+            tbl = readtable(csv, 'ReadVariableNames', false, 'Delimiter', ' ');
+
+            % define splits
+            s1 = rand(size(tbl.Var1));
+            s1 = s1 > 0.5;
+            s2 = ~s1;
+
+            % make splits
+            Var1 = tbl.Var1(s1);
+            csv1 = fullfile(pth1, strcat(fp, x));
+            writetable(table(Var1), csv1, 'WriteVariableNames', false);
+
+            Var2 = tbl.Var1(s2);
+            csv2 = fullfile(pth2, strcat(fp, x));
+            writetable(table(Var2), csv2, 'WriteVariableNames', false);
+        end
         
-        %% Aris'inference
+        %% Aris' inference
         
         function calculateComponentWeightedAverageNIFTI(dataList,resultsDir,numBases,outPath)
                         
@@ -98,6 +246,8 @@ classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             % outPath: CSV path to save output
             
             import mlniftitools.*;
+            resultsDir = convertStringsToChars(resultsDir);
+            outPath = convertStringsToChars(outPath);
             
             for b=1:length(numBases)
                 disp(numBases(b))
@@ -122,7 +272,7 @@ classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 if any(Blen==0)
                     Blen(Blen==0) = 1;
                 end
-                nB = bsxfun(@times,B,1./Blen) ;
+                nB = bsxfun(@times,B,1./Blen);
                 
                 % since the size and number of files is such that we can not manage
                 % in batch mode, we are going to calculate weighted average values
@@ -159,6 +309,8 @@ classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end
         end
         function [RecError,X] = calcBLSARecError(inFiles, resultDir)
+
+            resultDir = convertStringsToChars(resultDir);
 
             % populating path
             % addpath(genpath('../../'));
@@ -206,7 +358,7 @@ classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 end
             end            
         end
-        function RecError = calcRecError(X, resultDir, outputDir)
+        function RecError = calcRecError(X, resultDir, outputDir, selectVoxels)
             
             % Function that calculates the reconstruction error given data matrix X and the non-negative matrix 
             % factorization results saved in the resultDir directory. The function additionally saves figures that plot
@@ -218,6 +370,9 @@ classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             % NumBases${K}, wehere K is the number of components for the solution), and inside the folder there is .mat 
             % file (ResultsExtractBases.mat) that contains the matrices W and H that were estimated by the non negative 
             % matrix factorization
+
+            resultDir = convertStringsToChars(resultDir);
+            outputDir = convertStringsToChars(outputDir);
             
             listing = dir(resultDir);
             listing=listing(3:end) ;
@@ -238,6 +393,7 @@ classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 disp(b/numDifBases)
                 load([resultDir '/NumBases' num2str(sortedBasisNum(b)) '/OPNMF/ResultsExtractBases.mat']) %#ok<LOAD>
                 Est = B*C ;
+                Est = Est(selectVoxels,:);
                 RecError(b) = norm(X-Est,'fro') ;
                 clear B C
             end
@@ -271,6 +427,171 @@ classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             saveas(gcf,[outputDir 'percentageImprovementRecError.png'])
             
             close all
+        end
+        function r = clustering_adjustedRand_fast(u,v)
+            % clustering quality measures assumptions : 
+            % 0 corresponds to background
+            % we do not care about the background
+            % cluster labels are assumed to be enumerated from 1 to max number of
+            % clusters
+            %
+            % this function should not be used when comparing binary segmentations
+            
+            m=max(max(u),max(v));
+            
+            if(m == 1)
+                error('ClusteringAdjustedRandFast:argChk','This method should not be used for comparing binary segmentations');
+            end
+            
+            va=zeros(1,m);
+            vb=zeros(1,m);
+            mat=zeros(m);
+            
+            for i=1:m
+                va(i) = sum(u==i) ;
+                vb(i) = sum(v==i) ;
+                hu = (u==i) ;
+                for j=1:m
+                    hv = (v==j) ;
+                    mat(i,j) = sum(hu.*hv);
+                end
+            end
+            
+            ra=sum(sum(mat.*(mat-ones(m))))/2.0;
+            
+            rb=va*(va-ones(1,m))'/2.0;
+            
+            rc=vb*(vb-ones(1,m))'/2.0;
+            
+            rn=length(u)*(length(u)-1)/2.0;
+            
+            r=(ra-rb*rc/rn)/( 0.5*rb+0.5*rc-rb*rc/rn );
+        end
+        function [meanInner,medianInner,ARI,sortedBasisNum] = evaluateReproducibility(pathDir1,pathDir2,outputDir)
+            
+            % function that evaluates the reproducibility between the results obtained
+            % for two different splits
+            % The scripts assumes that experiments using the same range of components
+            % have been performed for both splits. 
+            
+            % inputs
+            % pathDir1: path to the results of the first split
+            % pathDir2: path to the results of the second split
+            % outputDir: where to save results and figures
+            
+            % outputs
+            % meanInner : mean value of the inner product between matched components
+            % medianInner : median value of the inner product between matched components
+            % ARI : adjusted Rand Index evaluated by deriving hard clusters from the
+            % estimated components
+            % sortedBasisNum : range of values for which components were estimated
+            
+
+            pathDir1 = convertStringsToChars(pathDir1);
+            pathDir2 = convertStringsToChars(pathDir2);
+            outputDir = convertStringsToChars(outputDir);
+
+            listing = dir(pathDir1);
+            listing=listing(3:end) ;
+            hh =cellfun(@(x) ( (strfind(x,'NumBases')==1)  ),{listing(:).name},'UniformOutput',false) ;
+            listing=listing(cellfun(@(x) (~isempty(x)&&(x==1)),hh));
+            numDifBases=numel(listing);
+            
+            % sort them in ascending order
+            basisNum = zeros(1,numDifBases) ;
+            for i=1:numDifBases
+                basisNum(i) = str2double(listing(i).name(9:end));
+            end
+            [~,idx]=sort(basisNum) ;
+            sortedBasisNum=basisNum(idx) ;
+            
+            ARI=zeros(numDifBases,1);
+            
+            for exp=1:numDifBases
+                disp([ num2str(exp) '/' num2str(numDifBases)])
+               
+                resSplit1 = load([pathDir1 '/NumBases' num2str(sortedBasisNum(exp)) '/OPNMF/ResultsExtractBases.mat']) ;
+                resSplit2 = load([pathDir2 '/NumBases' num2str(sortedBasisNum(exp)) '/OPNMF/ResultsExtractBases.mat']) ;
+                
+                % normalize to unit norm
+                wlen1 = sqrt(sum((resSplit1.B).^2)) ;
+                wlen2 = sqrt(sum((resSplit2.B).^2)) ;    
+                
+                if any(wlen1==0)
+                    wlen1(wlen1==0) = 1;
+                end
+                W1 = bsxfun(@times,resSplit1.B,1./wlen1) ;
+               
+                if any(wlen2==0)
+                    wlen2(wlen2==0) = 1;
+                end
+                W2 = bsxfun(@times,resSplit2.B,1./wlen2) ;
+                
+                % calculate inner products
+                inner_product = W1'*W2 ;
+                
+                % take a distance
+                dist = 2*(1 - inner_product) ;
+                
+                % find correspondences
+                [Matching,~] = Hungarian(dist);
+                [~,idx_hug1]=max(Matching,[],2);
+                
+                % overlap - hungarian
+                overlap{exp} = zeros(length(wlen1),1) ;
+                for b=1:length(wlen1)
+                    overlap{exp}(b) = inner_product(b,idx_hug1(b));
+                end
+                
+                % overlap with best
+                overlap_best{exp} = max(inner_product,[],2) ;
+                
+                % also evaluate overlap based on adjusted Rand Index    
+                rowLen1 = sum(W1,2) ;
+                rowLen2 = sum(W2,2) ;
+                
+                if any(rowLen1==0)
+                    rowLen1(rowLen1==0) = 1 ;
+                end
+                if any(rowLen2==0)
+                    rowLen2(rowLen2==0) = 1 ;
+                end
+                WW1 = bsxfun(@times,(W1'),1./(rowLen1')); WW1=WW1';
+                WW2 = bsxfun(@times,(W2'),1./(rowLen2')); WW2=WW2';
+                
+                [~,clustering1] = max(WW1,[],2);
+                [~,clustering2] = max(WW2,[],2);
+                ARI(exp) = mladni.NMF.clustering_adjustedRand_fast(clustering1,clustering2);
+                
+            end
+            
+            meanInner=cellfun(@(x) mean(x),overlap,'UniformOutput', false);
+            medianInner=cellfun(@(x) median(x),overlap,'UniformOutput', false);
+            
+            % save results
+            save([outputDir '/reproducibilityResults.mat'],'meanInner','medianInner','ARI','sortedBasisNum');
+            
+            %stdInner=cellfun(@(x) std(x),overlap,'UniformOutput', false);
+            figure;plot(sortedBasisNum,cell2mat(meanInner),'b','LineWidth',2)
+            xlabel('Number of components','fontsize',12)
+            ylabel({'Split-sample reproducibility';'(mean inner product)'},'fontsize',12)
+            set(gca,'fontsize',12)
+            saveas(gcf,[outputDir '/MeanInnerProductReproducibility.fig'])
+            saveas(gcf,[outputDir '/MeanInnerProductReproducibility.png'])
+            
+            figure;plot(sortedBasisNum,cell2mat(medianInner),'b','LineWidth',2)
+            xlabel('Number of components','fontsize',12)
+            ylabel({'Split-sample reproducibility';'(median inner product)'},'fontsize',12)
+            set(gca,'fontsize',12)
+            saveas(gcf,[outputDir '/MedianInnerProductReproducibility.fig'])
+            saveas(gcf,[outputDir '/MedianInnerProductReproducibility.png'])
+            
+            figure;plot(sortedBasisNum,ARI,'b','LineWidth',2)
+            xlabel('Number of components','fontsize',12)
+            ylabel({'Split-sample reproducibility' ;'(Adjusted Rand Index)'},'fontsize',12)
+            set(gca,'fontsize',12)
+            saveas(gcf,[outputDir '/AdjustedRandIndexReproducibility.fig'])
+            saveas(gcf,[outputDir '/AdjustedRandIndexReproducibility.png'])
         end
         function data = loadDataFromList(list,param,subsetIdx)
             
@@ -346,7 +667,7 @@ classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             if(~isempty(param.smooth) && param.smooth ~= 0)
                 disp('Data are going to be smoothed !');
                 disp(['User specified smoothing kernel : ' num2str(param.smooth)]);
-                [status,scratchDir]=system('echo ${SBIA_TMPDIR}');
+                [status,scratchDir]=tempdir; %system('echo ${SBIA_TMPDIR}');
                 scratchDir=strtrim(scratchDir);
                 if(status ~= 0)
                     error(['extractBases:loscratchDiradDataFromList ','Can not find which is the scratch directory.']);
@@ -360,7 +681,7 @@ classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                     error(['extractBases:loadDataFromList ','Can not find process id.']);
                 end
                 % make temp directory to smooth images
-                tmpDirName=[scratchDir '/smoothImg_NumBases_' num2str(param.numBases) '_PID_' num2str(pid) ] ;
+                tmpDirName=[scratchDir '/smoothImg_NumBases_' num2str(param.numBase) '_PID_' num2str(pid) ] ;
                 
                 for tt=1:3
                     % if directory exists I will try to create a unique name 3 times
@@ -560,26 +881,45 @@ classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         outputDir
         selectedNumBases
         volbin
+        Xmat
     end
     
     methods
         function call(this)
             param.isList = 1 ;
             param.downSample = 1 ;
-            data = loadData(this.inFiles,param,[]) ;
-            meanX = mean(data.X,2);
-            X = data.X(meanX>0,:); 
-            clear data;
-            resultsDir = fullfile(this.outputDir, 'results');
-            this.calcRecError(X, this.outputDir, resultsDir);
-
-            componentDir = fullfile(this.outputDir, 'components');
-            if ~isfolder(componentDir)
-                mkdir(componentDir);
+            param.smooth = 0;
+            param.mask = [];
+            param.permute = 0;
+            param.numBase = this.selectedNumBases;
+            if isfile(this.Xmat)
+                load(this.Xmat);
+            else
+                data = this.loadData(this.inFiles,param,[]);
+                meanX = mean(data.X,2);
+                X = data.X(meanX>0,:); 
+                clear data;
+                save(this.Xmat, 'X', 'meanX');
             end
+            resultsDir = fullfile(this.outputDir, 'results');
+            ensuredir(resultsDir);
+            this.calcRecError(X, this.outputDir, resultsDir, meanX>0);
+
+            componentDir = fullfile(this.outputDir, sprintf('NumBases%i', param.numBase), 'components');
+            ensuredir(componentDir);
             this.calculateComponentWeightedAverageNIFTI( ...
-                this.inFiles, this.outputDir, this.selectedNumBases, componentDir);
+                this.inFiles, this.outputDir, this.selectedNumBases, fullfile(componentDir, 'component_weighted_average.csv'));
+        end
+        function inFiles2 = replace_inFiles(~, inFiles)
             
+            tbl = readtable(inFiles, 'ReadVariableNames', false, 'Delimiter', ' ');
+            Var1 = tbl.Var1;
+            Var1 = strrep(Var1, '/home/aris_data/ADNI_FDG', fullfile(getenv('SINGULARITY_HOME'), 'ADNI'));
+            Var1 = strrep(Var1, '/scratch/jjlee/Singularity', getenv('SINGULARITY_HOME'));
+            
+            [pth,fp,x] = myfileparts(inFiles);
+            inFiles2 = fullfile(pth, strcat(fp, '2', x));
+            writetable(table(Var1), inFiles2, 'WriteVariableNames', false);
         end
         function run_extractBasesMT(this, numBases, outputDir)
             assert(isscalar(numBases));
@@ -596,7 +936,7 @@ classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         end
         
         function this = NMF(varargin)
-            %% NMF 
+            %% NMF works in getenv('SINGULARITY_HOME')
             %  Args:
             %      memInGB (scalar):  slurm mem request per batch job.
             %      nmfDataset (text): tag for dataset, used to specify workDir/nmfDataset/nifti_files.csv; 
@@ -604,10 +944,14 @@ classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             %      workDir (text): containing subfolder for dataset, then subfolders for variable NMF components.
             %      volbin (text): home for NMF standalone executable.
             
+            if contains(hostname, 'pascal')
+                setenv('SINGULARITY_HOME', '/mnt/CHPC_scratch/Singularity');
+            end
+
             ip = inputParser;
             addParameter(ip, "memInGB", 32, @isscalar);
-            addParameter(ip, "nmfDataset", "test", @(x) istext(x));
-            addParameter(ip, "selectedNumBases", 20, @isscalar);
+            addParameter(ip, "nmfDataset", "baseline4", @(x) istext(x));
+            addParameter(ip, "selectedNumBases", 28, @isscalar);
             addParameter(ip, "volbin", ...
                 fullfile(getenv("SINGULARITY_HOME"), "ADNI/VolBin"), @isfolder);
             addParameter(ip, "workDir", ...
@@ -620,9 +964,13 @@ classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             this.outputDir = fullfile(ipr.workDir, this.nmfDataset, '');
             assert(isfolder(this.outputDir));
             this.inFiles = fullfile(this.outputDir, 'nifti_files.csv');
+            this.inFiles = this.replace_inFiles(this.inFiles);
+            this.inFiles = this.filter_missing_images(this.inFiles);
             assert(isfile(this.inFiles));
             this.selectedNumBases = ipr.selectedNumBases;
             this.volbin = ipr.volbin;
+            numBasesFolder = sprintf('NumBases%i', ipr.selectedNumBases);
+            this.Xmat = fullfile(this.outputDir, numBasesFolder, 'X.mat');
             
             % quasi-constant
             this.mcrroot = '/export/matlab/MCR/R2018b/v95';

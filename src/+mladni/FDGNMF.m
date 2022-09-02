@@ -6,7 +6,9 @@ classdef FDGNMF < handle & mladni.NMF
     %  Developed on Matlab 9.10.0.1851785 (R2021a) Update 6 for MACI64.  Copyright 2022 John J. Lee.
     
     methods (Static)
-        function create_baseline_csv(fin, fout, varargin)
+        function create_baseline_csv(fin, fout, varargin) 
+            %% creates csvs of filenames for baseline* nmf datasets
+
             ip = inputParser;
             ip.KeepUnmatched = true;
             addRequired(ip, 'fin', @(x) isfile(x) && contains(x, '.csv'));
@@ -33,7 +35,7 @@ classdef FDGNMF < handle & mladni.NMF
             writetable(table(fqfns), ftmp, 'WriteVariableNames', false);
             
             % adjust csv for derivatives, proc, suffix
-            mladni.FDGNMF.adjust_modality_csv(ftmp, fout, varargin{:});
+            mladni.FDGNMF.adjust_modality_csv(ftmp, ipr.fout, varargin{:});
             deleteExisting(ftmp)
         end
         function adjust_modality_csv(fin, fout, varargin)
@@ -57,7 +59,7 @@ classdef FDGNMF < handle & mladni.NMF
             ip.KeepUnmatched = true;
             addRequired(ip, 'fin', @(x) isfile(x) && contains(x, '.csv'));
             addRequired(ip, 'fout', @(x) istext(x) && contains(x, '.csv'))
-            addParameter(ip, 'suffix', '_on_T1w_Warped', @istext);
+            addParameter(ip, 'suffix', '_on_T1w_Warped_dlicv', @istext);
             addParameter(ip, 'proc', 'CASU-ponsvermis', @istext)
             parse(ip, fin, fout, varargin{:});
             ipr = ip.Results;
@@ -81,6 +83,7 @@ classdef FDGNMF < handle & mladni.NMF
             ip.KeepUnmatched = true;
             addRequired(ip, 'fin', @(x) isfile(x) && contains(x, '.csv'));
             addRequired(ip, 'fout', @(x) istext(x) && contains(x, '.csv'));
+            addParameter(ip, 'pve_idx', 1, @isscalar);
             parse(ip, fin, fout, varargin{:});
             ipr = ip.Results;
             assert(~strcmp(ipr.fin, ipr.fout));
@@ -95,7 +98,7 @@ classdef FDGNMF < handle & mladni.NMF
                 pth = fileparts(s);
                 pth = strrep(pth, 'rawdata', 'derivatives');
                 re = regexp(s, '\S+/(?<sub>sub-\d{3}S\d{4})_(?<ses>ses-\d{14})_(?<tail>\S+).nii.gz', 'names');
-                branch = tree(contains(tree, re.sub) & contains(tree, '_T1w_brain_pve_1_detJ_Warped.nii.gz'));
+                branch = tree(contains(tree, re.sub) & contains(tree, sprintf('_T1w_brain_pve_%i_Warped.nii.gz', ipr.pve_idx)));
                 if isempty(branch)
                     continue
                 end
