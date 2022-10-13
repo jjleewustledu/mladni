@@ -1,6 +1,6 @@
  classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
     %% baseline5 ~ 22 bases
-    %  baseline4 ~ 20 bases
+    %  baseline4 ~ 28 bases
     %  baseline_pve1_msk ~ 16 bases
     %  baseline_pve1_msk_fdg ~ 14 bases
     %  
@@ -909,6 +909,11 @@
             ensuredir(componentDir);
             this.calculateComponentWeightedAverageNIFTI( ...
                 this.inFiles, this.outputDir, this.selectedNumBases, fullfile(componentDir, 'component_weighted_average.csv'));
+
+            pwd0 = pushd(componentDir);
+            fdg = mladni.FDGDemographics();
+            fdg.table_covariates('component_weighted_average.csv');
+            popd(pwd0);
         end
         function inFiles2 = replace_inFiles(~, inFiles)
             

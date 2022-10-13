@@ -24,6 +24,7 @@ classdef FDGDemographics < handle
                 if isempty(f{1}); continue; end
                 try
                     item = f{1};
+                    itemj = '';
                     if contains(item, ',')
                         ss = strsplit(item, ',');
                         item = ss{1};
@@ -35,6 +36,9 @@ classdef FDGDemographics < handle
                         g = glob(fullfile(pth, '*orient-rpi_pet.json'));
                         assert(~isempty(g))
                         itemj = g{1};
+                    end
+                    if isempty(itemj)
+                        itemj = item;
                     end
                     jfile = strrep(itemj, '.nii.gz', '.json');
                     j = jsondecode(fileread(jfile));
@@ -337,7 +341,7 @@ classdef FDGDemographics < handle
             %  Saves separate tables for each component.
             %
             %  Args:
-            %      fn_csv (required file): csv containing single column of fqfns of all imaging files.
+            %      fn_csv (required file): csv containing single fqfns & component averages of all imaging files.
             %      trap_outliers (logical): removes scans with PVE1 > mean(PVE1) + 5*std(PVE1).
             %      save_1comp (logical): call this.table_covariates_1comp() for all components.
 
@@ -352,7 +356,6 @@ classdef FDGDemographics < handle
             t = table_fdg1(this);   
             t = removevars(t, ...
                 {'Subject', 'RID', 'Sex', 'Age', 'Visit', 'Modality', 'Description', 'Type', 'AcqDate', 'Format', 'Downloaded', 'Group', ...
-                 'AmyloidStatus', ...
                  'MergeVisCode', 'MergeFdg', 'MergePib', 'MergeAv45', 'MergeAbeta', 'MergeTau', 'MergePTau', ...
                  'MergeExamDateBl', 'MergeFdgBl', 'MergePibBl', 'MergeAv45Bl', ...
                  'MergeAbetaBl', 'MergeTauBl', 'MergePTauBl', 'MergeMmseBl', 'MergeDxBl', 'MergeYearsBl', ...
