@@ -1,5 +1,5 @@
 classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
-    %% FDG uses object-oriented mlfsl.Flirt for registration and mlfourd.ImagingContext2 for actions on imaging data.  
+    %% FDG uses object-oriented mlfsl.Flirt & 4dfp for registration and mlfourd.ImagingContext2 for actions on imaging data.  
     %  Most common use case:
     %  >> an_fdg = mlfourd.ImagingContext2(fq_filename)
     %  >> obj = mladni.FDG(an_fdg);
@@ -1233,7 +1233,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 jsonrecode(j0, j1, 'filenameNew', this.json(flirt_on_atl_.out));
             end
         end        
-        function this = build_deepmrseg_warped(this) 
+        function this = build_deepmrseg_warped(this)
             % warp to atlas    
 
             t1w_dlicv_w = mlfourd.ImagingContext2( ...
@@ -1663,12 +1663,14 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             %    this.t1w_n4_ = copy(this.t1w);
             %    return
             %end
-            this.ants.N4BiasFieldCorrection(this.t1w, this.t1w_n4);
-            
-            mladni.FDG.jsonrecode( ...
-                this.t1w, ...
-                struct('image_mass', this.image_mass(this.t1w_n4)), ...
-                this.t1w_n4);
+            try
+                this.ants.N4BiasFieldCorrection(this.t1w, this.t1w_n4);
+                mladni.FDG.jsonrecode( ...
+                    this.t1w, ...
+                    struct('image_mass', this.image_mass(this.t1w_n4)), ...
+                    this.t1w_n4);
+            catch
+            end
         end
         function this = resolve_fdg2t1w(this)
             pwd0 = pushd(this.fdg.filepath);
@@ -1749,6 +1751,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             %      fdg (required any): understood by mlfourd.ImagingContext2.  rawdata gets copied to derivatives.
             %      t1w (any): understood by mlfourd.ImagingContext2.
             %      atl (any): param understood by mlfourd.ImagingContext2.
+            %      rawdata_folder(text)
             %      rawdata_path (text): path to replace path containing sub-*/ses-*/{pet,anat}.  Default := fdg.
             %      derivatives_path (text): path to replace path containing sub-*/ses-*/pet.  Default := fdg.
             %      blur (scalar): default := 0.
@@ -1758,6 +1761,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             addRequired(ip, "fdg")
             addParameter(ip, "t1w", [])
             addParameter(ip, "atl", fullfile(getenv("REFDIR"), "MNI152_T1_2mm.nii.gz"))
+            addParameter(ip, "rawdata_folder", 'rawdata', @istext)
             addParameter(ip, "rawdata_path", "", @istext)
             addParameter(ip, "derivatives_path", "", @istext)
             addParameter(ip, "blur", 0, @isscalar)
@@ -1765,7 +1769,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             parse(ip, varargin{:})
             ipr = ip.Results;   
             ic__ = mlfourd.ImagingContext2(ipr.fdg);
-            deriv_pth = strrep(ic__.filepath, 'rawdata', 'derivatives');         
+            deriv_pth = strrep(ic__.filepath, ipr.rawdata_folder, 'derivatives');         
             
             % construct fdg
             this.fdg_proc_ = ipr.proc;
@@ -1792,15 +1796,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             this.atl_ = mlfourd.ImagingContext2(ipr.atl);
 
             % construct paths
-            if 0 == strlength(ipr.rawdata_path)
-                re = regexp(this.fdg_.filepath, '(?<rdp>\S+)/sub-\d{3}S\d{4}/ses-\d+/pet', 'names');
-                this.rawdata_path_ = re.rdp;
-                assert(isfolder(this.rawdata_path_))
-            end
-            if 0 == strlength(ipr.derivatives_path)
-                this.derivatives_path_ = fullfile(fileparts(this.rawdata_path_), 'derivatives', '');
-                assert(~isempty(this.derivatives_path_))
-            end
+            this.construct_paths(ipr);
 
             % ANTs
             this.ants = mlfsl.ANTs('workpath', this.t1w_.filepath);
@@ -1864,6 +1860,18 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
     end
 
     methods (Access = protected)
+        function construct_paths(this, ipr)
+            if 0 == strlength(ipr.rawdata_path)
+                re = regexp(this.fdg_.filepath, '(?<rdp>\S+)/sub-\d{3}S\d{4}/ses-\d+/pet', 'names');
+                this.rawdata_path_ = re.rdp;
+                this.rawdata_path_ = strrep(this.rawdata_path_, 'derivatives', ipr.rawdata_folder);
+                assert(isfolder(this.rawdata_path_))
+            end
+            if 0 == strlength(ipr.derivatives_path)
+                this.derivatives_path_ = fullfile(fileparts(this.rawdata_path_), 'derivatives', '');
+                assert(~isempty(this.derivatives_path_))
+            end
+        end
         function that = copyElement(this)
             %%  See also web(fullfile(docroot, 'matlab/ref/matlab.mixin.copyable-class.html'))
             
