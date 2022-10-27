@@ -1,6 +1,5 @@
  classdef NMFRegression < handle
-    %% line1
-    %  line2
+    %% GAM Regressions with trees
     %  
     %  Created 14-Sep-2022 20:29:21 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.12.0.2039608 (R2022a) Update 5 for MACI64.  Copyright 2022 John J. Lee.
@@ -19,12 +18,21 @@
     end
 
     properties (Dependent)
+        argmax_fileprefix
         component_weighted_average_csv
         idx_cn
         idx_dementia
         idx_mci
+        Ncomp
+        niiImgDir
+        numBasesDir
+        standardDir
+        table1pp % for paper (table 1)++
         table_covariates
         table_covariates_mat
+        table_features
+        table_MergeCdrsbBl
+        table_predictor
         table_selected
         table_train
         table_test
@@ -34,6 +42,9 @@
 
         %% GET
 
+        function g = get.argmax_fileprefix(~)
+            g = 'Basis_argmax_brain_mask_dil1';
+        end
         function g = get.component_weighted_average_csv(this)
             g = fullfile(this.componentDir, 'component_weighted_average.csv');
         end        
@@ -45,6 +56,61 @@
         end
         function g = get.idx_mci(this)
             g = strcmpi(this.table_train.MergeDx, 'MCI');
+        end
+        function g = get.Ncomp(this)
+            re = regexp(mybasename(this.numBasesDir), 'NumBases(?<N>\d+)', 'names');
+            assert(~isempty(re))
+            g = str2double(re.N);
+        end
+        function g = get.niiImgDir(this)
+            g = fullfile(this.numBasesDir, 'OPNMF', 'niiImg');
+        end
+        function g = get.numBasesDir(this)
+            g = fileparts(strtrim(this.componentDir));
+        end
+        function g = get.standardDir(~)
+            g = fullfile(getenv('FSLDIR'), 'data', 'standard');
+        end
+        function g = get.table1pp(this)
+            if ~isempty(this.table1pp_)
+                g = this.table1pp_;
+                return
+            end
+            table1pp_mat_ = fullfile(this.componentDir, 'table1pp.mat');
+            if isfile(table1pp_mat_)
+                ld = load(table1pp_mat_);
+                this.table1pp_ = ld.table1pp;
+                g = this.table1pp_;
+                return
+            end
+
+            % build de novo
+            pwd0 = pushd(this.componentDir);
+            ld = load('pcor_cdrsb_and_components.mat');
+            pcor = ld.pcor_cdrsb_and_components;
+            ld = load('ms1model.mat'); % gam smooth
+            ms1 = ld.ms1model;
+            ld = load('ms3model.mat'); % linear
+            ms3 = ld.ms3model;
+            patterns = (1:this.Ncomp)';
+            t = table(patterns);
+            t.beta = ms3.beta;
+            t.beta_se = ms3.se;
+            t.lin_tval = ms3.tval;
+            t.lin_pval = ms3.pval;
+            t.lin_fdrp = ms3.fdrpval;
+            t.edf = ms1.edf;
+            t.rfDF = ms1.rfDF;
+            t.F = ms1.F;
+            t.smooth_pval = ms1.pval;
+            t.smooth_fdrp = ms1.fdrpval;            
+            t.pcor = pcor.pcor;
+            t.pcor_pval = pcor.pval;
+            t.pcor_tval = pcor.tval;
+            t.pcor_gp = pcor.gp;
+            t.n = pcor.n;            
+            this.table1pp_ = t;
+            popd(pwd0)
         end
         function g = get.table_covariates(this)
             if ~isempty(this.table_covariates_)
@@ -71,6 +137,24 @@
         end
         function g = get.table_covariates_mat(this)
             g = fullfile(this.componentDir, 'mladni_FDGDemographics_table_covariates.mat');
+        end
+        function g = get.table_features(this)
+            t = this.table_covariates;
+            
+            u = removevars(t, {'Filelist' 'ImageDataID' 'MergeExamDate' 'EXAMDATE' 'Components'});
+            u = removevars(u, {'CDMEMORY' 'CDORIENT' 'CDJUDGE' 'CDCOMMUN' 'CDHOME' 'CDCARE' 'CDGLOBAL'});
+            u = removevars(u, {'MergeDx'});
+            g = movevars(u, 'MergeCdrsbBl', 'After', 'PVE1');
+        end
+        function g = get.table_MergeCdrsbBl(this)
+            t = this.table_covariates;
+
+            w = table(t.Components, t.MergeCdrsbBl);
+            w = renamevars(w, {'Var1' 'Var2'}, {'Component' 'MergeCdrsbBl'});
+            g = splitvars(w);
+        end
+        function g = get.table_predictor(this)
+            g = this.table1pp;
         end
         function g = get.table_selected(this)
             %% last column is response variable
@@ -107,6 +191,114 @@
 
         %% 
 
+        function ic = build_basis_argmax(this)
+            %%
+
+            pwd0 = pushd(this.niiImgDir);
+
+            ic = mlfourd.ImagingContext2('Basis_1.nii');
+            ic = ic.zeros;
+            ifc = ic.nifti;
+            for idx = 1:this.Ncomp
+                ic_ = mlfourd.ImagingContext2(sprintf('Basis_%i.nii', idx));
+                ic_ = ic_.blurred(3);
+                ic_ = ic_.thresh(0.0001); % avoid argmax near eps
+                ifc.img(:,:,:,idx) = ic_.nifti.img;
+            end
+            ifc.fileprefix = 'Basis_all'; % composite nifti of components
+            ifc.save
+
+            ic = mlfourd.ImagingContext2(ifc);
+            ic_sumt = ic.timeSummed; % reconstruction from components
+            ic_sumt = ic_sumt.blurred(2);
+            ic_sumt = ic_sumt.thresh(0.0001);
+            ic_sumt.save 
+            
+            ic_mask = ic_sumt.binarized; % mask of reconstruction from components
+            ic_mask.save
+
+            tmp = reshape(ifc.img, [91*109*91 this.Ncomp]);
+            [~,argmax] = max(tmp'); %#ok<UDIM> 
+            argmax = reshape(argmax, [91 109 91]);
+            ifc_argmax = copy(ifc);
+            ifc_argmax.img = argmax;
+            ifc_argmax.fileprefix = 'Basis_argmax';
+            ifc_argmax.save();
+
+            % tight mask
+            brain_mask = mlfourd.ImagingContext2(fullfile(this.standardDir, 'MNI152_T1_2mm_brain_mask.nii.gz'));
+            ic_argmax = mlfourd.ImagingContext2(ifc_argmax);
+            ic_argmax = ic_argmax .* brain_mask.binarized();
+            ic_argmax.fileprefix = strcat(ifc_argmax.fileprefix, '_brain_mask');
+            ic_argmax.save
+
+            % dilated mask
+            brain_mask = mlfourd.ImagingContext2(fullfile(this.standardDir, 'MNI152_T1_2mm_brain_mask_dil1.nii.gz'));
+            ic_argmax = mlfourd.ImagingContext2(ifc_argmax);
+            ic_argmax = ic_argmax .* brain_mask.binarized();
+            ic_argmax.fileprefix = strcat(ifc_argmax.fileprefix, '_brain_mask_dil1');
+            ic_argmax.save
+
+            % more dilated mask
+            brain_mask = mlfourd.ImagingContext2(fullfile(this.standardDir, 'MNI152_T1_2mm_brain_mask_dil.nii.gz'));
+            ic_argmax = mlfourd.ImagingContext2(ifc_argmax);
+            ic_argmax = ic_argmax .* brain_mask.binarized();
+            ic_argmax.fileprefix = strcat(ifc_argmax.fileprefix, '_brain_mask_dil');
+            ic_argmax.save
+
+            popd(pwd0)
+        end
+        function ic = build_F_nifti(this, varargin)
+            ip = inputParser;
+            addParameter(ip, 'Ntoshow', 8, @isscalar);
+            parse(ip, varargin{:});
+            ipr = ip.Results;
+
+            ifc = mlfourd.ImagingFormatContext2( ...
+                fullfile(this.numBasesDir, 'OPNMF', 'niiImg', strcat(this.argmax_fileprefix, '.nii')));   
+            img_ = zeros(size(ifc));
+            t = sortrows(this.table1pp, "F", "descend");
+            for c = 1:ipr.Ntoshow
+                img_(ifc.img == t.patterns(c)) = t.F(c);
+            end
+            ifc.img = img_;
+            ifc.fqfilename = fullfile(this.componentDir, 'F.nii.gz');
+            save(ifc);
+            ic = mlfourd.ImagingContext2(ifc);
+        end
+        function t = print_table1(this)
+            t = removevars(this.table1pp, ...
+                {'lin_pval' 'lin_fdrp' 'rfDF' 'smooth_pval' 'smooth_fdrp' 'pcor_pval' 'pcor_tval' 'pcor_gp'});
+
+            % remaining:  patterns, beta, beta_se, lin_tval, edf, F, pcor
+            for r = 1:size(t,1)
+                fprintf('%i & %0.2g & %0.2g & %0.3g & %0.3g & %0.3g & %0.2g \\\\ \n', ...
+                    t.patterns(r), t.beta(r), t.beta_se(r), t.lin_tval(r), t.edf(r), t.F(r), t.pcor(r));
+            end
+        end
+        function ic = build_tval_nifti(this, varargin)
+            ip = inputParser;
+            addParameter(ip, 'Ntoshow', this.Ncomp, @isscalar);
+            parse(ip, varargin{:});
+            ipr = ip.Results;
+
+            ifc = mlfourd.ImagingFormatContext2( ...
+                fullfile(this.numBasesDir, 'OPNMF', 'niiImg', strcat(this.argmax_fileprefix, '.nii')));            
+            img_ = zeros(size(ifc));
+            t = sortrows(this.table1pp, "lin_tval", "ascend");
+            for c = 1:ipr.Ntoshow
+                img_(ifc.img == t.patterns(c)) = t.lin_tval(c);
+            end
+            ifc.img = img_;
+            if ipr.Ntoshow < this.Ncomp
+                fn = sprintf('lin_tval_best%i.nii.gz', ipr.Ntoshow);
+            else
+                fn = 'lin_tval.nii.gz';
+            end
+            ifc.fqfilename = fullfile(this.componentDir, fn);
+            save(ifc);
+            ic = mlfourd.ImagingContext2(ifc);
+        end
         function cmdl = compact(this)
             if ~isempty(this.compact_mdl_)
                 cmdl = this.compact_mdl_;
@@ -332,8 +524,8 @@
             %% NMFREGRESSION 
             %  Args:
             %      componentDir (folder):  containing component_weighted_average.csv
-            %                              generatead by mladi.NMF.call(), 
-            %                              e.g., baseline4/NumBases28/components
+            %                              generatead by mladni.NMF.call(), 
+            %                              e.g., baseline4/NumBases32/components
             %      crossVal (text):  default := 'on'.
             %      do_bayesopt (logical):  default := true
             %      holdout (scalar):  < 1 for training, testing with cross-validation.
@@ -348,7 +540,7 @@
             addParameter(ip, "do_bayesopt", true, @islogical);
             addParameter(ip, "holdout", 0.2, @(x) isscalar && x < 1);
             addParameter(ip, "is_bivariate", true, @islogical);
-            addParameter(ip, "selected_covariates", {'Components', 'MergePtGender', 'MergeAge', 'MergeCdrsbBl'}, @iscell);
+            addParameter(ip, "selected_covariates", {'Components', 'Phase', 'MergePtEducat', 'MergeApoE4', 'AmyloidStatus', 'MergeAge', 'MergeCdrsbBl'}, @iscell);
             addParameter(ip, "response", "", @istext);
             addParameter(ip, "reuse_mdl", true, @islogical);
             parse(ip, varargin{:});
@@ -368,20 +560,88 @@
         end
     end
 
-    %% PROTECTED
+    methods (Static)
+        function [u,v] = predictorImportance_fitrtree_pattern(indices, savefigs, close_fig, amy_status)
+            %  Returns:
+            %      u: table with ADNI variable names
+            %      v: table with publishable variable names
 
-    properties (Access = protected)
-        cvp_
-        compact_mdl_
-        mdl_bayesopt_
-        mdl_bi_
-        mdl_cv_
-        mdl_uni_
-        table_covariates_
-        table_selected_
+            arguments
+                indices {mustBeInteger,mustBeGreaterThan(indices,0)} = 1
+                savefigs logical = false
+                close_fig logical = false
+                amy_status {mustBeNumeric} = []
+            end
+
+            if isempty(amy_status)
+                ld = load('mladni_FDGDemographics_table_covariates.mat');
+                t = ld.t;
+                amy_stat = '';
+                amy_stat_ = '';
+            else
+                if isnan(amy_status)
+                    ld = load('mladni_FDGDemographics_table_covariates_amy_na.mat');
+                    t = ld.amy_na;
+                    amy_stat = 'Amyloid n/a';
+                    amy_stat_ = 'amy_na';
+                else
+                    if logical(amy_status)
+                        ld = load('mladni_FDGDemographics_table_covariates_amy_true.mat');
+                        t = ld.amy_true;
+                        amy_stat = 'Amyloid pos';
+                        amy_stat_ = 'amy_true';
+                    else
+                        ld = load('mladni_FDGDemographics_table_covariates_amy_false.mat');
+                        t = ld.amy_false;
+                        amy_stat = 'Amyloid neg';
+                        amy_stat_ = 'amy_false';
+                    end
+                end
+            end
+
+            % features, adding Component/pattern at far right of table
+            u = removevars(t, {'Filelist' 'ImageDataID' 'MergeExamDate' 'EXAMDATE' 'Components'});
+            u = u(:, [1 5 6 3 7   18 16 4 19 20   2 14 13 15 17   11 9 21 12 10   8]); % 21 vars remain
+
+            u = renamevars(u, ...
+                {'AmyloidStatus' 'MergeAge' 'MergePtGender' 'MergePtEducat' 'MergePtEthCat' 'MergePtRacCat' 'MergeApoE4' 'MergeMmse' 'MergeDx' 'MergeCdrsbBl' 'CDMEMORY' 'CDORIENT' 'CDJUDGE' 'CDCOMMUN' 'CDHOME' 'CDCARE' 'CDGLOBAL' 'Phase' 'SITEID' 'ICV' 'PVE1'}, ...
+                {'Amyloid Status' 'Age' 'Gender' 'Education' 'Ethnicity' 'Race' 'ApoE4' 'MMSE' 'Dx' 'CDR-SOB' 'CDR-Memory' 'CDR-Orientation' 'CDR-Judgement' 'CDR-Community' 'CDR-Home' 'CDR-Care' 'CDR-Global' 'ADNI Phase' 'Site ID' 'ICV' 'Gray'});
+ 
+            for idx = indices
+                % reintroduce features, ending in Pattern := ld.t.Components(:,idx)
+                Pattern = t.Components(:,idx); 
+                v = addvars(u, Pattern, 'After', 'MMSE');
+    
+                Mdl = fitrtree(v, 'Pattern', 'PredictorSelection', 'curvature', 'Surrogate', 'on');
+                imp = predictorImportance(Mdl);
+                figure;
+                bar(imp);
+                title(sprintf('Fitted Regression Tree, %s Pattern %i', amy_stat, idx));
+                ylabel('Predictor Importance Estimates', 'FontWeight', 'bold');
+                xlabel('Predictors', 'FontWeight', 'bold');
+                h = gca;
+                h.XTickLabel = Mdl.PredictorNames;
+                h.XTickLabelRotation = 45;
+                h.TickLabelInterpreter = 'none';
+                h.XTickLabelRotation = 90;
+                len = length(Mdl.PredictorNames);
+                set(gca, 'XTick', 1:len, 'XTickLabel', Mdl.PredictorNames)
+            end
+
+            if savefigs
+                p = strcat('fitrtree_pattern_', amy_stat_);
+                saveFigures(pwd, 'closeFigure', close_fig, 'prefix', p)
+            end
+        end
+        function stepwiseglm()
+        end
+        function stepwiselm()
+        end
     end
 
-    methods (Access = protected)
+    %% PROTECTED
+
+    methods
         function [yFit,ySD,yInt] = kfoldPredict(this, varargin)
             %% web(fullfile(docroot, 'stats/regressiongam.predict.html'))
             %
@@ -510,6 +770,18 @@
                 'Verbose', 0));
             save(matfile, 'mdl');
         end
+    end
+
+    properties (Access = protected)
+        cvp_
+        compact_mdl_
+        mdl_bayesopt_
+        mdl_bi_
+        mdl_cv_
+        mdl_uni_
+        table1pp_
+        table_covariates_
+        table_selected_
     end
     
     %  Created with mlsystem.Newcl, inspired by Frank Gonzalez-Morphy's newfcn.

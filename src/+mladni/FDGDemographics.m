@@ -341,14 +341,15 @@ classdef FDGDemographics < handle
             %  Saves separate tables for each component.
             %
             %  Args:
-            %      fn_csv (required file): csv containing single fqfns & component averages of all imaging files.
+            %      fn_csv (required file): csv containing single fqfns & component averages of all imaging files,
+            %                              commonly 'component_weighted_average.csv'.
             %      trap_outliers (logical): removes scans with PVE1 > mean(PVE1) + 5*std(PVE1).
             %      save_1comp (logical): call this.table_covariates_1comp() for all components.
 
             ip = inputParser;
             addRequired(ip, 'fn_csv', @isfile);
             addParameter(ip, 'trap_outliers', true, @islogical);
-            addParameter(ip, 'save_1comp', true, @islogical);
+            addParameter(ip, 'save_1comp', false, @islogical);
             parse(ip, varargin{:});
             ipr = ip.Results;
 
@@ -402,8 +403,12 @@ classdef FDGDemographics < handle
             t = t(~outliers, :);
             t = t(~isnan(t.MergeAge),:);
             % t.ImageDataID = [];
+
+            t = t(t.CDGLOBAL ~= -1, :);
+
             this.table_covariates_cache_ = t;
             save('mladni_FDGDemographics_table_covariates.mat', 't');
+            writetable(t, 'mladni_FDGDemographics_table_covariates.csv');
 
             % save separate tables for each component
             if ipr.save_1comp

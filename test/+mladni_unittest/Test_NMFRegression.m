@@ -1,6 +1,5 @@
 classdef Test_NMFRegression < matlab.unittest.TestCase
-    %% line1
-    %  line2
+    %% GAM Regrsssion with trees.
     %  
     %  Created 14-Sep-2022 20:29:22 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/test/+mladni_unittest.
     %  Developed on Matlab 9.12.0.2039608 (R2022a) Update 5 for MACI64.  Copyright 2022 John J. Lee.
@@ -190,7 +189,7 @@ classdef Test_NMFRegression < matlab.unittest.TestCase
         function setupNMFRegression(this)
             import mladni.*
             this.componentDir = fullfile(getenv('SINGULARITY_HOME'), ...
-                'ADNI', 'NMF_FDG', 'baseline4', 'NumBases28', 'components');
+                'ADNI', 'NMF_FDG', 'baseline4', 'NumBases32', 'components');
             this.testObj_ = NMFRegression('componentDir', this.componentDir);
 
             rng('default'); % for reproducibility
