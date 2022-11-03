@@ -622,22 +622,8 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             fn = strcat(ic.fqfp, '.json');
         end
         function jsonrecode(in, field, out)
-            if istext(in)
-                in = myfileprefix(in);
-            end
-            if isa(in, 'mlio.IOInterface')
-                in = in.fqfp;
-            end
-            if istext(out)
-                out = myfileprefix(out);
-            end
-            if isa(out, 'mlio.IOInterface')
-                out = out.fqfp;
-            end
-            
-            jsonrecode(strcat(in, '.json'), ...
-                struct(clientname(true, 3), field), ...
-                'filenameNew', strcat(out, '.json'));
+            str = struct(stackstr(3), field);
+            jsonrecode(in, str, 'filenameNew', out);
         end
         function fn = mat(obj)
             if isa(obj, 'mlfourd.ImagingContext2')

@@ -4,6 +4,37 @@
     %  Created 14-Sep-2022 20:29:21 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.12.0.2039608 (R2022a) Update 5 for MACI64.  Copyright 2022 John J. Lee.
     
+    properties (Constant)
+        ARIS_COVARIATES = ...
+            {'AmyloidStatus' 'MergeAge' 'MergePtGender' 'CDGLOBAL' ...
+            'Components'}
+        JACKS_COVARIATES = ...
+            {'AmyloidStatus' 'MergeFdg' 'MergeApoE4' ...
+            'MergeAge' 'MergePtGender' 'MergePtEducat' ...
+            'CDGLOBAL' 'MergeCdrsbBl' 'MergeMmseBl' ...
+            'Components'}
+        SELECTED_COVARIATES = ...
+            {'AmyloidStatus' 'MergeApoE4' ...
+            'MergeAge' 'MergePtGender' 'MergePtEducat' ...
+            'MergeCdrsbBl' 'MergeMmseBl' ...
+            'CDMEMORY' 'CDORIENT' 'CDJUDGE' 'CDCOMMUN' 'CDHOME' 'CDCARE' 'CDGLOBAL' ...
+            'Phase' 'SITEID' ...
+            'Components'}
+        MOST_COVARIATES = ...
+            {'AmyloidStatus' 'MergeApoE4' 'ICV' 'PVE1' ...
+            'MergeAge' 'MergePtGender' 'MergePtEducat' 'MergePtEthCat' 'MergePtRacCat' 'MergePtMarry' ...
+            'MergeMmseBl' 'MergeCdrsbBl' ...
+            'CDMEMORY' 'CDORIENT' 'CDJUDGE' 'CDCOMMUN' 'CDHOME' 'CDCARE' 'CDGLOBAL' ...
+            'MergeAdas11Bl' 'MergeAdas13Bl' 'MergeAdasQ4Bl' ...
+            'MergeRavltImmediateBl' 'MergeRavltLearningBl' 'MergeRavltForgettingBl' 'MergeRavltPercForgettingBl' ...
+            'MergeEcogPtMemBl' 'MergeEcogPtLangBl' 'MergeEcogPtVisspatBl' 'MergeEcogPtPlanBl' 'MergeEcogPtOrganBl' ...
+            'MergeEcogPtDivattBl' 'MergeEcogPtTotalBl' ...
+            'MergeEcogSPMemBl' 'MergeEcogSPLangBl' 'MergeEcogSPVisspatBl' 'MergeEcogSPPlanBl' 'MergeEcogSPOrganBl' ...
+            'MergeEcogSPDivattBl' 'MergeEcogSPTotalBl' ...
+            'Phase' 'SITEID' ...
+            'Components'}
+    end
+
     properties
         componentDir
         do_bayesopt
@@ -30,10 +61,10 @@
         table1pp % for paper (table 1)++
         table_covariates
         table_covariates_mat
-        table_features
+        table_features % table_selected w/o components, MergeCdrsbBl at end
         table_MergeCdrsbBl
         table_predictor
-        table_selected
+        table_selected % table_covariates w/ selected_covariates, response at end
         table_train
         table_test
     end
@@ -139,12 +170,9 @@
             g = fullfile(this.componentDir, 'mladni_FDGDemographics_table_covariates.mat');
         end
         function g = get.table_features(this)
-            t = this.table_covariates;
-            
-            u = removevars(t, {'Filelist' 'ImageDataID' 'MergeExamDate' 'EXAMDATE' 'Components'});
-            u = removevars(u, {'CDMEMORY' 'CDORIENT' 'CDJUDGE' 'CDCOMMUN' 'CDHOME' 'CDCARE' 'CDGLOBAL'});
-            u = removevars(u, {'MergeDx'});
-            g = movevars(u, 'MergeCdrsbBl', 'After', 'PVE1');
+            t = this.table_selected;
+            t = this.removecomponents(t);
+            g = movevars(t, 'MergeCdrsbBl', 'After', size(t,2));
         end
         function g = get.table_MergeCdrsbBl(this)
             t = this.table_covariates;
@@ -164,23 +192,9 @@
                 return
             end
 
-            g = table;
-            g_varnames = {};
-            t = this.table_covariates;
-            t_varnames = t.Properties.VariableNames;
-            for v = t_varnames
-                if contains(v{1}, this.selected_covariates)
-                    g = addvars(g, t.(v{1}));
-                    g_varnames = [g_varnames v{1}]; %#ok<AGROW> 
-                end
-            end
-            g.Properties.VariableNames = g_varnames;
-            g = splitvars(g, 'Components');
-            try
-                g = g(~matches(g.MergeDx, ''), :);
-            catch
-            end
+            g = table_optin(this, this.selected_covariates);
             g = movevars(g, this.response, 'After', size(g,2));
+            %g = splitvars(g, 'Components');
         end
         function g = get.table_train(this)
             g = this.table_selected(training(this.cvpartition()),:);
@@ -327,9 +341,182 @@
             cvp = this.cvp_;
             save(matfile, 'cvp');
         end
-        function mdl = fitrtree(this)
-            mdl = fitrtree(this.table_train, this.response);
-            view(mdl, "Mode", "graph")
+        function mdlc = fitlm(this, indices, modelspec, vars)
+            arguments
+                this mladni.NMFRegression
+                indices {mustBeInteger} = 5
+                modelspec {mustBeTextScalar} = 'quadratic'
+                vars cell {mustBeText} = this.ARIS_COVARIATES
+            end
+            
+            mdlc = cell(size(indices));
+            t = table_optin(this, vars);
+            u = this.removecomponents(t);          
+            for idx = indices
+                Pattern = t.Components(:,idx); 
+                v_ = addvars(u, Pattern); % added to far right of table
+                mdl_ = fitlm(v_, modelspec, PredictorVar=vars, ResponseVar='Pattern');
+                mdlc{idx} = mdl_; 
+                fprintf('Pattern %i  ============================================================================================================================================================\n', idx)
+                Coefficients = mdl_.Coefficients;
+                Coefficients(Coefficients.pValue > 0.05/this.Ncomp,:) = [];
+                disp(sortrows(Coefficients, 'pValue'))
+            end
+            nonempty = cellfun(@(x) ~isempty(x), mdlc);
+            mdlc = mdlc(nonempty);
+        end
+        function mdlc = fitlm_ArisDx(this, indices)
+            predictors_ = {'MergeAge' 'MergePtGender' 'ArisDx'};
+
+            mdlc = cell(size(indices));
+            t = this.table_covariates;
+            Components = t.Components;
+            t = mladni.NMFRegression.removenuisance(t);
+            u = mladni.NMFRegression.removecomponents(t);
+            
+            ArisDx = cell(size(u.MergePtGender));
+            select = u.AmyloidStatus == 0 & u.CDGLOBAL == 0;
+            ArisDx(select) = {'cn'};
+            select = u.AmyloidStatus == 1 & u.CDGLOBAL == 0;
+            ArisDx(select) = {'preclinical'};
+            select = u.AmyloidStatus == 1 & u.CDGLOBAL == 0.5;
+            ArisDx(select) = {'cdr0p5'};
+            select = u.AmyloidStatus == 1 & u.CDGLOBAL > 0.5;
+            ArisDx(select) = {'cdr1pp'};
+            u = addvars(u, ArisDx);
+            totoss = cellfun(@isempty, ArisDx);
+            u(totoss,:) = [];
+            Components(totoss,:) = [];
+            
+            for idx = indices
+                Pattern = Components(:,idx); 
+                v_ = addvars(u, Pattern); % added to far right of table
+                mdl_ = fitlm(v_, 'quadratic', PredictorVar=predictors_, ResponseVar='Pattern');
+                mdlc{idx} = mdl_; 
+                fprintf('Pattern %i  ==================================================================================================\n', idx)
+                Coefficients = mdl_.Coefficients;
+                Coefficients(Coefficients.pValue > 0.05/this.Ncomp,:) = [];
+                disp(sortrows(Coefficients, 'pValue'))
+            end
+            nonempty = cellfun(@(x) ~isempty(x), mdlc);
+            mdlc = mdlc(nonempty);
+        end
+        function [mdlc,explainer] = fitrgam(this, indices, opts)
+            %  Returns:
+            %      mdlc RegressionGAM
+
+            arguments
+                this mladni.NMFRegression
+                indices {mustBeInteger} = 5
+                opts.cdr double = 0.5
+                opts.queryPoint table = []
+                opts.savefigs logical = false
+                opts.close_fig logical = false
+            end
+
+            mdlc = cell(size(indices));
+            explainer = cell(size(indices));
+            t = this.table_train;
+            u = mladni.NMFRegression.removecomponents(t);            
+            for idx = indices
+                Pattern = t.Components(:,idx); 
+                v_ = addvars(u, Pattern); % added to far right of table
+                mdl_ = fitrgam(v_, 'Pattern', 'FitStandardDeviation', true, ...
+                    'OptimizeHyperparameters', 'all-univariate', ...
+                    'HyperparameterOptimizationOptions', ...
+                    struct('AcquisitionFunctionName','expected-improvement-plus','ShowPlots',false,'Verbose',0));
+                mdlc{idx} = mdl_; 
+                disp(mdl_)
+                if isempty(opts.queryPoint)
+                    opts.queryPoint = this.queryPoint(v_, idx, opts.cdr);
+                end
+                explainer{idx} = shapley(mdl_, QueryPoint=opts.queryPoint, UseParallel=true);
+                disp(explainer{idx}.ShapleyValues)
+                figure('DefaultAxesFontSize',14)
+                N = length(this.selected_covariates);
+                for nvars = N:-1:1
+                    try
+                        plot(explainer{idx}, NumImportantPredictors=nvars)
+                        break
+                    catch
+                    end
+                end
+                xlabel('Shapley Value', FontWeight='bold');
+                ylabel('Predictor', FontWeight='bold');
+                if opts.cdr < 1
+                    ti = sprintf('Shapley Explanation for Pattern %i; query CDR %g', idx, opts.cdr);
+                else
+                    ti = sprintf('Shapley Explanation for Pattern %i; query CDR 1:2', idx);
+                end
+                title(ti)
+                %view(mdl_, "Mode", "graph")
+            end
+            nonempty = cellfun(@(x) ~isempty(x), mdlc);
+            mdlc = mdlc(nonempty);
+
+            if opts.savefigs
+                p = sprintf('fitrgam_shapley_cdr%g_pattern', opts.cdr);
+                p = strrep(p, '.', 'p');
+                saveFigures(pwd, 'closeFigure', opts.close_fig, 'prefix', p)
+
+                save(sprintf('fitrgam_mdlc_cdr%g.mat', opts.cdr), 'mdlc');
+                save(sprintf('fitrgam_explainer_cdr%g.mat', opts.cdr), 'explainer');
+            end
+        end
+        function mdlc = fitrtree(this, indices, opts)
+            %  Returns:
+            %      mdlc RegressionTree
+
+            arguments
+                this mladni.NMFRegression
+                indices {mustBeInteger} = 5
+                opts.cdr double = 0.5
+                opts.queryPoint table = []
+                opts.savefigs logical = false
+                opts.close_fig logical = false
+            end
+
+            mdlc = cell(size(indices));
+            t = this.table_train;
+            u = mladni.NMFRegression.removecomponents(t);            
+            for idx = indices
+                Pattern = t.Components(:,idx); 
+                v_ = addvars(u, Pattern); % added to far right of table
+                mdl_ = fitrtree(v_, 'Pattern');
+                mdlc{idx} = mdl_; 
+                disp(mdl_)
+                if isempty(opts.queryPoint)
+                    opts.queryPoint = this.queryPoint(v_, idx, opts.cdr);
+                end
+                explainer = shapley(mdl_, QueryPoint=opts.queryPoint, UseParallel=true);
+                disp(explainer.ShapleyValues)
+                figure('DefaultAxesFontSize',14)
+                N = length(this.selected_covariates);
+                for nvars = N:-1:1
+                    try
+                        plot(explainer, NumImportantPredictors=nvars)
+                        break
+                    catch
+                    end
+                end
+                xlabel('Shapley Value', FontWeight='bold');
+                ylabel('Predictor', FontWeight='bold');
+                if opts.cdr < 1
+                    ti = sprintf('Shapley Explanation for Pattern %i; query CDR %g', idx, opts.cdr);
+                else
+                    ti = sprintf('Shapley Explanation for Pattern %i; query CDR 1:2', idx);
+                end
+                title(ti)
+                %view(mdl_, "Mode", "graph")
+            end
+            nonempty = cellfun(@(x) ~isempty(x), mdlc);
+            mdlc = mdlc(nonempty);
+
+            if opts.savefigs
+                p = sprintf('fitrtree_shapley_cdr%g_pattern', opts.cdr);
+                p = strrep(p, '.', 'p');
+                saveFigures(pwd, 'closeFigure', opts.close_fig, 'prefix', p)
+            end
         end
         function gam = generalized_additive_model(this, varargin)
             %% web(fullfile(docroot, 'stats/regressiongam.html#mw_6b1cf57e-6602-4aa4-a76a-ee199299b0b7'))
@@ -469,6 +656,8 @@
             saveFigures(pwd, 'closeFigure', false, 'prefix', clientname(true, 2))
         end
         function plotPartialDependence(this)
+            %% web(fullfile(docroot, 'stats/regressiontree.plotpartialdependence.html?browser=F1help'))
+
             tic
             CMdl = compact(this);
             fprintf([clientname(true, 2) ':  ']);
@@ -514,10 +703,74 @@
                 yInt = [];
             end
         end
+        function predictorImportance(this, tree)
+            %% web(fullfile(docroot, 'stats/compactregressiontree.predictorimportance.html?browser=F1help'))
+
+            arguments
+                this mladni.NMFRegression %#ok<INUSA> 
+                tree RegressionTree
+            end
+            
+            imp = predictorImportance(tree);
+            figure;
+            bar(imp);
+            title(sprintf('Fitted Regression Tree for %s', tree.ResponseName));
+            ylabel('Predictor Importance Estimates', 'FontWeight', 'bold');
+            xlabel('Predictors', 'FontWeight', 'bold');
+            h = gca;
+            h.XTickLabel = tree.PredictorNames;
+            h.TickLabelInterpreter = 'none';
+            h.XTickLabelRotation = 90;
+            len = length(tree.PredictorNames);
+            set(gca, 'XTick', 1:len, 'XTickLabel', tree.PredictorNames)
+        end
         function this = regressionLearner(this)
             %% web(fullfile(docroot, 'stats/regressionlearner-app.html'))
 
             regressionLearner();  
+        end        
+        function mdlc = stepwiselm(this, indices, modelspec, vars)
+            arguments
+                this mladni.NMFRegression
+                indices {mustBeInteger} = 5
+                modelspec {mustBeTextScalar} = 'quadratic'
+                vars cell {mustBeText} = this.JACKS_COVARIATES
+            end
+
+            mdlc = cell(size(indices));
+            t = table_optin(this, vars);
+            u = mladni.NMFRegression.removecomponents(t);
+            for idx = indices
+                Pattern = t.Components(:,idx); 
+                v_ = addvars(u, Pattern); % added to far right of table
+                mdl_ = stepwiselm(v_, modelspec, ResponseVar='Pattern', Criterion='bic');
+                mdlc{idx} = mdl_; 
+                fprintf('Pattern %i  ============================================================================================================================================================\n', idx)
+                Coefficients = mdl_.Coefficients;
+                Coefficients(Coefficients.pValue > 0.05/this.Ncomp,:) = [];
+                disp(sortrows(Coefficients, 'pValue'))
+            end
+            nonempty = cellfun(@(x) ~isempty(x), mdlc);
+            mdlc = mdlc(nonempty);
+        end
+        function t = table_optin(this, vars)
+            arguments
+                this mladni.NMFRegression
+                vars cell {mustBeText} = this.selected_covariates
+            end
+
+            t = table;
+            t_varnames = {};
+            t_ = this.table_covariates;
+            t_ = this.removenuisance(t_);
+            t__varnames = t_.Properties.VariableNames;
+            for v = t__varnames
+                if contains(v{1}, vars)
+                    t = addvars(t, t_.(v{1}));
+                    t_varnames = [t_varnames v{1}]; %#ok<AGROW> 
+                end
+            end
+            t.Properties.VariableNames = t_varnames;
         end
 
         function this = NMFRegression(varargin)
@@ -530,7 +783,7 @@
             %      do_bayesopt (logical):  default := true
             %      holdout (scalar):  < 1 for training, testing with cross-validation.
             %      is_bivariate (logical):  default := true
-            %      selected_covariates (cell):  e.g., {'Components', 'MergeAge', 'MergePtGender', 'MergeCdrsbBl'}
+            %      selected_covariates (cell):  e.g., {'MergeAge', 'MergePtGender', 'MergeCdrsbBl', 'Components_1'}
             %      response (text):  one of selected_covariates, default := selected_covariates{end}.
             %      reuse_mdl (logical):  default true.
             
@@ -540,7 +793,7 @@
             addParameter(ip, "do_bayesopt", true, @islogical);
             addParameter(ip, "holdout", 0.2, @(x) isscalar && x < 1);
             addParameter(ip, "is_bivariate", true, @islogical);
-            addParameter(ip, "selected_covariates", {'Components', 'Phase', 'MergePtEducat', 'MergeApoE4', 'AmyloidStatus', 'MergeAge', 'MergeCdrsbBl'}, @iscell);
+            addParameter(ip, "selected_covariates", this.SELECTED_COVARIATES, @iscell);
             addParameter(ip, "response", "", @istext);
             addParameter(ip, "reuse_mdl", true, @islogical);
             parse(ip, varargin{:});
@@ -553,7 +806,8 @@
             this.is_bivariate = ipr.is_bivariate;
             this.selected_covariates = ipr.selected_covariates;
             this.response = ipr.response;
-            if this.response == "" || isempty(this.response)
+            if ~isempty(this.selected_covariates) && ...
+                isemptytext(this.response)
                 this.response = this.selected_covariates{end};
             end
             this.reuse_mdl = ipr.reuse_mdl;
@@ -561,6 +815,39 @@
     end
 
     methods (Static)
+        function t = beautify_varnames(t)
+            % ADNIMerge compliant:
+            names0 = {'AmyloidStatus' 'MergeAge' 'MergePtGender' 'MergePtEducat' 'MergePtEthCat' 'MergePtRacCat' 'MergeApoE4' 'MergeMmse' 'MergeDx' 'MergeCdrsbBl' 'CDMEMORY' 'CDORIENT' 'CDJUDGE' 'CDCOMMUN' 'CDHOME' 'CDCARE' 'CDGLOBAL' 'Phase' 'SITEID' 'ICV' 'PVE1'};
+            % more readable in report:
+            namesf = {'Amyloid Status' 'Age' 'Gender' 'Education' 'Ethnicity' 'Race' 'ApoE4' 'MMSE' 'Dx' 'CDR-SOB' 'CDR-Memory' 'CDR-Orientation' 'CDR-Judgement' 'CDR-Community' 'CDR-Home' 'CDR-Care' 'CDR-Global' 'ADNI Phase' 'Site ID' 'ICV' 'Gray'};
+            
+            matches = contains(t.Properties.VariableNames, names0);
+            names0 = names0(matches);
+            namesf = namesf(matches);
+            t = renamevars(t, names0, namesf);
+        end
+        function t = combine_amyloid(t)
+            %% center, scale, and average amyloid measures -> MergeAmyloid
+            %  AmyloidStatus -> categories
+
+            pib = normalize(t.MergePib); % pib centiloid -> z-score
+            av45 = (196.9*t.MergeAv45) - 196.03; % see also "ADNI Centiloids Final.pdf"
+            av45 = normalize(av45); % florbetapir -> centiloids -> z-score
+            MergeAmyloid = mean([pib av45], 2, 'omitnan');
+            t = addvars(t, MergeAmyloid, 'Before', 1);
+            t = removevars(t, 'MergePib');
+            t = removevars(t, 'MergeAv45');
+            t = removevars(t, 'MergeAbeta');
+            t = removevars(t, 'MergePibBl');
+            t = removevars(t, 'MergeAv45Bl');
+            t = removevars(t, 'MergeAbetaBl');
+
+            arr = t.AmyloidStatus;
+            arr(isnan(t.AmyloidStatus)) = 0;
+            arr(1 == t.AmyloidStatus) = 1;
+            arr(0 == t.AmyloidStatus) = -1;
+            t.AmyloidStatus = arr;
+        end
         function [u,v] = predictorImportance_fitrtree_pattern(indices, savefigs, close_fig, amy_status)
             %  Returns:
             %      u: table with ADNI variable names
@@ -600,17 +887,15 @@
             end
 
             % features, adding Component/pattern at far right of table
-            u = removevars(t, {'Filelist' 'ImageDataID' 'MergeExamDate' 'EXAMDATE' 'Components'});
-            u = u(:, [1 5 6 3 7   18 16 4 19 20   2 14 13 15 17   11 9 21 12 10   8]); % 21 vars remain
-
-            u = renamevars(u, ...
-                {'AmyloidStatus' 'MergeAge' 'MergePtGender' 'MergePtEducat' 'MergePtEthCat' 'MergePtRacCat' 'MergeApoE4' 'MergeMmse' 'MergeDx' 'MergeCdrsbBl' 'CDMEMORY' 'CDORIENT' 'CDJUDGE' 'CDCOMMUN' 'CDHOME' 'CDCARE' 'CDGLOBAL' 'Phase' 'SITEID' 'ICV' 'PVE1'}, ...
-                {'Amyloid Status' 'Age' 'Gender' 'Education' 'Ethnicity' 'Race' 'ApoE4' 'MMSE' 'Dx' 'CDR-SOB' 'CDR-Memory' 'CDR-Orientation' 'CDR-Judgement' 'CDR-Community' 'CDR-Home' 'CDR-Care' 'CDR-Global' 'ADNI Phase' 'Site ID' 'ICV' 'Gray'});
+            u = mladni.NMFRegression.removenuisance(t);
+            u = mladni.NMFRegression.removecomponents(u);
+            u = u(:, [1 5 6 3 7   18 16 4 19 20   2 14 13 15 17   11 9 21 12 10   8   22 23 24 25 26 27 28]); % 28 vars remain
+            u = mladni.NMFRegression.beautify_varnames(u);
  
             for idx = indices
                 % reintroduce features, ending in Pattern := ld.t.Components(:,idx)
                 Pattern = t.Components(:,idx); 
-                v = addvars(u, Pattern, 'After', 'MMSE');
+                v = addvars(u, Pattern); % added to far right of table
     
                 Mdl = fitrtree(v, 'Pattern', 'PredictorSelection', 'curvature', 'Surrogate', 'on');
                 imp = predictorImportance(Mdl);
@@ -633,9 +918,56 @@
                 saveFigures(pwd, 'closeFigure', close_fig, 'prefix', p)
             end
         end
-        function stepwiseglm()
+        function qp = queryPoint(t, pattern_index, cdr)
+            arguments
+                t table
+                pattern_index {mustBeInteger,mustBePositive} = 5
+                cdr double = 0.5
+            end
+
+            switch cdr
+                case 0
+                    t = t(t.CDGLOBAL == 0, :);
+                case 0.5
+                    t = t(t.CDGLOBAL == 0.5, :);
+                case {1,2}
+                    t = t(t.CDGLOBAL >= 0.5, :);
+                otherwise
+                    error('mladni:ValueError', 'NMFRegression.queryPoint.cdr->%g', cdr)
+            end
+            if ismember('Pattern', t.Properties.VariableNames)
+                p = t.Pattern;
+            end
+            if ismember('Component', t.Properties.VariableNames)
+                p = t.Component;
+            end
+            if ismember('Components', t.Properties.VariableNames)
+                p = t.Components(:,pattern_index);
+            end
+
+            meanp = mean(p, 'omitnan');
+            [~,idx] = min(abs(p - meanp));
+            qp = t(idx,:);
         end
-        function stepwiselm()
+        function t = removecomponents(t)
+            vns = t.Properties.VariableNames;
+            hasc = contains(vns, 'Component');
+            t = removevars(t, vns(hasc));
+        end
+        function t = removeids(t)
+            t = removevars(t, {'Filelist' 'ImageDataID' 'MergeExamDate' 'EXAMDATE'});
+        end
+        function t = removenuisance(t)
+            t = removevars(t, {'MergeDxBl' 'MergeTauBl' 'MergePTauBl' 'MergeFdgBl'}); % redundant
+            t = mladni.NMFRegression.removeids(t);
+            t = mladni.NMFRegression.siteid2categories(t);
+            t = mladni.NMFRegression.combine_amyloid(t);
+        end
+        function t = siteid2categories(t)
+            arr = t.SITEID;
+            carr = num2cell(arr);
+            carr = cellfun(@num2str, carr, 'UniformOutput', false);
+            t.SITEID = carr;
         end
     end
 
