@@ -60,7 +60,7 @@ classdef FDGNMF < handle & mladni.NMF
             addRequired(ip, 'fin', @(x) isfile(x) && contains(x, '.csv'));
             addRequired(ip, 'fout', @(x) istext(x) && contains(x, '.csv'))
             addParameter(ip, 'suffix', '_on_T1w_Warped_dlicv', @istext);
-            addParameter(ip, 'proc', 'CASU-ponsvermis', @istext)
+            addParameter(ip, 'proc', strcat(mladni.FDG.PROC, '-ponsvermis'), @istext);
             parse(ip, fin, fout, varargin{:});
             ipr = ip.Results;
             assert(~strcmp(ipr.fin, ipr.fout));

@@ -6,7 +6,7 @@ classdef AdniBidsFdg < mladni.AdniBids
     
     methods (Static)
         function [j,c] = parcluster()
-            %% #PARCLUSTER2
+            %% #PARCLUSTER
             %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/          
             
             c = parcluster;

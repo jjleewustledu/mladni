@@ -75,7 +75,7 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             %  save rerr.mat, terr.mat, fcost.mat
             
             ip = inputParser;
-            addParameter(ip, 'proc', 'CASU', @istext)
+            addParameter(ip, 'proc', mladni.FDG.PROC, @istext)
             addParameter(ip, 'tag', '_orient-rpi', @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;
@@ -116,7 +116,7 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             %      err (scalar):  default is 20 degrees/mm.
             
             ip = inputParser;
-            addParameter(ip, 'proc', 'CASU', @istext)
+            addParameter(ip, 'proc', mladni.FDG.PROC, @istext)
             addParameter(ip, 'tag', '_orient-rpi-std', @istext)
             addParameter(ip, 'err', 20, @isscalar)
             parse(ip, varargin{:});
@@ -190,7 +190,7 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             ip = inputParser;
             addParameter(ip, 'new_tag', '_on_T1w_Warped', @istext); % '_on_T1w_Warped'
-            addParameter(ip, 'proc', 'proc-CASU-ponsvermis', @istext); % 'proc-CASU'
+            addParameter(ip, 'proc', strcat('proc-',mladni.FDG.PROC,'-ponsvermis'), @istext);
             addParameter(ip, 'conditions', {'cn', 'mci', 'dementia', ...
                                             'cn_amypos', 'mci_amypos', 'dementia_amypos', ...
                                             'cn_amyneg', 'mci_amyneg', 'dementia_amyneg'}, @iscell);
@@ -221,7 +221,7 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                     fns = strrep(fns, ...
                         '.nii.gz', strcat(new_tag, '.nii.gz'));
                     fns = strrep(fns, ...
-                        'proc-CASU', proc);
+                        strcat('proc-', mladni.FDG.PROC), proc);
                     len = length(fns);
                     
                     % mean

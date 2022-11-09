@@ -202,7 +202,8 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             workpth = '/mnt/CHPC_scratch/Singularity/ADNI/bids/derivatives';
             med = mlfourd.ImagingFormatContext2(fullfile(workpth, ...
-                'all_trc-FDG_proc-CASU-ponsvermis-icv_orient-rpi_pet_on_T1w_Warped_dlicv_median.nii.gz'));
+                sprintf('all_trc-FDG_proc-%s-ponsvermis-icv_orient-rpi_pet_on_T1w_Warped_dlicv_median.nii.gz', ...
+                        mladni.FDG.PROC)));
             med_fdg = median(med.img(med.img > eps));
             med = mlfourd.ImagingFormatContext2(fullfile(workpth, ...
                 'all_acq-noaccel_proc-orig-n4_orient-rpi_T1w_brain_pve_1_detJ_Warped_median.nii.gz'));
@@ -234,7 +235,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             ip = inputParser;
             addParameter(ip, 'len', 1:3, @isnumeric)
-            addParameter(ip, 'proc', 'CASU', @istext)
+            addParameter(ip, 'proc', mladni.FDG.PROC, @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;
             if isscalar(ipr.len)
@@ -275,7 +276,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             %% creates globbed.csv, globbed.mat
             
             ip = inputParser;
-            addParameter(ip, 'proc', 'CASU', @istext)
+            addParameter(ip, 'proc', mladni.FDG.PROC, @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;
             
@@ -307,7 +308,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             ip = inputParser;
             addParameter(ip, 'globbed', {}, @iscell)
-            addParameter(ip, 'proc', 'CASU', @istext)
+            addParameter(ip, 'proc', mladni.FDG.PROC, @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;
             
@@ -351,7 +352,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             ip = inputParser;
             addParameter(ip, 'globbed', {}, @iscell)
-            addParameter(ip, 'proc', 'CASU', @istext)
+            addParameter(ip, 'proc', mladni.FDG.PROC, @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;
             
@@ -394,7 +395,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             ip = inputParser;
             addParameter(ip, 'globbed', {}, @iscell)
-            addParameter(ip, 'proc', 'CASU', @istext)
+            addParameter(ip, 'proc', mladni.FDG.PROC, @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;
             
@@ -402,7 +403,8 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 
             workpth = '/scratch/jjlee/Singularity/ADNI/bids/derivatives';
             med_fdg = mlfourd.ImagingContext2(fullfile(workpth, ...
-                'all_trc-FDG_proc-CASU-ponsvermis_orient-rpi_pet_on_T1w_Warped_dlicv_median.nii.gz'));
+                sprintf('all_trc-FDG_proc-%s-ponsvermis_orient-rpi_pet_on_T1w_Warped_dlicv_median.nii.gz', ...
+                        mladni.FDG.PROC)));
             med_pve1 = mlfourd.ImagingContext2(fullfile(workpth, ...
                 'all_acq-noaccel_proc-orig-n4_orient-rpi_T1w_brain_pve_1_Warped_median.nii.gz'));
 
@@ -437,7 +439,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             ip = inputParser;
             addParameter(ip, 'globbed', {}, @iscell)
-            addParameter(ip, 'proc', 'CASU', @istext)
+            addParameter(ip, 'proc', mladni.FDG.PROC, @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;
             
@@ -445,7 +447,8 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 
             workpth = '/scratch/jjlee/Singularity/ADNI/bids/derivatives';
             med = mlfourd.ImagingFormatContext2(fullfile(workpth, ...
-                'all_trc-FDG_proc-CASU-ponsvermis-icv_orient-rpi_pet_on_T1w_Warped_dlicv_median.nii.gz'));
+                sprintf('all_trc-FDG_proc-%s-ponsvermis-icv_orient-rpi_pet_on_T1w_Warped_dlicv_median.nii.gz', ...
+                        mladni.FDG.PROC)));
             med_fdg = median(med.img(med.img > eps));
             med = mlfourd.ImagingFormatContext2(fullfile(workpth, ...
                 'all_acq-noaccel_proc-orig-n4_orient-rpi_T1w_brain_pve_1_detJ_Warped_median.nii.gz'));
@@ -482,7 +485,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             ip = inputParser;
             addParameter(ip, 'globbed', {}, @iscell)
-            addParameter(ip, 'proc', 'CASU', @istext)
+            addParameter(ip, 'proc', mladni.FDG.PROC, @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;
             
@@ -519,7 +522,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             ip = inputParser;
             addParameter(ip, 'globbed', {}, @iscell)
-            addParameter(ip, 'proc', 'CASU', @istext)
+            addParameter(ip, 'proc', mladni.FDG.PROC, @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;
             
@@ -659,7 +662,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 if isnan(pv)
                     stem = myfileprefix(globbed{gi});
                     stem = strrep(stem, 'rawdata', 'derivatives');
-                    stem = strrep(stem, 'proc-CASU', 'proc-CASU-ponsvermis');
+                    stem = strrep(stem, sprintf('proc-%s', mladni.FDG.PROC), sprintf('proc-%s-ponsvermis', mladni.FDG.PROC));
                     c = [c; glob([stem '*.nii.gz'])];   %#ok<AGROW>
                 end
             end
@@ -687,8 +690,9 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 Var1 = cellfun(@(x) strrep(x, 'rawdata', 'derivatives'), tbl_nans.Var1, 'UniformOutput', false);
                 tbl_nans = table(Var1);
             end
-            if contains(tbl.Var1{1}, 'CASU-ponsvermis')
-                Var1 = cellfun(@(x) strrep(x, 'CASU', 'CASU-ponsvermis'), tbl_nans.Var1, 'UniformOutput', false);
+            PROC = mladni.FDG.PROC;
+            if contains(tbl.Var1{1}, strcat(PROC, '-ponsvermis'))
+                Var1 = cellfun(@(x) strrep(x, PROC, strcat(PROC, '-ponsvermis')), tbl_nans.Var1, 'UniformOutput', false);
                 tbl_nans = table(Var1);
             end
             if contains(tbl.Var1{1}, '_on_T1w_Warped.nii.gz')
@@ -714,6 +718,11 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             re = regexp(fp, 'sub-(?<pre>\d{3})S(?<rid>\d{4})_\S+', 'names');
             S = sprintf('%s_S_%s', re.pre, re.rid);
         end        
+    end
+
+    properties (Constant)
+        DESC = 'Co-registered, Averaged'
+        PROC = 'CA'
     end
 
     properties
@@ -750,7 +759,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         fdg_on_t1w % mlfourd.ImagingContext2         
         fdg_detJ_warped % warped to atl, weighted by det(J)
         fdg_detJ_warped_mask % generated from dlicv, binarized, 8mm blurring, thresh 0.1, binarized   
-        fdg_proc % e.g., 'CASU' 
+        fdg_proc % e.g., mladni.FDG.PROC
         fdg_reference % for renormalizing, e.g., ADNI, ponsvermis
         fdg_warped % warped to atl, not weighted by det(J)
         fdg_warped_dlicv % warped to atl, masked by dlicv, not weighted by det(J)
@@ -1751,7 +1760,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             addParameter(ip, "rawdata_path", "", @istext)
             addParameter(ip, "derivatives_path", "", @istext)
             addParameter(ip, "blur", 0, @isscalar)
-            addParameter(ip, "proc", "CASU", @istext)
+            addParameter(ip, "proc", mladni.FDG.PROC, @istext)
             parse(ip, varargin{:})
             ipr = ip.Results;   
             ic__ = mlfourd.ImagingContext2(ipr.fdg);
@@ -1763,7 +1772,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 
             % construct blur
             this.blur_ = ipr.blur;
-            if contains(this.fdg_.fileprefix, 'CASU') 
+            if contains(this.fdg_.fileprefix, mladni.FDG.PROC) 
                 % match blur; https://adni.loni.usc.edu/methods/pet-analysis-method/pet-analysis/
                 this.blur_ = 8; % mm FWHM
             end
