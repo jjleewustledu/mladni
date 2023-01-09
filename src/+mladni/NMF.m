@@ -206,13 +206,9 @@
             assert(isfolder(pth));
             assert(strcmp(x, '.csv'));
             pth1 = strcat(pth, '_split1');
-            if ~isfolder(pth1)
-                mkdir(pth1)
-            end
+            ensuredir(pth1)
             pth2 = strcat(pth, '_split2');
-            if ~isfolder(pth2)
-                mkdir(pth2)
-            end
+            ensuredir(pth2)
 
             % read table to split
             tbl = readtable(csv, 'ReadVariableNames', false, 'Delimiter', ' ');

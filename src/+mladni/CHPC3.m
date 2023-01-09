@@ -13,15 +13,44 @@ classdef CHPC3
                 disp(ME)
             end
         end
+        function propcluster_tiny()
+            c = parcluster;
+            c.AdditionalProperties.EmailAddress = '';
+            c.AdditionalProperties.EnableDebug = 1;
+            c.AdditionalProperties.GpusPerNode = 0;
+            c.AdditionalProperties.MemUsage = '10000'; % in MB; deepmrseg requires 10 GB; else 6 GB
+            c.AdditionalProperties.Node = '';
+            c.AdditionalProperties.Partition = 'test';
+            c.AdditionalProperties.WallTime = '4:00:00'; % 4 h
+            c.saveProfile
+            disp(c.AdditionalProperties)
+        end
+        function propcluster()
+            c = parcluster;
+            c.AdditionalProperties.EmailAddress = '';
+            c.AdditionalProperties.EnableDebug = 1;
+            c.AdditionalProperties.GpusPerNode = 0;
+            c.AdditionalProperties.MemUsage = '10000'; % in MB; deepmrseg requires 10 GB; else 6 GB
+            c.AdditionalProperties.Node = '';
+            c.AdditionalProperties.Partition = '';
+            c.AdditionalProperties.WallTime = '24:00:00'; % 24 h
+            c.saveProfile
+            disp(c.AdditionalProperties)
+        end
         function setenvs()
+            [~,r] = system('hostname');
+            if ~contains(r, 'cluster')
+                return
+            end
+
             setenv('TMPDIR', '/scratch/jjlee/tmp') % worker nodesk
 
             setenv('SINGULARITY_HOME', '/scratch/jjlee/Singularity')
-            setenv('ADNI_HOME', '/home/aris_data/ADNI_FDG') 
+            setenv('ADNI_HOME', '/scratch/jjlee/Singularity/ADNI') 
             setenv('AFNIPATH', '/export/afni/afni-20.3.03/linux_openmp_64')
             setenv('ANTSPATH', '/export/ants/ants-2.3.5/bin')
             setenv('DEBUG', '');
-            setenv('FREESURFER_HOME', '/export/freesurfer/freesurfer-7.2.0')
+            setenv('FREESURFER_HOME', '/home/jjlee/.local/freesurfer/freesurfer-7.3.2')
             setenv('FSLDIR', '/export/fsl/fsl-6.0.5')
 
             setenv('FSLOUTPUTTYPE', 'NIFTI_GZ')
@@ -34,8 +63,8 @@ classdef CHPC3
             setenv('FSLREMOTECALL', 'cuda.q')
             setenv('PYOPENGL_PLATFORM', 'osmesa')
 
-            setenv('REFDIR', '/home/aris_data/ADNI_FDG/atlas')
-            setenv('RELEASE', '/home/aris_data/ADNI_FDG/lin64-tools')            
+            setenv('REFDIR', '/home/jjlee/.local/atlas')
+            setenv('RELEASE', '/home/jjlee/.local/lin64-tools')            
             setenv('PATH', ...
                 strcat(getenv('RELEASE'), ':', ...
                        getenv('AFNIPATH'), ':', ...

@@ -1,10 +1,31 @@
-classdef AdniBids
+classdef AdniBids < handle
     %% provides supporting methods for class hierarchy
     %  
     %  Created 30-Dec-2021 16:40:32 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.11.0.1809720 (R2021b) Update 1 for MACI64.  Copyright 2021 John J. Lee.
     
+    properties (Dependent)
+        adni_demographics
+        adni_merge
+    end
+   
+    methods 
+
+        %% GET
+
+        function g = get.adni_demographics(this)
+            if isempty(this.adni_demo_)
+                this.adni_demo_ = mladni.AdniDemographics();
+            end
+            g = this.adni_demo_;
+        end
+        function g = get.adni_merge(this)
+            g = this.adni_demographics.adni_merge;
+        end
+    end
+
     methods (Static)
+        % implementing AFNI 3dresample
         function [j,c] = parcluster_3dresample()
             %% #parcluster_3dresample
             %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/          
@@ -19,13 +40,13 @@ classdef AdniBids
             %  json file contents.
             %  Params:
             %      len (numeric):  # sessions
-            %      bidsDir (folder):  default $SINGULARITY_HOME?ADNI/bids/rawdata
+            %      bidsDir (folder):  default ${ADNI_HOME}/bids/rawdata
 
             import mladni.AdniBids.nii2json
             disp('Start mladni.AdniBids.batch_3dresample()')            
             t0 = tic;
             
-            bidsDir = fullfile('/home/aris_data', 'ADNI_FDG', 'bids', 'rawdata', '');
+            bidsDir = fullfile(getenv('ADNI_HOME'), 'bids', 'rawdata', '');
 
             ip = inputParser;
             addParameter(ip, 'len', [], @isnumeric)
@@ -55,42 +76,133 @@ classdef AdniBids
             
             t = toc(t0);
             disp('mladni.AdniBids.batch_3dresample completed')  
-        end
-        
+        end        
         function fn1 = afni_3dresample(fn)
-            assert(contains(fn, '.nii'))
-            if endsWith(fn, '.nii')
-                fn_ = fn;
-                fn = gzip(fn_);
-                delete(fn_);
+            if ~isfile(fn)
+                fn1 = fn;
+                return
             end
+            fn = ensuregz(fn);
+
+            % fn ending with .nii.gz exists
             [pth,fp,e] = myfileparts(fn);
             re = regexp(fp, '(?<prefix>\S+)(?<suffix>(_T1\w*|_t1\w*|_pet))', 'names');
+            if isempty(re.prefix) || re.prefix == ""
+                fn1 = fn;
+                return
+            end
             fn1 = fullfile(pth, strcat(re.prefix, '_orient-rpi', re.suffix, e));
-            cmd = sprintf('3dresample -debug 1 -orient rpi -prefix %s -input %s', fn1, fn);
-            [~,r] = mlbash(cmd);            
-            assert(isfile(fn1));
+            if ~isfile(fn1)
+                cmd = sprintf('3dresample -debug 1 -orient rpi -prefix %s -input %s', fn1, fn);
+                [~,r] = mlbash(cmd);
+    
+                % manage json
+                try
+                    j0 = fileread(strcat(myfileprefix(fn), '.json'));
+                    j1.afni_3dresample.cmd = cmd;
+                    j1.afni_3dresample.cmdout = r;
+                    jsonrecode(j0, j1, 'filenameNew', strcat(myfileprefix(fn1), '.json'));       
+                catch 
+                end
+            end
+            assert(isfile(fn1));  
             
-            % manage json
-            j0 = fileread(strcat(myfileprefix(fn), '.json'));
-            j1.afni_3dresample.cmd = cmd;
-            j1.afni_3dresample.cmdout = r;
-            jsonrecode(j0, j1, 'filenameNew', strcat(myfileprefix(fn1), '.json'));
-            
-            % clean previous
+            % clean file that is not orient-rpi
             deleteExisting(fn);
         end
-        function dt = fqnifti2dt(fqniis)
-            if ischar(fqniis) || isstring(fqniis)
-                fqniis = {fqniis};
+
+        % support methods
+        function dt = cell2datetimes(c)
+            if ischar(c) || isstring(c)
+                c = {c};
             end
-            dt = NaT(size(fqniis));
-            for fi = 1:length(fqniis)
-                [~,s] = fileparts(fileparts(fileparts(fqniis{fi})));
-                dt(fi) = mladni.AdniBids.ses2AcqDate(s); 
+            dt = NaT(size(c));
+            dt = ensureTimeZone(dt);
+            for fi = 1:length(c)
+                dt(fi) = mladni.AdniBids.filestr2datetime(c{fi}); 
             end
         end
-        function uid = fqnifti2uid(fqniis)
+        function dt = filestr2datetime(str)
+            %% file or folder names containing 'ses-yyyyMMdd+' -> 'yyyyMMdd+'
+            %  Args:
+            %      str {mustBeTextScalar}
+
+            dt = mladni.AdniBids.filestr2tagged('ses', str);
+            switch length(dt)
+                case 16:21
+                    dt = datetime(dt, InputFormat='yyyyMMddHHmmss.S');
+                case 14
+                    dt = datetime(dt, InputFormat='yyyyMMddHHmmss');
+                case 8
+                    dt = datetime(dt, InputFormat='yyyyMMdd');
+                otherwise
+                    error('mladni:ValueError', stackstr(2))
+            end
+            dt = ensureTimeZone(dt);
+        end
+        function a = filestr2acq(str)
+            %% file or folder names containing '_acq-grappa_' -> 'grappa'
+            %  Args:
+            %      str {mustBeTextScalar}
+
+            a = mladni.AdniBids.filestr2tagged('acq', str);
+        end
+        function o = filestr2orient(str)
+            %% file or folder names containing '_orient-rpi_' -> 'rpi'
+            %  Args:
+            %      str {mustBeTextScalar}
+
+            o = mladni.AdniBids.filestr2tagged('orient', str);
+        end
+        function p = filestr2proc(str)
+            %% file or folder names containing '_proc-aproc-anotherproc_' -> 'aproc-anotherproc'
+            %  Args:
+            %      str {mustBeTextScalar}
+
+            p = mladni.AdniBids.filestr2tagged('proc', str);
+        end
+        function rid = filestr2rid(str)
+            import mladni.AdniBids.subfold2rid
+            import mladni.AdniBids.filestr2subfold
+            rid = subfold2rid( ...
+                filestr2subfold(str));
+        end
+        function s = filestr2ses(str)
+            %% file or folder names containing '_ses-202201010000_' -> '202201010000'
+            %  Args:
+            %      str {mustBeTextScalar}
+
+            s = mladni.AdniBids.filestr2tagged('ses', str);
+        end
+        function s = filestr2sub(str)
+            %% file or folder names containing '_sub-012S3456_' -> '012S3456'
+            %  Args:
+            %      str {mustBeTextScalar}
+
+            s = mladni.AdniBids.filestr2tagged('sub', str);
+        end
+        function fold = filestr2subfold(str)
+            sub_item = mladni.AdniBids.filestr2sub(str);
+            fold = strcat('sub-', sub_item);
+        end
+        function p = filestr2tagged(tag, str)
+            %% file or folder names containing '_tag-anitem-anotheritem_' -> 'anitem-anotheritem'
+            %  Args:
+            %      tag {mustBeTextScalar}
+            %      str {mustBeTextScalar}
+
+            arguments
+                tag {mustBeTextScalar}
+                str {mustBeTextScalar}
+            end
+            ss = strsplit(str, filesep);
+            ss = ss(contains(ss, strcat(tag, "-")));
+            str = ss{end};
+
+            re = regexp(str, sprintf("\\S*%s-(?<tagged>[a-zA-Z0-9\\-]+)_\\S+", tag), "names");
+            p = re.tagged;
+        end
+        function uid = fqcell2uid(fqniis)
             if ischar(fqniis) || isstring(fqniis)
                 fqniis = {fqniis};
             end
@@ -114,7 +226,7 @@ classdef AdniBids
             %      dest (folder): e.g., '/path/to/adni/rawdata/sub-128S0230/ses-20120823/pet'
             %      table_sub (table): subject selected from this.table_fdg1_.
 
-            import mladni.AdniBids.niis2datetimes
+            import mladni.AdniBids.cell2datetimes
             import mladni.AdniBids.viscode2months
 
             ip = inputParser;
@@ -148,7 +260,7 @@ classdef AdniBids
 
             try
                 dt_bl = ipr.table_sub.AcqDate(contains(ipr.table_sub.VISCODE2, 'bl'));
-                dts = niis2datetimes(ipr.niis);
+                dts = cell2datetimes(ipr.niis);
                 mm = calmonths(between(dt_bl, dts));
                 mm(mm < 0) = 0;
                 m_dest = viscode2months(ipr.viscode2);
@@ -168,152 +280,62 @@ classdef AdniBids
             catch ME
                 handwarning(ME)
             end
-        end        
-        function proc = nifti2proc(fn)
-            %% char Description
-
-            assert(istext(fn))
-            re = regexp(fn, 'sub-\d{3}S\d{4}_ses-\d{14}_trc-\w+_proc-(?<proc>[CASUD]+)_pet', 'names');
-            proc = re.proc;
-        end
-        function ses = nifti2ses(varargin)
-            %% {8,14}-digit ses datetime
-
-            ip = inputParser;
-            addRequired(ip, 'fn', @istext)
-            addOptional(ip, 'digits', 8, @isscalar)
-            parse(ip, varargin{:})
-            ipr = ip.Results;
-
-            if 8 == ipr.digits
-                re = regexp(ipr.fn, 'sub-\d{3}S\d{4}_(?<ses>ses-\d{8})\d{6}_\w+', 'names');
-            else
-                re = regexp(ipr.fn, 'sub-\d{3}S\d{4}_(?<ses>ses-\d{14})_\w+', 'names');
-            end
-            ses = re.ses;
-        end
-        function sub = nifti2sub(fn)
-            assert(istext(fn))
-            re = regexp(fn, '(?<sub>sub-\d{3}S\d{4})_\w+', 'names');
-            sub = re.sub;
-        end
-        function dt = nii2datetime(nii)
-            assert(istext(nii))
-            re = regexp(nii, "sub-\d{3}S\d{4}_ses-(?<dt>\d{14})_\w+", "names");
-            dt = datetime(re.dt, "InputFormat", "yyyyMMddHHmmss");
-        end
-        function dts = niis2datetimes(niis)
-            assert(iscell(niis))
-            for i = 1:length(niis)
-                re = regexp(niis{i}, "sub-\d{3}S\d{4}_ses-(?<dt>\d{14})_\w+", "names");
-                dts(i) = datetime(re.dt, "InputFormat", "yyyyMMddHHmmss"); %#ok<AGROW> 
-            end
         end
         function j = nii2json(nii)
             assert(istext(nii))
             [pth,fp] = myfileparts(nii);
             j = fullfile(pth, strcat(fp, '.json'));
         end
-        function d = proc2Description(p)
-            assert(istext(p))
-            switch upper(p)
-                case 'CA'
-                    d = 'Co-registered, Averaged';
-                case 'CAS'
-                    d = 'Coreg, Avg, Standardized Image and Voxel Size';
-                case 'CASU'
-                    d = 'Coreg, Avg, Std Img and Vox Siz, Uniform Resolution';
-                case 'CD'
-                    d = 'Co-registered Dynamic';
-                otherwise
-                    d = 'Unknown';
+        function g = original_filename_contains(str, opt)
+            arguments
+                str {mustBeText}
+                opt.bids_folder {mustBeTextScalar} = 'rawdata'
+                opt.modal_folder {mustBeTextScalar} = 'anat'
+                opt.ext {mustBeTextScalar} = '.json'
+                opt.ignorecase logical = false
             end
+
+            p0 = pushd(fullfile(getenv('ADNI_HOME'), 'bids', opt.bids_folder));
+            g = {};
+            for g_ = glob(fullfile('sub-*', 'ses-*', opt.modal_folder, '*.json'))'
+                j = fileread(g_{1});
+                try
+                    j = jsondecode(j);
+                    if contains(j.ADNI_INFO.OriginalFilename, str, 'IgnoreCase', opt.ignorecase)
+                        g__ = strrep(g_{1}, '.json', opt.ext);
+                        g = [g g__]; %#ok<AGROW> 
+                    end
+                catch ME
+                    handwarning(ME)
+                    fprintf('filename:  %s\n', g__);
+                end
+            end
+            popd(p0);
         end
-        function ad = ses2AcqDate(s)
-            assert(istext(s))
-            ad_ = regexp(s, 'ses-(?<y>\d{4})(?<m>\d{2})(?<d>\d{2})', 'names');
-            ad = datetime(str2double(ad_.y), str2double(ad_.m), str2double(ad_.d));    
+        function sub = rid2subfold(r)
+            persistent subfolds_            
+            if isempty(subfolds_)
+                tic
+                subfolds_ = glob( ...
+                    fullfile(getenv('ADNI_HOME'), 'bids', 'rawdata', 'sub-*'))';
+                fprintf('rid2subfold:  '); toc
+            end           
+            assert(length(subfolds_) == 1660)
+            sub = subfolds_(contains(subfolds_, r));
         end
-        function ads = ses2AcqDatestr(s)
-            assert(istext(s))
-            ad_ = regexp(s, 'ses-(?<y>\d{4})(?<M>\d{2})(?<d>\d{2})(?<H>\d{2})(?<m>\d{2})(?<s>\d{2})', 'names');
-            ads = sprintf('%s-%s-%s_%s_%s_%s.0', ad_.y, ad_.M, ad_.d, ad_.H, ad_.m, ad_.s);
+        function tf = samedate(d1, d2)
+            arguments
+                d1 datetime
+                d2 datetime
+            end
+            d1 = ensureTimeZone(d1);
+            d2 = ensureTimeZone(d2);
+            tf = duration(d1 - d2) < hours(24);
         end
-        function rid = sub2rid(s)
+        function rid = subfold2rid(s)
             re = regexp(s, 'sub-\d{3}S(?<rid>\d{4})', 'names');
             rid = str2double(re.rid);
-        end
-        function S = sub2Subject(s)
-            assert(istext(s))
-            s_ = regexp(s, 'sub-(?<n1>\d{3})S(?<n2>\d{4})', 'names');
-            S = sprintf('%s_S_%s', s_.n1, s_.n2);
-        end        
-        function update_json_fdg(varargin)
-            import mladni.AdniBids.sub2Subject
-            import mladni.AdniBids.ses2AcqDate
-            import mladni.AdniBids.proc2Description
-
-            ip = inputParser;
-            addRequired(ip, 'fn', @isfile)
-            addRequired(ip, 't', @istable)
-            addRequired(ip, 'sub', @istext)
-            addRequired(ip, 'ses', @istext)
-            addRequired(ip, 'proc', @istext)
-            parse(ip, varargin{:})
-            ipr = ip.Results;
-
-            s = sub2Subject(ipr.sub);
-            ad = ses2AcqDate(ipr.ses);
-            d = proc2Description(ipr.proc);
-            t_ = ipr.t(contains(ipr.t.Subject, s) & ...
-                       ipr.t.AcqDate == ad & ...
-                       strcmp(ipr.t.Description, d), :);
-
-            [pth,fp] = myfileparts(ipr.fn);
-            fn = fullfile(pth, strcat(fp, '.json'));
-            txt = jsonrecode(fn, table2struct(t_));
-            try
-                fid = fopen(fn, 'w');
-                fprintf(fid, txt);
-                fclose(fid);
-            catch ME
-                handwarning(ME)
-                disp(fn)
-            end
-        end
-        function t = update_table(~, varargin)
-            import mladni.AdniBids.sub2Subject
-            import mladni.AdniBids.ses2AcqDate
-            import mladni.AdniBids.proc2Description
-            import mladni.AdniBids.ses2AcqDatestr
-
-            ip = inputParser;
-            addRequired(ip, 'fn', @isfile)
-            addRequired(ip, 't', @istable)
-            addRequired(ip, 'sub', @istext)
-            addRequired(ip, 'ses', @istext)
-            addRequired(ip, 'proc', @istext)
-            parse(ip, varargin{:})
-            ipr = ip.Results;            
-
-            s = sub2Subject(ipr.sub);
-            ad = ses2AcqDate(ipr.ses);
-            d = proc2Description(ipr.proc);
-            t = ipr.t;
-            if ~contains(t.Properties.VariableNames, 'NativeFilename')                
-                NativeFilename = cell(size(t.AcqDate));
-                t = addvars(t, NativeFilename, 'Before', 'ImageDataID');
-            end
-
-            d1 = strrep(d, ' ', '_');
-            ad1 = ses2AcqDatestr(ipr.ses);
-            g = glob(fullfile(fileparts(ipr.fn), d1, ad1, 'I*', '*'));
-            native_fn = fullfile(basename(pwd), g{1});
-
-            t.NativeFilename(contains(t.Subject, s) & ...
-                              t.AcqDate == ad & ...
-                              strcmp(t.Description, d)) = {native_fn};
-        end
+        end             
         function m = viscode2months(carr)
             sarr = strrep(carr, "m", "");
             sarr = strrep(sarr, "bl", "0");
@@ -324,6 +346,11 @@ classdef AdniBids
     end
 
     %% PROTECTED
+
+    properties (Access = protected)
+        adni_demo_
+        adni_merge_
+    end
 
     methods (Access = protected)
         function this = AdniBids(varargin)

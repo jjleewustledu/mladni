@@ -1,5 +1,6 @@
 classdef AdniDemographics < handle
     %% queries "all_FDG_20211123_12_14_2021.csv"
+    %
     %  14358 imaging items, all DCM, acquired 09/22/2005 - 10/13/2021
     %  1660 unique subjects, acquisition ages 55 - 96 years, 924 males, 736 females
     %  303 unique subjects progressed to AD
@@ -115,6 +116,7 @@ classdef AdniDemographics < handle
     end
 
     properties (Dependent)
+        adni_merge
         amyloid_file
         cdr_file
         fdg_orig_file
@@ -122,97 +124,72 @@ classdef AdniDemographics < handle
         fdg_proc2_file
         fdg1_file
         fdgproc_filenames_file
-        merge_file
-        mpr_meta_file
-        mri_quality_file
-        mri_quality_adni3_file
         pet_c3_file
         pet_meta_adni1_file
         pet_meta_adnigo2_file
         pet_meta_adni3_file
         pet_meta_list_file
         pet_qc_file
-        registry_file
         subjects
-        t1_filenames_file
         ucberkeleyfdg_file
     end
 
     methods
 
         %% GET
+
+        function g = get.adni_merge(this)
+            g = this.adni_merge_;
+        end
         function g = get.amyloid_file(~)
-            g = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'studydata', 'ucberkeleyav45_skinny.csv');
+            g = fullfile(getenv("ADNI_HOME"), 'studydata', 'ucberkeleyav45_skinny.csv');
             % unique RID ~ 1325
         end
         function g = get.cdr_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "CDR.csv"); %"cdr_20220602.csv");
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "CDR.csv"); %"cdr_20220602.csv");
             % unique RID ~ 3418
         end
         function g = get.fdg_orig_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "staging", "FDG_original_20211118", "all_FDG_20211118_11_18_2021.csv");
+            g = fullfile(getenv("ADNI_HOME"), "staging", "FDG_original_20211118", "all_FDG_20211118_11_18_2021.csv");
             % unique Subject ~ 1662
         end
         function g = get.fdg_proc1_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "staging", "FDG_processed_20211123", "all_FDG_20211123_12_14_2021.csv");
+            g = fullfile(getenv("ADNI_HOME"), "staging", "FDG_processed_20211123", "all_FDG_20211123_12_14_2021.csv");
             % unique Subject ~ 1660, unique ImageDataID ~ 14358
         end
         function g = get.fdg_proc2_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "staging", "FDG_processed_20220104", "prev_failed_FDG_20220104_1_04_2022.csv");
+            g = fullfile(getenv("ADNI_HOME"), "staging", "FDG_processed_20220104", "prev_failed_FDG_20220104_1_04_2022.csv");
             % unique Subject ~ 5, included in fdg_proc1_file
         end
         function g = get.fdg1_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "staging", "FDG_processed_20220104", "mladni_AdniDemographics_fdg1.csv");
+            g = fullfile(getenv("ADNI_HOME"), "staging", "FDG_processed_20220104", "mladni_AdniDemographics_fdg1.csv");
         end
         function g = get.fdgproc_filenames_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "bids", "rawdata", "rosters", "fdgproc_filenames.csv");
-        end
-        function g = get.merge_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "ADNIMERGE.csv"); %"adnimerge_20220602.csv");
-            % unique PTID ~ 1855, unique IMAGEUID ~ 13923
-        end
-        function g = get.mpr_meta_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "MPRAGEMETA.csv");
-            % unique SubjectID ~ 2519, unique ImageUID ~ 37574
-        end
-        function g = get.mri_quality_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "MRIQUALITY.csv");
-            if ~isfile(g)
-                g = fullfile(getenv("ADNI_HOME"), "studydata", "MRIQUALITY.csv");
-            end
-            % unique RID ~ 840, unique LONIUID ~ 11573
-        end
-        function g = get.mri_quality_adni3_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "MAYOADIRL_MRI_QUALITY_ADNI3.csv");
-            % unique PTID ~ 1035, unique LONI_IMAGE ~ 21744
-        end
+            g = fullfile(getenv("ADNI_HOME"), "bids", "rawdata", "rosters", "fdgproc_filenames.csv");
+        end      
         function g = get.pet_c3_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "PETC3.csv");
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "PETC3.csv");
             % unique RID ~ 395, unique LONIUID ~ 407
         end
         function g = get.pet_meta_adni1_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "PETMETA_ADNI1.csv");
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "PETMETA_ADNI1.csv");
             % unique RID ~ 420
         end
         function g = get.pet_meta_adnigo2_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "PETMETA_ADNIGO2.csv");
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "PETMETA_ADNIGO2.csv");
             % unique RID ~ 1212
         end
         function g = get.pet_meta_adni3_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "PETMETA3.csv");
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "PETMETA3.csv");
             % unique RID ~ 641
         end
         function g = get.pet_meta_list_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "PET_META_LIST.csv");
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "PET_META_LIST.csv");
             % unique Subject ~ 2028, unique ImageID ~ 50843
         end
         function g = get.pet_qc_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "PETQC.csv");
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "PETQC.csv");
             % unique RID ~ 1413, unique LONIUID ~ 3950
-        end
-        function g = get.registry_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "REGISTRY.csv"); %"registry_20220602.csv");
-            % unique RID ~ 4045, unique ID ~ 15637
         end
         function g = get.subjects(this)
             if isempty(this.subjects_)
@@ -221,17 +198,15 @@ classdef AdniDemographics < handle
             end
             g = this.subjects_;
         end
-        function g = get.t1_filenames_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "bids", "rawdata", "rosters", "t1_filenames.csv");
-        end
         function g = get.ucberkeleyfdg_file(~)
-            g = fullfile(getenv("SINGULARITY_HOME"), "ADNI", "studydata", "UCBERKELEYFDG_03_25_22.csv");
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "UCBERKELEYFDG_03_25_22.csv");
         end
 
         %%
 
         function this = AdniDemographics(varargin)
             warning('off', 'MATLAB:table:ModifiedAndSavedVarnames') 
+            this.adni_merge_ = mladni.AdniMerge();
         end
 
         function t = table_amyloid(this, varargin)
@@ -250,6 +225,126 @@ classdef AdniDemographics < handle
                 this.cdr_ = this.cdrRevisions(readtable(this.cdr_file));
             end
             t = this.cdr_;
+            if ~isempty(varargin)
+                t = t(varargin{:});
+            end
+        end
+        function t = table_damyloid(this, varargin)
+            t = table;
+            t_ = this.table_fdg1;
+            t_ = t_(contains(t_.Description, 'Uniform')',:); % CASU
+
+            select = cellfun(@(x) ~isempty(x), t_.MergeDxBl); % select availabe MergeDxBl
+            t_ = t_(select,:);
+
+            t_.damyloid = nan(size(t_.AmyloidStatus));
+
+            % t <- Subject's last MergeExamDate, damyloid
+            isub = 0;
+            for S = unique(t_.Subject)'
+                select = strcmp(S{1}, t_.Subject);
+                t_S = t_(select, :);
+                t_S_ascend = sortrows(t_S, 'MergeExamDate', 'ascend');
+                if t_S_ascend{1, 'AmyloidStatus'} == 0 
+                    t_S_ascend{1, 'damyloid'} = 0;
+                    if size(t_S_ascend, 1) > 1
+                        t_S_ascend{2:end, 'damyloid'} = t_S_ascend{2:end, 'AmyloidStatus'} > 0;
+                    end
+                end
+                if t_S_ascend{1, 'AmyloidStatus'} == 1 
+                    t_S_ascend{1, 'damyloid'} = 0;
+                    if size(t_S_ascend, 1) > 1
+                        t_S_ascend{2:end, 'damyloid'} = 0;
+                    end
+                end
+                [~,imax] = max(t_S_ascend.MergeExamDate);
+                isub = isub + 1;
+                t(isub, :) = t_S_ascend(imax, :);
+            end
+            if ~isempty(varargin)
+                t = t(varargin{:});
+            end
+        end
+        function t = table_dCDGLOBAL(this, varargin)
+            t = table;
+            t_ = this.table_fdg1;
+            t_ = t_(contains(t_.Description, 'Uniform')',:); % CASU
+
+            select = cellfun(@(x) ~isempty(x), t_.MergeDxBl); % select availabe MergeDxBl
+            t_ = t_(select,:);
+
+            t_.dCDGLOBAL = nan(size(t_.CDGLOBAL));
+
+            % t <- Subject's last MergeExamDate, dCDGLOBAL
+            isub = 0;
+            for S = unique(t_.Subject)'
+                select = strcmp(S{1}, t_.Subject);
+                t_S = t_(select, :);
+                t_S_ascend = sortrows(t_S, 'MergeExamDate', 'ascend');
+
+                t_S_ascend{1, 'dCDGLOBAL'} = 0;
+                if size(t_S_ascend, 1) > 1
+                    t_S_ascend{2:end, 'dCDGLOBAL'} = t_S_ascend{2:end, 'CDGLOBAL'} - t_S_ascend{1, 'CDGLOBAL'};
+                end
+
+                [~,imax] = max(t_S_ascend.dCDGLOBAL);
+                isub = isub + 1;
+                t(isub, :) = t_S_ascend(imax, :);
+            end
+            if ~isempty(varargin)
+                t = t(varargin{:});
+            end
+        end
+        function t = table_dMergeCdrsb(this, varargin)
+            t = table;
+            t_ = this.table_fdg1;
+            t_ = t_(contains(t_.Description, 'Uniform')',:); % CASU
+
+            select = cellfun(@(x) ~isempty(x), t_.MergeDxBl); % select availabe MergeDxBl
+            t_ = t_(select,:);
+
+            t_.dMergeCdrsb = nan(size(t_.MergeCdrsb));
+
+            % t <- Subject's last MergeExamDate, dMergeCdrsb
+            isub = 0;
+            for S = unique(t_.Subject)'
+                select = strcmp(S{1}, t_.Subject);
+                t_S = t_(select, :);
+                t_S_ascend = sortrows(t_S, 'MergeExamDate', 'ascend');
+
+                t_S_ascend{1, 'dMergeCdrsb'} = 0;
+                if size(t_S_ascend, 1) > 1
+                    t_S_ascend{2:end, 'dMergeCdrsb'} = t_S_ascend{2:end, 'MergeCdrsb'} - t_S_ascend{1, 'MergeCdrsb'};
+                end
+
+                [~,imax] = max(t_S_ascend.dMergeCdrsb);
+                isub = isub + 1;
+                t(isub, :) = t_S_ascend(imax, :);
+            end
+            if ~isempty(varargin)
+                t = t(varargin{:});
+            end
+        end
+        function t = table_duration(this, varargin)
+            t = table;
+            t_ = this.table_fdg1;
+            t_ = t_(contains(t_.Description, 'Uniform')',:); % CASU
+
+            select = cellfun(@(x) ~isempty(x), t_.MergeDxBl); % select availabe MergeDxBl
+            t_ = t_(select,:);
+
+            Duration = years(t_.MergeExamDate - t_.MergeExamDateBl);
+            t_.Duration = Duration;
+
+            % t <- Subject's max Duration
+            isub = 0;
+            for S = unique(t_.Subject)'
+                select = strcmp(S{1}, t_.Subject);
+                t_S = t_(select, :);
+                [~,imax] = max(t_S.Duration);
+                isub = isub + 1;
+                t(isub, :) = t_S(imax, :);
+            end
             if ~isempty(varargin)
                 t = t(varargin{:});
             end
@@ -342,67 +437,7 @@ classdef AdniDemographics < handle
             if ~isempty(varargin)
                 t = t(varargin{:});
             end
-        end
-        function t = table_merge(this, varargin)
-            if isempty(this.merge_)
-                this.merge_ = readtable(this.merge_file);
-            end
-            t = this.merge_;
-            if ~isempty(varargin)
-                t = t(varargin{:});
-            end
-        end
-        function t = table_mpr_meta(this, varargin)
-            if isempty(this.mpr_meta_)
-                this.mpr_meta_ = readtable(this.mpr_meta_file);
-            end
-            t = this.mpr_meta_;
-            if ~isempty(varargin)
-                t = t(varargin{:});
-            end
-            
-            %t = readtable(this.mpr_meta_file);
-            %select_subs = contains(t.SubjectID, this.subjects);
-            %t = t(select_subs, :);   
-
-            %select_scans = contains(t.Type, 'Processed');
-            %t = t(select_scans, :);
-
-            %select_scans = contains(t.Description, 'correct', 'IgnoreCase', true);
-            %t = t(select_scans, :);
-
-            %select_scans = contains(t.Sequence, 'mpr', 'IgnoreCase', true) | ...
-            %               contains(t.Sequence, 'rage', 'IgnoreCase', true) | ...
-            %               contains(t.Sequence, 'mt1', 'IgnoreCase', true) | ...
-            %               contains(t.Sequence, 'ir-fspgr', 'IgnoreCase', true);
-            %t = t(select_scans, :);
-
-            %unwanted = ...
-            %    {'localizer' 'calibration' 'loc' 'mapping' 'surv' 'fgre' 'scout' 'smartbrain' 't2' 'fmri' ...
-            %     'calibration'};
-            %select_scans = ~contains(t.Sequence, unwanted, 'IgnoreCase', true);
-            %t = t(select_scans, :);
-
-            %this.mpr_meta_ = t;
-        end
-        function t = table_mri_quality(this, varargin)
-            if isempty(this.mri_quality_)
-                this.mri_quality_ = readtable(this.mri_quality_file);
-            end
-            t = this.mri_quality_;
-            if ~isempty(varargin)
-                t = t(varargin{:});
-            end
-        end
-        function t = table_mri_quality_adni3(this, varargin)
-            if isempty(this.mri_quality_adni3_)
-                this.mri_quality_adni3_ = readtable(this.mri_quality_adni3_file);
-            end
-            t = this.mri_quality_adni3_;
-            if ~isempty(varargin)
-                t = t(varargin{:});
-            end
-        end      
+        end        
         function t = table_pet_c3(this, varargin)
             if isempty(this.pet_c3_)
                 this.pet_c3_ = readtable(this.pet_c3_file);
@@ -431,25 +466,7 @@ classdef AdniDemographics < handle
             if ~isempty(varargin)
                 t = t(varargin{:});
             end
-        end
-        function t = table_registry(this, varargin)
-            if isempty(this.registry_)
-                this.registry_ = readtable(this.registry_file);
-            end
-            t = this.registry_;
-            if ~isempty(varargin)
-                t = t(varargin{:});
-            end
-        end
-        function t = table_t1_filenames(this, varargin)
-            if isempty(this.t1_filenames_)
-                this.t1_filenames_ = readtable(this.t1_filenames_file);
-            end
-            t = this.t1_filenames_;
-            if ~isempty(varargin)
-                t = t(varargin{:});
-            end
-        end
+        end        
         function write_imageids(~, tbl, fname)
             %% Creates a file with comma-separated imageIDs. 
             %  For LONI IDA workflows, see also:
@@ -623,6 +640,7 @@ classdef AdniDemographics < handle
     %% PROTECTED
 
     properties (Access = protected)
+        adni_merge_
         amyloid_
         cdr_
         fdg_
@@ -630,15 +648,9 @@ classdef AdniDemographics < handle
         fdgproc_filenames_
         firstscan_
         lastscan_
-        merge_
-        mpr_meta_
-        mri_quality_
-        mri_quality_adni3_
         pet_c3_
         pet_qc_
-        registry_
         subjects_
-        t1_filenames_
         ucberkeleyfdg_
     end
 
@@ -667,6 +679,7 @@ classdef AdniDemographics < handle
             t.MergeAbeta = nan(sz);
             t.MergeTau = nan(sz);
             t.MergePTau = nan(sz);
+            t.MergeCdrsb = nan(sz);
             t.MergeMmse = nan(sz);
             t.MergeDx = cell(sz);
 
@@ -724,7 +737,7 @@ classdef AdniDemographics < handle
             for s = asrow(this.subjects)
                 try
                     t_s1 = t(strcmp(t.Subject, s{1}), :);
-                    merge_s1 = this.table_merge(strcmp(this.table_merge.PTID, s{1}), ':');
+                    merge_s1 = this.adni_merge.table_merge(strcmp(this.adni_merge.table_merge.PTID, s{1}), ':');
                     if isempty(merge_s1)
                         continue
                     end
@@ -762,6 +775,7 @@ classdef AdniDemographics < handle
                         t_s1(acqdi, 'MergeAbeta') = merge_s1(merge_near, 'ABETA');
                         t_s1(acqdi, 'MergeTau') = merge_s1(merge_near, 'TAU');
                         t_s1(acqdi, 'MergePTau') = merge_s1(merge_near, 'PTAU');
+                        t_s1(acqdi, 'MergeCdrsb') = merge_s1(merge_near, 'CDRSB');
                         t_s1(acqdi, 'MergeMmse') = merge_s1(merge_near, 'MMSE');
                         t_s1(acqdi, 'MergeDx') = merge_s1(merge_near, 'DX');
 
@@ -843,7 +857,7 @@ classdef AdniDemographics < handle
             end
             
             % update t with table_registry.EXAMDATE (cf. ADNI Google Group)
-            t_reg = this.table_registry();
+            t_reg = this.adni_merge.table_registry();
             for ti = 1:size(t, 1)
                 t_ti = t(ti, :);
                 ED1 = t_reg(t_reg.ID == t_ti.ID, :).EXAMDATE;

@@ -96,7 +96,7 @@ classdef Test_FDG < matlab.unittest.TestCase
             c.getDebugLog(j.Tasks(end))
         end
         function out = faa()
-            c = '/home/aris_data/ADNI_FDG/bids/rawdata/sub-002S0295/ses-20110609/pet';
+            c = fullfile(getenv('ADNI_HOME'), 'bids/rawdata/sub-002S0295/ses-20110609/pet');
             out = mybasename(myfileparts(c));
         end
         function [j,c] = test_parcluster_foo()
@@ -134,12 +134,12 @@ classdef Test_FDG < matlab.unittest.TestCase
             t0 = tic;
             parfor idx = 1:iter
 
-                setenv('ADNI_HOME', '/home/aris_data/ADNI_FDG')
+                setenv('ADNI_HOME', '/scratch/jjlee/Singularity/ADNI')
                 setenv('ANTSPATH', '/export/ants/ants-2.3.5/bin')
                 setenv('DEBUG', '');
                 setenv('FREESURFER_HOME', '/export/freesurfer/freesurfer-7.2.0')
                 setenv('FSLDIR', '/export/fsl/fsl-6.0.5')
-                setenv('RELEASE', '/home/aris_data/ADNI_FDG/lin64-tools')
+                setenv('RELEASE', '/home/jjlee/.local/lin64-tools')
 
                 setenv('PATH', ...
                     strcat(getenv('RELEASE'), ':', ...
@@ -148,9 +148,9 @@ classdef Test_FDG < matlab.unittest.TestCase
                            getenv('PATH')))  
 
                 ic = mlfourd.ImagingContext2( ...
-                    sprintf('/home/aris_data/ADNI_FDG/test%i/test%i_T1w.nii.gz', idx, idx));
+                    sprintf('%s/test%i/test%i_T1w.nii.gz', getenv('ADNI_HOME'), idx, idx));
                 ic.selectNiftiTool();
-                ic.filepath = '/home/aris_data/ADNI_FDG/test3';
+                ic.filepath = fullfile(getenv('ADNI_HOME'), 'test3');
                 ic.save();
                 ic.forceradiological();
                 ic.reorient2std();
@@ -246,7 +246,7 @@ classdef Test_FDG < matlab.unittest.TestCase
                 %popd(pwd0);
             end
         end
-        function test_call_resolve_002S1268(this)            
+        function test_call_resolve_002S1268(this)
             setenv('DEBUG', '')
             globbed = globT( ...
                 fullfile(getenv('ADNI_HOME'), sprintf('bids/rawdata/sub-002S1268/ses-20130326/pet/*-%s_pet.nii.gz', this.proc)));

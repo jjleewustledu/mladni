@@ -83,7 +83,7 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             disp('Start mladni.FDG.batch()')        
             
             t0 = tic;            
-            setenv('ADNI_HOME', '/home/aris_data/ADNI_FDG')
+            setenv('ADNI_HOME', '/scratch/jjlee/Singularity/ADNI')
             globbed = globT( ...
                 fullfile( ...
                     getenv('ADNI_HOME'), 'bids', 'derivatives', 'sub-*', 'ses-*', 'pet', ...
@@ -125,12 +125,13 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             disp('Start mladni.FDG.batch()')        
             
             t0 = tic;            
-            setenv('ADNI_HOME', '/home/aris_data/ADNI_FDG')
-            qc_pa th = sprintf('/home/aris_data/ADNI_FDG/bids/derivatives/QC/resolve_error_gt_%g', ipr.err);
+            setenv('ADNI_HOME', '/scratch/jjlee/Singularity/ADNI')
+            qc_path = sprintf('%s/bids/derivatives/QC/resolve_error_gt_%g', getenv('ADNI_HOME'), ipr.err);
             ensuredir(qc_path)
             globbed = globT( ...
                 fullfile( ...
-                    '/home/aris_data/ADNI_FDG/bids/derivatives', ...
+                    getenv('ADNI_HOME'), ...
+                    'bids/derivatives', ...
                     'sub-*', 'ses-*', 'pet', ...
                     sprintf('*-%s%s_pet_final.json', ipr.proc, ipr.tag)));
             fprintf('mladni.FDG.batch.globbed.size:\n')
@@ -158,7 +159,7 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         function t = batch_find_incomplete(varargin)
             
             t0 = tic;
-            derpth = fullfile('/home', 'aris_data', 'ADNI_FDG', 'bids', 'derivatives', '');
+            derpth = fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', '');
             subpth = glob(fullfile(derpth, 'sub-*', ''));
             len = length(subpth);
             gs = cell(len, 1);
@@ -381,12 +382,12 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             t0 = tic;
             trash = '/scratch/jjlee/Singularity/ADNI/.Trash';
             ensuredir(trash);
-            csv = fullfile('/home', 'aris_data', 'ADNI_FDG', 'bids', 'derivatives', 'pet_paths_incomplete.csv');
+            csv = fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'pet_paths_incomplete.csv');
             tbl = readtable(csv, 'Delimiter', ',');
             for it = 1:size(tbl,1)
                 pth = tbl.pet_path_incomplete{it};
-                src = strrep(pth, '/home/aris_data/ADNI_FDG', '/scratch/jjlee/Singularity/ADNI');
-                dest = strrep(pth, '/home/aris_data/ADNI_FDG', '/scratch/jjlee/Singularity/ADNI/.Trash');
+                src = strrep(pth, getenv('ADNI_HOME'), '/scratch/jjlee/Singularity/ADNI');
+                dest = strrep(pth, getenv('ADNI_HOME'), '/scratch/jjlee/Singularity/ADNI/.Trash');
                 movefile(src, dest);
             end
             t = toc(t0);

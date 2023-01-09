@@ -164,7 +164,7 @@ classdef FDGDemographics < handle
             %      globbed_csv (file):  default is /path/to/globbed.csv
             %      merge_dx (text):  'CN'|'Dementia'|'MCI' determined from AdniDemographics.
             
-            globbed_csv = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', 'globbed.csv');
+            globbed_csv = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', 'mladni_FDG_batch_globbed.csv');
             
             ip = inputParser;
             addParameter(ip, 'globbed_csv', globbed_csv, @isfile);
@@ -223,7 +223,7 @@ classdef FDGDemographics < handle
             %      globbed_amypos_csv:  filename.
             %      globbed_amyneg_csv:  filename.
             
-            globbed_csv = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', 'globbed.csv');
+            globbed_csv = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', 'mladni_FDG_batch_globbed.csv');
             
             ip = inputParser;
             addParameter(ip, 'globbed_csv', globbed_csv, @isfile);
@@ -283,7 +283,7 @@ classdef FDGDemographics < handle
             %      globbed_csv (file):  default is /path/to/globbed.csv
             %      merge_dx (text):  'CN'|'Dementia'|'MCI' determined from AdniDemographics.
             
-            globbed_csv = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', 'globbed.csv');
+            globbed_csv = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', 'mladni_FDG_batch_globbed.csv');
             
             ip = inputParser;
             addParameter(ip, 'globbed_csv', globbed_csv, @isfile);
@@ -350,24 +350,20 @@ classdef FDGDemographics < handle
             addRequired(ip, 'fn_csv', @isfile);
             addParameter(ip, 'trap_outliers', true, @islogical);
             addParameter(ip, 'save_1comp', false, @islogical);
+            addParameter(ip, 'remove_vars', true, @islogical);
             parse(ip, varargin{:});
             ipr = ip.Results;
 
             % from ADNIDemographics
             t = table_fdg1(this);  
-            t = removevars(t, ...
-                {'Subject', 'RID', 'Sex', 'Age', 'Visit', 'Modality', 'Description', 'Type', 'AcqDate', 'Format', 'Downloaded', 'Group', ...
-                'MergeVisCode', ...
-                'MergeExamDateBl', ...
-                'PonsVermis', ...
-                'VISCODE2', 'USERDATE', 'ID'});
-%             t = removevars(t, ...
-%                 {'Subject', 'RID', 'Sex', 'Age', 'Visit', 'Modality', 'Description', 'Type', 'AcqDate', 'Format', 'Downloaded', 'Group', ...
-%                  'MergeVisCode', 'MergeFdg', 'MergePib', 'MergeAv45', 'MergeAbeta', 'MergeTau', 'MergePTau', ...
-%                  'MergeExamDateBl', 'MergeFdgBl', 'MergePibBl', 'MergeAv45Bl', ...
-%                  'MergeAbetaBl', 'MergeTauBl', 'MergePTauBl', 'MergeMmseBl', 'MergeDxBl', 'MergeYearsBl', ...
-%                  'PonsVermis', ...
-%                  'VISCODE2', 'USERDATE', 'ID'});
+            if ipr.remove_vars
+                t = removevars(t, ...
+                    {'Age', 'Modality', 'Type', 'AcqDate', 'Format', 'Downloaded', ...
+                    'MergeVisCode', ...
+                    'MergeExamDateBl', ...
+                    'PonsVermis', ...
+                    'VISCODE2', 'USERDATE', 'ID'});
+            end
 
             % ImageDataID
             [idids,comps,filelist] = mladni.FDGDemographics.csv_to_imagedataIDs(ipr.fn_csv);

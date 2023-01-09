@@ -50,8 +50,6 @@ f' % https://github.com/jjleewustledu?tab=repositories
 % {'/Users/jjlee/MATLAB-Drive/mfiles/lstrfind.m'                                        }
 % {'/Users/jjlee/MATLAB-Drive/mfiles/mergeStruct.m'                                     }
 % {'/Users/jjlee/MATLAB-Drive/mfiles/mlbash.m'                                          }
-% {'/Users/jjlee/MATLAB-Drive/mfiles/mlbashDiary.m'                                     }
-% {'/Users/jjlee/MATLAB-Drive/mfiles/mlbashLogger.m'                                    }
 % {'/Users/jjlee/MATLAB-Drive/mfiles/mybasename.m'                                      }
 % {'/Users/jjlee/MATLAB-Drive/mfiles/myclass.m'                                         }
 % {'/Users/jjlee/MATLAB-Drive/mfiles/mydatetimestr.m'                                   }
