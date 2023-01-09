@@ -15,14 +15,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         end
         function propcluster()
             mladni.CHPC3.propcluster();
-        end
-        function getDebugLog(j,c)
-            try
-                c.getDebugLog(j)
-            catch
-                c.getDebugLog(j.Tasks(end))
-            end
-        end        
+        end       
         function [j,c] = parcluster_test()
             %% #PARCLUSTER
             %  See also https://sites.wustl.edu/chpc/resources/software/matlab_parallel_server/
@@ -31,13 +24,6 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             disp(c.AdditionalProperties)
             j = c.batch(@mladni.FDG.batch_test, 1, {31}, 'Pool', 31, ...
                 'CurrentFolder', '.', 'AutoAddClientPath', false);            
-        end
-        function t = batch_test(len)
-            t0 = tic;
-            parfor idx = 1:len
-                pause(10)
-            end
-            t = toc(t0);
         end
         
         function [j,c] = parcluster_tiny()
@@ -180,7 +166,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                     fdg_ = mlfourd.ImagingContext2(globbed{idx});
                     this = mladni.FDG(fdg_);
                     if ~isempty(this.t1w)
-                        this.build_pet_warped_brain();
+                        this.build_fdg_warped_masked();
                     end
                 catch ME
                     handwarning(ME)
@@ -191,47 +177,13 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             fprintf('mladni.FDG.parlocal3() completed in: ');
             toc(t0)
         end
-        function parlocal4()
-            %% create images normalized by median values for cohort; enables fair use of FDG & PVE1 for NMF
-
-            globbing_file = fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'globbed.mat');
-            assert(isfile(globbing_file));
-            ld = load(globbing_file);
-            g = [ld.globbed{:}];
-            g1 = cellfun(@(x) ...
-                strrep(x, 'rawdata', 'derivatives'), ...
-                g, 'UniformOutput', false);
-            g2 = cellfun(@(x) ...
-                strrep(x, getenv('ADNI_HOME'), '/mnt/CHPC_scratch/Singularity/ADNI'), ...
-                g1, 'UniformOutput', false);
-            select = cellfun(@(x) isfile(x), g2);
-            globbed = g2(select);
-            
-            workpth = '/mnt/CHPC_scratch/Singularity/ADNI/bids/derivatives';
-            med = mlfourd.ImagingFormatContext2(fullfile(workpth, ...
-                sprintf('all_trc-FDG_proc-%s-ponsvermis-icv_orient-rpi_pet_on_T1w_Warped_dlicv_median.nii.gz', ...
-                        mladni.FDG.PROC)));
-            med_fdg = median(med.img(med.img > eps));
-            med = mlfourd.ImagingFormatContext2(fullfile(workpth, ...
-                'all_acq-noaccel_proc-orig-n4_orient-rpi_T1w_brain_pve_1_detJ_Warped_median.nii.gz'));
-            med_pve1 = median(med.img(med.img > eps));
-
+        
+        function t = batch_test(len)
             t0 = tic;
-            parfor idx = 1:length(globbed)   
-                try
-                    fdg_ = mlfourd.ImagingContext2(globbed{idx});
-                    this = mladni.FDG(fdg_);
-                    if ~isempty(this.t1w)
-                        this.call_renorm_by_medians(med_fdg, med_pve1);
-                    end
-                catch ME
-                    handwarning(ME)
-                    disp(struct2str(ME.stack))
-                end
-            end            
-            %save('/scratch/jjlee/Singularity/ADNI/bids/derivatives/c.mat', 'c'); %% DEBUG            
-            fprintf('mladni.FDG.parlocal4() completed in: ');
-            toc(t0)
+            parfor idx = 1:len
+                pause(10)
+            end
+            t = toc(t0);
         end
         function globbed = batch_globbed(varargin)
             %% creates mladni_FDG_batch_globbed.csv, mladni_FDG_batch_globbed.mat
@@ -288,7 +240,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             parfor idx = 1:length(globbed)            
                 mladni.CHPC3.setenvs();
                 try
-                    % setenv('DEBUG', '1')
+                    setenv('DEBUG', '1')
 
                     fdg = mlfourd.ImagingContext2(globbed{idx});
                     this = mladni.FDG(fdg);
@@ -406,7 +358,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 
             workpth = '/scratch/jjlee/Singularity/ADNI/bids/derivatives';
             med = mlfourd.ImagingFormatContext2(fullfile(workpth, ...
-                sprintf('all_trc-FDG_proc-%s-ponsvermis-icv_orient-rpi_pet_on_T1w_Warped_dlicv_median.nii.gz', ...
+                sprintf('all_trc-FDG_proc-%s-ponsvermis_orient-rpi_pet_on_T1w_Warped_dlicv_median.nii.gz', ...
                         mladni.FDG.PROC)));
             med_fdg = median(med.img(med.img > eps));
             med = mlfourd.ImagingFormatContext2(fullfile(workpth, ...
@@ -534,6 +486,13 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             ic.fileprefix = sprintf('mladi_FDG_create_mask_for_nmf_thr%s', thr_);
             ic.save();
         end
+        function getDebugLog(j,c)
+            try
+                c.getDebugLog(j)
+            catch
+                c.getDebugLog(j.Tasks(end))
+            end
+        end
         function m  = image_mass(ic)
             dV = voxelVolume(ic);
             ic1 = ic.thresh(0);
@@ -549,8 +508,15 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             fn = strcat(ic.fqfp, '.json');
         end
         function jsonrecode(in, field, out)
-            str = struct(stackstr(3), field);
-            jsonrecode(in, str, 'filenameNew', out);
+            try
+                str = struct(stackstr(3), field);
+                jsonrecode(in, str, 'filenameNew', out);
+            catch ME
+                handwarning(ME)
+                dispdbg(str)
+                str = struct(stackstr(3), 'unknown field value');
+                jsonrecode(in, str, 'filenameNew', out);
+            end
         end
         function fn = mat(obj)
             if isa(obj, 'mlfourd.ImagingContext2')
@@ -682,12 +648,9 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         fast_white_warped
         
         fdg % mlfourd.ImagingContext2
-        fdg_mask % mlfourd.ImagingContext2 
         fdg_mskt
         fdg_on_atl
         fdg_on_t1w % mlfourd.ImagingContext2         
-        fdg_detJ_warped % warped to atl, weighted by det(J)
-        fdg_detJ_warped_mask % generated from dlicv, binarized, 8mm blurring, thresh 0.1, binarized   
         fdg_proc % e.g., mladni.FDG.PROC
         fdg_reference % for renormalizing, e.g., ADNI, ponsvermis
         fdg_warped % warped to atl, not weighted by det(J)
@@ -699,6 +662,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         t1w_detJ
         t1w_dlicv
         t1w_dlicv_detJ_warped
+        t1w_dlicv_warped
         t1w_mskt
         t1w_n4
         t1w_on_atl
@@ -859,19 +823,6 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         function g = get.fdg(this)
             g = this.fdg_;
         end
-        function g = get.fdg_mask(this)
-            if ~isempty(this.fdg_mskt_)
-                g = this.fdg_mskt_;
-                return
-            end
-            pwd0 = pushd(this.fdg.filepath);
-            this.fdg_mskt_ = this.fdg.thresh(0.0001*dipmax(this.fdg));
-            this.fdg_mskt_ = this.fdg_mskt_.binarized();
-            this.fdg_mskt_.fileprefix = strcat(this.fdg.fileprefix, '_msk');
-            this.fdg_mskt_.save();
-            g = this.fdg_mskt_;
-            popd(pwd0);
-        end
         function g = get.fdg_mskt(this)
             if ~isempty(this.fdg_mskt_)
                 g = this.fdg_mskt_;
@@ -899,37 +850,14 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end
             fqfp = this.in_derivatives_path(this.fdg.fqfp);
             this.fdg_on_t1w_ = mlfourd.ImagingContext2(strcat(fqfp, '_on_T1w.nii.gz'));
-            if strcmp(this.fdg_reference, 'ponsvermis')
-                this.fdg_on_t1w_ = this.add_proc(this.fdg_on_t1w_, this.fdg_proc, 'ponsvermis');
-            end
-            if strcmp(this.fdg_reference, 'ponsvermis-icv')
-                this.fdg_on_t1w_ = this.add_proc(this.fdg_on_t1w_, this.fdg_proc, 'ponsvermis-icv');
-            end
             g = this.fdg_on_t1w_;
         end
-        function g = get.fdg_detJ_warped(this)
-            if ~isempty(this.fdg_detJ_warped_)
-                g = this.fdg_detJ_warped_;
-                return
-            end
-            fqfp = this.in_derivatives_path(this.fdg_on_t1w.fqfp);
-            this.fdg_detJ_warped_ = mlfourd.ImagingContext2(strcat(fqfp, '_detJ_Warped.nii.gz'));
-            g = this.fdg_detJ_warped_;
-        end        
-        function g = get.fdg_detJ_warped_mask(this)
-            if ~isempty(this.fdg_detJ_warped_mask_)
-                g = this.fdg_detJ_warped_mask_;
-                return
-            end
-            fqfp = this.fdg_detJ_warped.fqfp;
-            this.fdg_detJ_warped_mask_ = mlfourd.ImagingContext2(strcat(fqfp, '_mask.nii.gz'));
-            g = this.fdg_detJ_warped_mask_;
-        end  
         function g = get.fdg_proc(this)
             g = this.fdg_proc_;
         end
         function g = get.fdg_reference(this)
             g = this.fdg_reference_;
+            assert(contains(g, {'ADNI', 'ponsvermis', 'ponsvermis-icv'}, 'IgnoreCase', false));
         end
         function     set.fdg_reference(this, s)
             assert(contains(s, {'ADNI', 'ponsvermis', 'ponsvermis-icv'}, 'IgnoreCase', false));
@@ -937,7 +865,6 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 
             % reset caches
             this.fdg_on_t1w_ = [];
-            this.fdg_detJ_warped_ = [];
             this.fdg_warped_ = [];
         end
         function g = get.fdg_warped(this)
@@ -960,6 +887,10 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         end
         
         function g = get.t1w(this)
+            if ~isempty(this.t1w_n4_) && isfile(this.t1w_n4_.fqfn)
+                g = this.t1w_n4_;
+                return
+            end
             g = this.t1w_;
         end
         function g = get.t1w_blurred(this)
@@ -967,11 +898,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 g = this.t1w_blurred_;
                 return
             end
-            if ~isempty(this.t1w_n4_)
-                this.t1w_blurred_ = this.t1w_n4.blurred(this.blur);
-            else
-                this.t1w_blurred_ = this.t1w.blurred(this.blur);
-            end
+            this.t1w_blurred_ = this.t1w.blurred(this.blur);
             g = this.t1w_blurred_;
             if ~isfile(g.fqfn)
                 g.save();
@@ -982,18 +909,22 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 g = this.t1w_brain_;
                 return
             end
-            if isfile(this.t1w_n4.fqfn) && isfile(this.t1w_dlicv.fqfn)
-                fqfp = this.t1w_n4.fqfp;
-                this.t1w_brain_ = this.t1w_n4 .* this.t1w_dlicv;
-                in = this.t1w_n4;
-                S = struct('state_changes', 'this.t1w_brain_ = this.t1w_n4 .* this.t1w_dlicv');
+            fqfn = strcat(this.t1w.fqfp, '_brain.nii.gz');
+            if isfile(fqfn)
+                this.t1w_brain_ = mlfourd.ImagingContext2(fqfn);
+                g = this.t1w_brain_;
+                return
+            end
+            if isfile(this.t1w_dlicv.fqfn)
+                this.t1w_brain_ = this.t1w .* this.t1w_dlicv;
+                in = this.t1w;
+                S = struct(stackstr(2), 'this.t1w_brain_ = this.t1w .* this.t1w_dlicv');
             else                
-                fqfp = this.in_derivatives_path(this.t1w.fqfp);
                 this.t1w_brain_ = this.t1w .* this.t1w_mskt;
                 in = this.t1w;
-                S = struct('state_changes', 'this.t1w_brain_ = this.t1w .* this.t1w_dlicv');
+                S = struct(stackstr(2), 'this.t1w_brain_ = this.t1w .* this.t1w_mskt');
             end
-            this.t1w_brain_.fqfp = strcat(fqfp, '_brain.nii.gz');
+            this.t1w_brain_.fqfn = fqfn;
             this.t1w_brain_.save();
             mladni.FDG.jsonrecode(in, S, this.t1w_brain_);
             g = this.t1w_brain_;
@@ -1013,7 +944,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 g = this.t1w_dlicv_;
                 return
             end
-            fqfp = this.t1w_n4.fqfp;
+            fqfp = this.t1w.fqfp;
             this.t1w_dlicv_ = mlfourd.ImagingContext2(strcat(fqfp, '_dlicv', '.nii.gz'));
             g = this.t1w_dlicv_;
         end
@@ -1022,9 +953,12 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 g = this.t1w_dlicv_detJ_warped_;
                 return
             end
-            fqfp = this.t1w_dlicv.fqfp;
-            this.t1w_dlicv_detJ_warped_ = mlfourd.ImagingContext2(strcat(fqfp, '_detJ_Warped.nii.gz'));
+            fqfn = strcat(this.t1w_dlicv.fqfp, '_detJ_Warped.nii.gz');
+            this.t1w_dlicv_detJ_warped_ = mlfourd.ImagingContext2(fqfn);
             g = this.t1w_dlicv_detJ_warped_;
+        end
+        function g = get.t1w_dlicv_warped(this)
+            g = this.t1w_dlicv_detJ_warped.binarized();
         end
         function g = get.t1w_mskt(this)
             if ~isempty(this.t1w_mask_)
@@ -1041,14 +975,10 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 g = this.t1w_n4_;
                 return
             end
-            fqfp = this.t1w.fqfp;
-            %if ~contains(fqfp, 'n3') && ~contains(fqfp, 'n4')
+            fqfp = this.t1w_.fqfp;
             this.t1w_n4_ = mlfourd.ImagingContext2( ...
                 strcat(strrep(fqfp, '_orient', '-n4_orient'), '.nii.gz'));
             g = this.t1w_n4_;
-            %else
-            %    g = this.t1w;
-            %end
         end        
         function g = get.t1w_on_atl(this)
             if ~isempty(this.t1w_on_atl_)
@@ -1182,17 +1112,21 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end
         end        
         function this = build_deepmrseg_warped(this)
-            % warp to atlas    
+            %% Warp dlicv to atlas w/ detJ, which can be easily binarized.
+
+            if isfile(this.t1w_dlicv_detJ_warped.fqfn)
+                return
+            end
 
             t1w_dlicv_w = mlfourd.ImagingContext2( ...
-                this.ants.antsApplyTransforms(this.t1w_dlicv, this.atl_brain, this.t1w_brain));            
+                this.ants.antsApplyTransforms(this.t1w_dlicv, this.atl_brain, this.t1w_brain));
+
             this.t1w_dlicv_detJ_warped_ = this.t1w_detJ .* t1w_dlicv_w;
             this.t1w_dlicv_detJ_warped_.fqfp = strcat(this.t1w_dlicv.fqfp, '_detJ_Warped');
-            this.t1w_dlicv_detJ_warped_.save();
-            
+            this.t1w_dlicv_detJ_warped_.save();            
             mladni.FDG.jsonrecode( ...
                 this.t1w_detJ, ...
-                struct('state_changes', 'this.t1w_dlicv_detJ_warped_ = this.t1w_detJ .* t1w_dlicv_w', ...
+                struct(stackstr(2), 'this.t1w_dlicv_detJ_warped_ = this.t1w_detJ .* t1w_dlicv_w', ...
                        'image_mass', this.image_mass(this.t1w_dlicv_detJ_warped_)), ...
                 this.t1w_dlicv_detJ_warped_);
 
@@ -1224,13 +1158,18 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end
         end
         function this = build_fast_warped2(this)
-            % warp all segs to atlas    
+            %% warp all segs to atlas, w/o det|J|
             
-            for pve = {'fast_csf', 'fast_gray', 'fast_white'}                
+            for pve = {'fast_csf', 'fast_gray', 'fast_white'}        
+                if isfile(this.([pve{1} '_warped']).fqfn)
+                    continue
+                end
                 this.([pve{1} '_warped_']) = this.build_fast_warped_seg2(this.(pve{1}));
             end
         end
         function inw  = build_fast_warped_seg2(this, in)
+            %% warp input seg to atlas, w/o det|J|
+
             if ~isfile(in.fqfn)
                 in.save();
             end
@@ -1239,7 +1178,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 
             mladni.FDG.jsonrecode( ...
                 inw, ...
-                struct('state_changes', 'no use of this.t1w_detJ', ...
+                struct(stackstr(2), 'no use of this.t1w_detJ', ...
                        'image_mass', this.image_mass(inw)), ...
                 inw);
         end
@@ -1247,71 +1186,50 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             %% renormalizes all FDG by {pons, cerebellar_vermis} per Susan Landau's methods
             
             try
-                for ic = {this.fdg_warped} % this.fdg_on_t1w, this.fdg_detJ_warped
+                ic_ = this.fdg_on_t1w;
+                ic_.selectNiftiTool();
+                S = struct('suvr_pons_vermis', nan, 'icv', nan);
+
+                if contains(this.fdg_reference, 'ponsvermis')
                     suvr = this.suvr_pons_vermis();
                     assert(suvr > 0.5 && suvr < 2);
-                    icv = this.icv_from_imaging(this.t1w_dlicv);
-                    
-                    ic_ = ic{1};
-                    ic_.selectNiftiTool();
                     ic_ = ic_./suvr;
-                    ic_ = ic_./icv;
-                    ic_ = ic_ .* binarized(this.t1w_dlicv_detJ_warped);
-                    ic_.fileprefix = strrep(ic{1}.fileprefix, ...
-                        strcat('proc-', this.fdg_proc), ...
-                        strcat('proc-', this.fdg_proc, '-ponsvermis-icv'));
-                    ic_.fileprefix = strcat(ic_.fileprefix, '_dlicv');
-                    ic_.save();
-                    
-                    mladni.FDG.jsonrecode( ...
-                        ic{1}, ...
-                        struct('suvr_pons_vermis', suvr, 'icv', icv), ...
-                        ic_);
+                    S.suvr_pons_vermis = suvr;
                 end
+                if contains(this.fdg_reference, 'icv')
+                    icv = this.icv_from_imaging(this.t1w_dlicv);                    
+                    ic_ = ic_./icv;
+                    S.icv = icv;
+                end
+
+                ic_.fileprefix = strrep(this.fdg_on_t1w.fileprefix, ...
+                    strcat('proc-', this.fdg_proc), ...
+                    strcat('proc-', this.fdg_proc, '-', this.fdg_reference));
+                ic_.save();  
+                mladni.FDG.jsonrecode(this.fdg_on_t1w, S, ic_);
+                this.fdg_on_t1w_ = ic_;
             catch ME % suvr not always available
                 handwarning(ME)
             end
         end
         function this = build_fdg_warped(this)
-            fdgw_ = mlfourd.ImagingContext2( ...
+            fdgw = mlfourd.ImagingContext2( ...
                 this.ants.antsApplyTransforms(this.fdg_on_t1w, this.atl_brain, this.t1w_brain));
-            fdgw = fdgw_.thresh(0);
-            this.fdg_detJ_warped_ = this.t1w_detJ .* fdgw;
-            this.fdg_detJ_warped_.fqfp = strcat(this.fdg_on_t1w.fqfp, '_detJ_Warped');
-            this.fdg_detJ_warped_.save();
-            
+            this.fdg_warped_ = fdgw.thresh(0); % handle reference
+            this.fdg_warped_.fqfp = strcat(this.fdg_on_t1w.fqfp, '_Warped');
+            this.fdg_warped_.save();            
             mladni.FDG.jsonrecode(...
-                fdgw_, ...
-                struct('state_changes', 'fdgw = fdgw.thresh(0); this.fdg_detJ_warped_ = this.t1w_detJ .* fdgw', ...
-                       'image_activity', this.image_mass(this.fdg_detJ_warped_)), ...
-                this.fdg_detJ_warped_);
-
-            deleteExisting(fdgw);
+                fdgw, ...
+                struct(stackstr(2), 'this.fdg_warped_ = fdgw.thresh(0)', ...
+                       'image_activity', this.image_mass(this.fdg_warped_)), ...
+                this.fdg_warped_);
         end
-        function this = build_nmf_inputs(this)
-            %% builds fdg_detJ_warped_mask
-            
-            msk = this.t1w_dlicv_detJ_warped;
-            msk = msk.binarized();
-            msk.fqfp = strcat(this.fdg_detJ_warped.fqfp, '_mask'); 
-            msk.save();
-            msk = msk.blurred(8);
-            
-            for thr = 0.5:-0.1:0.1
-                msk_ = msk.thresh(thr);
-                msk_ = msk_.binarized();
-                msk_.fqfp = strcat(this.fdg_detJ_warped.fqfp, sprintf('_mask_%g', thr));
-                msk_.save();
-            end  
-            this.fdg_detJ_warped_mask_ = msk_;
-        end
-        function this = build_pet_warped_brain(this)
-            %% binarize dlicv_detJ_Warped; use mask to extract brain from pet_on_T1w_Warped
+        function this = build_fdg_warped_masked(this)
+            %% use binary mask to extract brain from fdg_on_T1w_Warped
 
             try
-                bin = this.t1w_dlicv_detJ_warped.binarized();
-                fdg_fqfn0 = this.fdg_warped.fqfn;
-                if ~isfile(this.fdg_warped)
+                bin = this.t1w_dlicv_warped;
+                if ~isfile(this.fdg_warped.fqfn)
                     return
                 end
                 brain = this.fdg_warped .* bin;
@@ -1319,13 +1237,12 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 brain.save();
 
                 mladni.FDG.jsonrecode( ...
-                    fdg_fqfn0, ...
-                    struct('build_pet_warped_brain', 'bin = this.t1w_dlicv_detJ_warped.binarized()'), ...
+                    this.fdg_warped.fqfn, ...
+                    struct('build_fdg_warped_masked', 'bin = this.t1w_dlicv_warped'), ...
                     brain);
             catch ME
                 handwarning(ME)
             end
-
         end
         function this = call_renorm_balanced(this, med_fdg, med_pve1)
             %% extends call_renorm_by_medians by also weighting fdg intensities by # fdg voxels
@@ -1345,7 +1262,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             ic.save();
             mladni.FDG.jsonrecode( ...
                 this.fdg_warped_dlicv, ...
-                struct('state_changes', sprintf('renorm by dipsum(med_fdg_bin)/dipsum(med_pve1_bin)*med_fdg_scalar->%g', norm_fdg)), ...
+                struct(stackstr(2), sprintf('renorm by dipsum(med_fdg_bin)/dipsum(med_pve1_bin)*med_fdg_scalar->%g', norm_fdg)), ...
                 ic);
 
             % PVE1
@@ -1355,7 +1272,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             ic.save();
             mladni.FDG.jsonrecode( ...
                 this.fast_gray_detJ_warped, ...
-                struct('state_changes', sprintf('renorm by pve1 median->%g', med_pve1_scalar)), ...
+                struct(stackstr(2), sprintf('renorm by pve1 median->%g', med_pve1_scalar)), ...
                 ic);
         end
         function this = call_renorm_by_medians(this, med_fdg, med_pve1)
@@ -1387,14 +1304,16 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             this = this.N4BiasFieldCorrection();
             this = this.deepmrseg_apply();
-            this = this.resolve_fdg2t1w();
-            this = this.fast();
             this = this.CreateJacobianDeterminantImages();
             this = this.build_deepmrseg_warped();
-            %this = this.build_fast_warped2();
-            this = this.build_fdg_warped();
-            %this = this.build_nmf_inputs();
+
+            this = this.fast();
+            this = this.build_fast_warped2();
+
+            this = this.resolve_fdg2t1w();
             this = this.build_fdg_renormalized();
+            this = this.build_fdg_warped();
+            this = this.build_fdg_warped_masked();
             %this = this.save_qc();
         end
         function this = call_revisit_pve1(this)
@@ -1436,7 +1355,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 tiss_.save();
                 mladni.FDG.jsonrecode( ...
                     this.t1w, ...
-                    struct('state_changes', sprintf( ...
+                    struct(stackstr(2), sprintf( ...
                            'norm_ ~ icv_; blurred(1/norm_ .* antsApplyWarpToAtl(this, this.fast_%s_detJ_warped), 7.9373)', t{1}), ...
                            'image_mass', this.image_mass(tiss_)), ...
                     tiss_);
@@ -1456,13 +1375,14 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 return
             end
             
+            %% dlicv
+
             sif = fullfile(getenv('SINGULARITY_HOME'), 'deepmrseg_image_20220515.sif');
             cmd = sprintf('singularity exec --bind %s:/data %s "deepmrseg_apply" "--task" "dlicv" "--inImg" "/data/%s" "--outImg" "/data/%s"', ...
-                this.t1w_n4.filepath, sif, this.t1w_n4.filename, this.t1w_dlicv.filename);
+                this.t1w.filepath, sif, this.t1w.filename, this.t1w_dlicv.filename);
             mlbash(cmd);
-
             mladni.FDG.jsonrecode( ...
-                this.t1w_n4, ...
+                this.t1w, ...
                 struct('bash', cmd, ...
                        'image_mass', this.image_mass(this.t1w_dlicv)), ...
                 this.t1w_dlicv);
@@ -1524,12 +1444,6 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         end
         function        finalize(this)
             deleteExisting(strcat(this.t1w.fqfp, sprintf('_b%i.*', 10*this.blur)));
-            deleteExisting(strcat(this.t1w_n4.fqfp, sprintf('_b%i.*', 10*this.blur)));
-            
-            if ~this.debug
-                deleteExisting(this.t1w);
-                deleteExisting(this.fdg);
-            end
         end
         function this = flirt_fdg2t1w(this)
             %% #FLIRT_FDG2T1W
@@ -1624,20 +1538,23 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             fqfn = fullfile(pth, fp, x);
         end
         function this = N4BiasFieldCorrection(this)
-            %if contains(this.t1w_on_atl.fileprefix, '-n3') || contains(this.t1w_on_atl.fileprefix, '-n4')
-            %    this.t1w_n4_ = copy(this.t1w);
-            %    return
-            %end
+            if isfile(this.t1w_n4.fqfn)
+                return
+            end
             try
-                this.ants.N4BiasFieldCorrection(this.t1w, this.t1w_n4);
+                this.ants.N4BiasFieldCorrection(this.t1w_, this.t1w_n4);
                 mladni.FDG.jsonrecode( ...
-                    this.t1w, ...
+                    this.t1w_, ...
                     struct('image_mass', this.image_mass(this.t1w_n4)), ...
                     this.t1w_n4);
             catch
             end
         end
         function this = resolve_fdg2t1w(this)
+            if isfile(this.niigz(this.fdg_on_t1w))
+                return
+            end
+
             pwd0 = pushd(this.fdg.filepath);
             
             msks{1} = this.t1w_dlicv;
@@ -1669,18 +1586,19 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         function this = save_qc(this)
             import mladni.FDGQC.*;
             
-            % DEBUG
-            %disp(this.atl)
-            %disp(this.t1w_warped)
-            %disp(this.fast_gray_detJ_warped)
-            %disp(this.fdg_detJ_warped)
+            if ~isempty(getenv('DEBUG'))
+                disp(this.atl)
+                disp(this.t1w_warped)
+                disp(this.fast_gray_detJ_warped)
+                disp(this.fdg_warped)
+            end
             
             try
                 this.atl.save_qc(this.t1w_warped);
                 this.t1w_warped.save_qc(this.fast_csf_detJ_warped)
                 this.t1w_warped.save_qc(this.fast_gray_detJ_warped)
                 this.t1w_warped.save_qc(this.fast_white_detJ_warped)
-                this.t1w_warped.save_qc(this.fdg_detJ_warped)
+                this.t1w_warped.save_qc(this.fdg_warped)
             catch
             end
         end
@@ -1710,7 +1628,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             t = this.table_fdg1_;
         end
         function [s,r] = view(this)
-            cmd = sprintf('fsleyes %s %s %s %s', this.fdg_detJ_warped.fqfn, this.fast_gray_detJ_warped.fqfn, this.t1w_warped.fqfn, this.atl.fqfn);
+            cmd = sprintf('fsleyes %s %s %s %s', this.fdg_warped.fqfn, this.fast_gray_detJ_warped.fqfn, this.t1w_warped.fqfn, this.atl.fqfn);
             [s,r] = mlbash(cmd);            
         end
 
@@ -1728,7 +1646,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 opts.atl = fullfile(getenv("REFDIR"), "MNI152_T1_2mm.nii.gz")
                 opts.blur double {mustBeScalarOrEmpty} = 2
                 opts.fdg_proc {mustBeTextScalar} = mladni.FDG.PROC
-                opts.fdg_reference {mustBeTextScalar} = 'pons-vermis'
+                opts.fdg_reference {mustBeTextScalar} = 'ponsvermis'
             end
             
             this.atl_ = mlfourd.ImagingContext2(opts.atl);
@@ -1770,8 +1688,6 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         fdg_mskt_
         fdg_on_atl_
         fdg_on_t1w_
-        fdg_detJ_warped_
-        fdg_detJ_warped_mask_
         fdg_proc_
         fdg_reference_
         fdg_warped_
@@ -1783,8 +1699,8 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         t1w_brain_
         t1w_blurred_
         t1w_detJ_
-        t1w_dlicv_   
-        t1w_dlicv_detJ_warped_     
+        t1w_dlicv_
+        t1w_dlicv_detJ_warped_
         t1w_mask_
         t1w_n4_
         t1w_on_atl_
