@@ -961,7 +961,7 @@
             t = removevars(t, {'MergeDxBl' 'MergeTauBl' 'MergePTauBl' 'MergeFdgBl'}); % redundant
             t = mladni.NMFRegression.removeids(t);
             t = mladni.NMFRegression.siteid2categories(t);
-            t = mladni.NMFRegression.combine_amyloid(t);
+            %t = mladni.NMFRegression.combine_amyloid(t);
         end
         function t = siteid2categories(t)
             arr = t.SITEID;

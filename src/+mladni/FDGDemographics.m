@@ -41,9 +41,32 @@ classdef FDGDemographics < handle
                         itemj = item;
                     end
                     jfile = strrep(itemj, '.nii.gz', '.json');
-                    j = jsondecode(fileread(jfile));
-                    [~,id] = fileparts(j.ADNI_INFO.OriginalPath);
-                    idids = [idids; id]; %#ok<AGROW> 
+                    if ~isfile(jfile)
+                        % KLUDGE
+                        itemj = strrep(itemj, '_dlicv', '');
+                        jfile = strrep(itemj, '.nii.gz', '.json');
+                    end
+                    if ~isfile(jfile)
+                        % KLUDGE
+                        itemj = strrep(itemj, '_Warped', '');
+                        jfile = strrep(itemj, '.nii.gz', '.json');
+                    end
+                    if ~isfile(jfile)
+                        % KLUDGE
+                        itemj = strrep(itemj, '-ponsvermis', '');
+                        jfile = strrep(itemj, '.nii.gz', '.json');
+                    end
+                    try
+                        j = jsondecode(fileread(jfile));
+                        if endsWith(j.ADNI_INFO.OriginalPath, filesep)
+                            opath = convertStringsToChars(j.ADNI_INFO.OriginalPath);
+                            j.ADNI_INFO.OriginalPath = opath(1:end-1);
+                        end
+                        [~,id] = fileparts(j.ADNI_INFO.OriginalPath);
+                        idids = [idids; id]; %#ok<AGROW> 
+                    catch
+                        idids = [idids; 'unknown']; %#ok<AGROW> 
+                    end
                     filelist = [filelist; item]; %#ok<AGROW> 
                 catch ME
                     handwarning(ME);
@@ -337,7 +360,7 @@ classdef FDGDemographics < handle
             writetable(tbl, globbed_dx_csv);
         end        
         function t = table_covariates(this, varargin)
-            %% Saves and eturns table with ICV, PVE1 and all components in last column.
+            %% Saves and returns table with ICV and all components in last columns.
             %  Saves separate tables for each component.
             %
             %  Args:
@@ -348,17 +371,21 @@ classdef FDGDemographics < handle
 
             ip = inputParser;
             addRequired(ip, 'fn_csv', @isfile);
+            addParameter(ip, 'tags', '', @istext);
             addParameter(ip, 'trap_outliers', true, @islogical);
             addParameter(ip, 'save_1comp', false, @islogical);
             addParameter(ip, 'remove_vars', true, @islogical);
             parse(ip, varargin{:});
             ipr = ip.Results;
+            if ~startsWith(ipr.tags, '_')
+                ipr.tags = strcat('_', ipr.tags);
+            end
 
             % from ADNIDemographics
             t = table_fdg1(this);  
             if ipr.remove_vars
                 t = removevars(t, ...
-                    {'Age', 'Modality', 'Type', 'AcqDate', 'Format', 'Downloaded', ...
+                    {'Group', 'Age', 'Modality', 'Type', 'AcqDate', 'Format', 'Downloaded', ...
                     'MergeVisCode', ...
                     'MergeExamDateBl', ...
                     'PonsVermis', ...
@@ -377,46 +404,30 @@ classdef FDGDemographics < handle
             ICV = icvs(index);
             assert(length(Components) == length(ICV));
 
-            % PVE1 ~ gray matter mass
-            pve1s = mladni.FDGDemographics.csv_to_pve1(ipr.fn_csv);
-            PVE1 = pve1s(index);
-            assert(length(Components) == length(PVE1));
-
-            % opportunistically trapping outliers
-            if ipr.trap_outliers
-                outliers = PVE1 < (mean(PVE1) - 5*std(PVE1));
-                if ~isempty(Filelist(outliers))
-                    for fn = Filelist(outliers)
-                        fprintf('FDGDeomographics.table_covariates(): trapped outlier %s\n', fn{1});
-                    end
-                end
-            else
-                outliers = false(size(PVE1));
-            end
-
             % assemble & save final table
             t = t(matches(t.ImageDataID, idids), :);
             t = sortrows(t, 1); % ImageDataID
-            assert(all(string(t.ImageDataID) == string(idids)))
+            try
+                assert(all(string(t.ImageDataID) == string(idids)))
+            catch ME
+                handwarning(ME);
+            end
             t = addvars(t, Filelist, 'Before', 1);
             t = addvars(t, ICV, 'After', 'SITEID');
-            t = addvars(t, PVE1, 'After', 'ICV');
-            t = addvars(t, Components, 'After', 'PVE1');
-            t = t(~outliers, :);
+            t = addvars(t, Components);
             t = t(~isnan(t.MergeAge),:);
-            % t.ImageDataID = [];
 
             t = t(t.CDGLOBAL ~= -1, :);
 
             this.table_covariates_cache_ = t;
-            save('mladni_FDGDemographics_table_covariates.mat', 't');
-            writetable(t, 'mladni_FDGDemographics_table_covariates.csv');
+            save(sprintf('mladni_FDGDemographics_table_covariates%s.mat', ipr.tags), 't');
+            writetable(t, sprintf('mladni_FDGDemographics_table_covariates%s.csv', ipr.tags));
 
             % save separate tables for each component
             if ipr.save_1comp
                 for idx = 1:numComp
                     t1 = this.table_covariates_1comp(idx);
-                    save(sprintf('mladni_FDGDemographics_table_covariates_1comp%i.mat', idx), 't1');
+                    save(sprintf('mladni_FDGDemographics_table_covariates%s_1comp%i.mat', ipr.tags, idx), 't1');
                 end
             end
         end

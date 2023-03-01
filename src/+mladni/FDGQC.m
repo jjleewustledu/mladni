@@ -69,46 +69,106 @@ classdef FDGQC < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 'CurrentFolder', '.', 'AutoAddClientPath', false);            
         end        
         
-        function t = batch(varargin)
+        function t = batch_log_err(varargin)
             %% for all globbed:  
             %      find t4_resolve cost_final as rerr, terr
-            %  save rerr.mat, terr.mat, fcost.mat
+            %  save table_cost_final.mat, table_err.mat.
             
             ip = inputParser;
-            addParameter(ip, 'proc', mladni.FDG.PROC, @istext)
+            addParameter(ip, 'proc', 'CASU', @istext)
             addParameter(ip, 'tag', '_orient-rpi', @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;
             
-            disp('Start mladni.FDG.batch()')        
+            disp('Start mladni.FDG.batch_log_err()')        
             
             t0 = tic;            
-            setenv('ADNI_HOME', '/scratch/jjlee/Singularity/ADNI')
-            globbed = globT( ...
+            setenv('ADNI_HOME', '/home/usr/jjlee/mnt/CHPC_scratch/Singularity/ADNI')
+            globbed = glob( ...
                 fullfile( ...
                     getenv('ADNI_HOME'), 'bids', 'derivatives', 'sub-*', 'ses-*', 'pet', ...
-                    sprintf('*-%s%s_pet_on_T1w.json', ipr.proc, ipr.tag)));
+                    sprintf('*_trc-FDG_proc-%s*%s_pet_on_T1w_Warped_dlicv.json', ipr.proc, ipr.tag)));
             fprintf('mladni.FDG.batch.globbed.size:\n')
             disp(size(globbed))
+            fqfn = strrep(string(globbed), '.json', '.nii.gz');
             rerr = nan(size(globbed));
             terr = nan(size(globbed));
+            cost = nan(size(globbed));
             
             parfor idx = 1:length(globbed)
-                try
-                    j = jsondecode(fileread(globbed{idx}));
-                    rerr(idx) = str2double(j.mlfourdfp_SimpleT4ResolveBuilder.cost_final.pairs_rotation_error.err); %#ok<PFOUS>
-                    terr(idx) = str2double(j.mlfourdfp_SimpleT4ResolveBuilder.cost_final.pairs_translation_error.err); %#ok<PFOUS>
-                catch ME
-                    handwarning(ME);
+                j = jsondecode(fileread(globbed{idx}));
+                if isfield(j, 'mlfourdfp_SimpleT4ResolveBuilder')
+                    try
+                        rerr(idx) = str2double(j.mlfourdfp_SimpleT4ResolveBuilder.cost_final.pairs_rotation_error.err); %#ok<PFOUS>
+                        terr(idx) = str2double(j.mlfourdfp_SimpleT4ResolveBuilder.cost_final.pairs_translation_error.err); %#ok<PFOUS>
+                    catch
+                    end
                 end
-            end
-            save(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'rerr.mat'), 'rerr')
-            save(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'terr.mat'), 'terr')
+                if isfield(j, 'mlfsl_Flirt')
+                    try
+                        cost(idx) = j.mlfsl_Flirt.cost_final.cost;
+                    catch
+                    end
+                end
+            end          
+            table_cost_final = table(fqfn, rerr, terr, cost);
+            writetable(table_cost_final, fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'table_cost_final.csv'));
+            save(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'table_cost_final.mat'), 'table_cost_final');
+
+            select = table_cost_final.rerr > 8 | table_cost_final.terr > 8 | ~isnan(table_cost_final.cost);  
+            table_err = table_cost_final(select, :);
+            writetable(table_err, fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'table_err.csv'));
+            save(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'table_err.mat'), 'table_err');
             t = toc(t0);
 
-            disp('mladni.FDG.batch() completed')            
+            disp('mladni.FDG.batch_log_err() completed')            
         end
-        function t = batch2(varargin)
+        function t = batch_log_scan_separation(varargin)
+            %% for all globbed:  
+            %      find durations of separation of FDG and T1w
+            %  save table_scan_separation.mat
+            
+            ip = inputParser;
+            addParameter(ip, 'proc', 'CASU', @istext)
+            addParameter(ip, 'tag', '_orient-rpi', @istext)
+            parse(ip, varargin{:});
+            ipr = ip.Results;
+            
+            disp('Start mladni.FDG.batch_log_scan_separation()')        
+            
+            t0 = tic;            
+            setenv('ADNI_HOME', '/home/usr/jjlee/mnt/CHPC_scratch/Singularity/ADNI')
+            fqfn = glob( ...
+                fullfile( ...
+                    getenv('ADNI_HOME'), 'bids', 'derivatives', 'sub-*', 'ses-*', 'pet', ...
+                    sprintf('*_trc-FDG_proc-%s%s_pet.json', ipr.proc, ipr.tag)));
+            fprintf('mladni.FDG.batch.globbed.size:\n')
+            disp(size(fqfn))
+            separation = nan(size(fqfn));
+            
+            parfor idx = 1:length(fqfn)
+                j = jsondecode(fileread(fqfn{idx}));
+                if isfield(j, 'T1wFilename')
+                    try
+                        re = regexp(j.T1wFilename, 'sub-\d{3}S\d{4}_ses-(?<t1date>\d{8})', 'names');
+                        t1date = datetime(re.t1date, InputFormat='yyyyMMdd');
+                        re = regexp(fqfn{idx}, 'sub-\d{3}S\d{4}_ses-(?<fdgdate>\d{8})', 'names');
+                        fdgdate = datetime(re.fdgdate, InputFormat='yyyyMMdd');
+                        separation(idx) = days(t1date - fdgdate); %#ok<PFTUSW> 
+                    catch
+                    end
+                end
+            end
+            table_scan_separation = table(fqfn, separation);
+            writetable(table_scan_separation, fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'table_scan_separation.csv'));
+            save(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'table_scan_separation.mat'), 'table_scan_separation');
+            
+
+            t = toc(t0);
+
+            disp('mladni.FDG.batch_log_scan_separation() completed')
+        end
+        function t = batch_move_large_err(varargin)
             %% for all FDG with resolve error > err:
             %      symlink .nii.gz, .json to derivatives/QC/resolve_error_gt_error
             %

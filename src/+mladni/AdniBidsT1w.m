@@ -321,6 +321,7 @@ classdef AdniBidsT1w < handle & mladni.AdniBids
                 this mladni.AdniBidsT1w
                 t1w_arr cell
             end
+            t1w_def = [];
             if isempty(t1w_arr)
                 return
             end
@@ -331,7 +332,6 @@ classdef AdniBidsT1w < handle & mladni.AdniBids
             t1w_arr = t1w_arr(~contains(t1w_arr, 'local')); % for safety
             t1w_arr = t1w_arr(~contains(t1w_arr, 'Coreg')); % for safety
             t1w_arr = t1w_arr(~contains(t1w_arr, 'Co-reg')); % for safety
-            t1w_def = [];
 
             return
 

@@ -78,37 +78,7 @@ classdef AdniBids < handle
             disp('mladni.AdniBids.batch_3dresample completed')  
         end        
         function fn1 = afni_3dresample(fn)
-            if ~isfile(fn)
-                fn1 = fn;
-                return
-            end
-            fn = ensuregz(fn);
-
-            % fn ending with .nii.gz exists
-            [pth,fp,e] = myfileparts(fn);
-            re = regexp(fp, '(?<prefix>\S+)(?<suffix>(_T1\w*|_t1\w*|_pet))', 'names');
-            if isempty(re.prefix) || re.prefix == ""
-                fn1 = fn;
-                return
-            end
-            fn1 = fullfile(pth, strcat(re.prefix, '_orient-rpi', re.suffix, e));
-            if ~isfile(fn1)
-                cmd = sprintf('3dresample -debug 1 -orient rpi -prefix %s -input %s', fn1, fn);
-                [~,r] = mlbash(cmd);
-    
-                % manage json
-                try
-                    j0 = fileread(strcat(myfileprefix(fn), '.json'));
-                    j1.afni_3dresample.cmd = cmd;
-                    j1.afni_3dresample.cmdout = r;
-                    jsonrecode(j0, j1, 'filenameNew', strcat(myfileprefix(fn1), '.json'));       
-                catch 
-                end
-            end
-            assert(isfile(fn1));  
-            
-            % clean file that is not orient-rpi
-            deleteExisting(fn);
+            fn1 = mlpipeline.Bids.afni_3dresample(fn);
         end
 
         % support methods

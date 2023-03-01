@@ -63,7 +63,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             globbing_file = fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'FDG_batch_globbed.mat');
             fprintf('mladni.FDG.parcluster_tiny.globbing_file:  ')
             disp(globbing_file)
-            mysystem(sprintf('rsync -a login3.chpc.wustl.edu:%s %s', globbing_file, fileparts(globbing_file)));
+%            mysystem(sprintf('rsync -a login3.chpc.wustl.edu:%s %s', globbing_file, fileparts(globbing_file)));
             if ~isfile(globbing_file)
                 j = c.batch(@mladni.FDG.batch_globbed, 1, {}, ...
                     'CurrentFolder', '.', 'AutoAddClientPath', false);
@@ -71,7 +71,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end            
             ld = load(globbing_file);
             for ji = 1:length(ld.globbed)
-                j{ji} = c.batch(@mladni.FDG.batch, 1, {'globbed', ld.globbed{ji}}, 'Pool', 31, ...
+                j{ji} = c.batch(@mladni.FDG.batch, 1, {'globbed', ld.globbed{ji}}, 'Pool', 15, ...
                     'CurrentFolder', '.', 'AutoAddClientPath', false);  %#ok<AGROW>
             end
         end
@@ -84,14 +84,16 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             c = parcluster;
             disp(c.AdditionalProperties)
             
-            globbing_file = fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'globbed.mat');
-            assert(isfile(globbing_file));
-            ld = load(globbing_file);
-            g = [ld.globbed{:}];
-            g1 = cellfun(@(x) strrep(x, 'rawdata', 'derivatives'), ...
-                g, 'UniformOutput', false);
-            select = cellfun(@(x) isfile(x), g1);
-            j = c.batch(@mladni.FDG.batch_renorm_balanced, 1, {'globbed', g(select)}, 'Pool', 31, ...
+%             globbing_file = fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'globbed.mat');
+%             assert(isfile(globbing_file));
+%             ld = load(globbing_file);
+%             g = [ld.globbed{:}];
+%             g1 = cellfun(@(x) strrep(x, 'rawdata', 'derivatives'), ...
+%                 g, 'UniformOutput', false);
+%             select = cellfun(@(x) isfile(x), g1);
+
+            g = {fullfile('/scratch/jjlee/Singularity/ADNI', 'bids', 'derivatives', 'sub-003S0981', 'ses-20130328', 'pet', 'sub-003S0981_ses-20130328123457_trc-FDG_proc-CASU_orient-rpi_pet.nii.gz')};
+            j = c.batch(@mladni.FDG.batch2, 1, {'globbed', g}, 'Pool', 1, ...
                 'CurrentFolder', '.', 'AutoAddClientPath', false); % {'len', []}, 'Pool', 31            
         end
         function parlocal()
@@ -240,12 +242,12 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             parfor idx = 1:length(globbed)            
                 mladni.CHPC3.setenvs();
                 try
-                    setenv('DEBUG', '1')
+                    %setenv('DEBUG', '1')
 
                     fdg = mlfourd.ImagingContext2(globbed{idx});
                     this = mladni.FDG(fdg);
-                    this.call_resolve();
-                    this.finalize();
+                    this.call_revisit_resolve();
+                    %this.finalize();
                 catch ME
                     handwarning(ME)
                     disp(struct2str(ME.stack))
@@ -267,33 +269,79 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             parse(ip, varargin{:});
             ipr = ip.Results;
             
-            disp('Start mladni.FDG.batch()')        
+            disp('Start mladni.FDG.batch2()')        
 
-            globbed = ipr.globbed;          
-            %t = size(globbed); % DEBUG
-            %disp(t) % DEBUG
-            %return
+            mladni.CHPC3.setenvs();
+            globbed = ipr.globbed; 
             
             t0 = tic;
-            mladni.CHPC3.clean_tempdir();
+            %mladni.CHPC3.clean_tempdir();
             parfor idx = 1:length(globbed)            
                 mladni.CHPC3.setenvs();
                 try
-                    fdg_ = mlfourd.ImagingContext2(globbed{idx});
-                    %derpth = strrep(fdg_.filepath, 'rawdata', 'derivatives');
-                    %c{idx} = derpth; %% DEBUG
-                    %continue
+                    %setenv('DEBUG', '1')
 
-                    this = mladni.FDG(fdg_);
-                    if ~isempty(this.t1w)
-                        this.build_fdg_renormalized();
+                    fdg = mlfourd.ImagingContext2(globbed{idx});
+                    this = mladni.FDG(fdg, force_resolve_to_brain=true);
+        
+                    this = this.N4BiasFieldCorrection();
+                    this = this.deepmrseg_apply();
+                    this = this.CreateJacobianDeterminantImages();
+                    this = this.build_deepmrseg_warped();
+        
+                    this = this.fast();
+                    this = this.build_fast_warped2();
+        
+                    this = this.resolve_fdg2t1w();    
+                    if max(this.resolve_err(this.fdg_on_t1w)) > 8
+                        this = this.flirt_fdg2t1w();
                     end
+                    this = this.build_fdg_renormalized();
+                    this = this.build_fdg_warped();
+                    this = this.build_fdg_warped_masked();
+                    %this.finalize();
                 catch ME
                     handwarning(ME)
                     disp(struct2str(ME.stack))
                 end
-            end            
-            %save('/scratch/jjlee/Singularity/ADNI/bids/derivatives/c.mat', 'c'); %% DEBUG            
+            end                     
+            t = toc(t0);
+
+            disp('mladni.FDG.batch2() completed')             
+        end
+        function t = batch3(varargin)
+            %% Requires completion of mladni.batch_globbed().
+            %  Params:
+            %      len (numeric):  # FDG sessions
+            %      proc (text):  default 'CASU'
+            
+            ip = inputParser;
+            addParameter(ip, 'globbed', {}, @iscell)
+            addParameter(ip, 'proc', mladni.FDG.PROC, @istext)
+            parse(ip, varargin{:});
+            ipr = ip.Results;
+            
+            disp('Start mladni.FDG.batch()')        
+
+            %mladni.CHPC3.setenvs();
+            globbed = ipr.globbed; 
+            
+            t0 = tic;
+            %mladni.CHPC3.clean_tempdir();
+            for idx = 1:length(globbed)            
+                %mladni.CHPC3.setenvs();
+                try
+                    %setenv('DEBUG', '1')
+
+                    fdg = mlfourd.ImagingContext2(globbed{idx});
+                    this = mladni.FDG(fdg);
+                    this.call_revisit_flirt();
+                    %this.finalize();
+                catch ME
+                    handwarning(ME)
+                    disp(struct2str(ME.stack))
+                end
+            end                     
             t = toc(t0);
 
             disp('mladni.FDG.batch() completed')            
@@ -450,7 +498,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end
             re = regexp(fp, 'sub-\d{3}S\d{4}_ses-(?<date>\d{8})', 'names');
             dt = datetime(re.date, 'InputFormat', 'yyyyMMdd');
-        end        
+        end    
         function ic = create_mask_for_nmf(varargin)
 
             ip = inputParser;
@@ -596,7 +644,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 writetable(tbl, fn, 'WriteVariableNames', false);
             end
         end
-        function S  = Subject(fp)
+        function S = Subject(fp)
             %% per mladni.AdniDemographics
             
             if isa(fp, 'mlio.IOInterface')
@@ -607,7 +655,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end
             re = regexp(fp, 'sub-(?<pre>\d{3})S(?<rid>\d{4})_\S+', 'names');
             S = sprintf('%s_S_%s', re.pre, re.rid);
-        end        
+        end    
     end
 
     properties (Constant)
@@ -620,6 +668,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
     properties
         flirt_fdg
         flirt_t1w
+        force_resolve_to_brain
     end
 
     properties (Dependent)
@@ -629,6 +678,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         debug % ~isempty(getenv('DEBUG'))
         derivatives_path
         Description
+        fqfns_scans_gt_3y
         rawdata_path
 
         atl
@@ -710,6 +760,13 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 otherwise
                     error('mladni:ValueError', 'FDG.get.Description');
             end
+        end
+        function g = get.fqfns_scans_gt_3y(this)
+            if isempty(this.fqfns_scans_gt_3y_)
+                ld = load(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'fqfns_scans_gt_3y.mat'));
+                this.fqfns_scans_gt_3y_ = ld.fqfns_scans_gt_3y; 
+            end
+            g = this.fqfns_scans_gt_3y_;
         end
         function g = get.rawdata_path(~)
             g = fullfile(getenv('ADNI_HOME'), 'bids', 'rawdata');
@@ -1244,6 +1301,16 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 handwarning(ME)
             end
         end
+        function this = call_reconall(this)
+            petpath = this.t1w.filepath;
+            sespath = fileparts(petpath);
+            subpath = fileparts(sespath);
+            
+            setenv('SUBJECTS_DIR', subpath);
+            cd(subpath);
+            cmd = sprintf('recon-all -s %s-surfer-7.3.2 -i %s -all', mybasename(sespath), this.t1w.fqfn);
+            mysystem(cmd);
+        end
         function this = call_renorm_balanced(this, med_fdg, med_pve1)
             %% extends call_renorm_by_medians by also weighting fdg intensities by # fdg voxels
 
@@ -1315,6 +1382,27 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             this = this.build_fdg_warped();
             this = this.build_fdg_warped_masked();
             %this = this.save_qc();
+        end
+        function this = call_revisit_flirt(this)
+            this = this.N4BiasFieldCorrection();
+            this = this.flirt_fdg2t1w();
+            this = this.build_fdg_renormalized();
+            this = this.build_fdg_warped();
+            this = this.build_fdg_warped_masked();
+        end
+        function this = call_revisit_resolve(this)
+            this = this.N4BiasFieldCorrection();
+            this = this.resolve_fdg2t1w();
+            try
+                if max(this.resolve_err(this.fdg_on_t1w)) > 8
+                    this = this.flirt_fdg2t1w();
+                end
+            catch
+                %this = this.flirt_fdg2t1w();
+            end
+            this = this.build_fdg_renormalized();
+            this = this.build_fdg_warped();
+            this = this.build_fdg_warped_masked();
         end
         function this = call_revisit_pve1(this)
             %% #CALL_REVISIT_PVE1
@@ -1448,9 +1536,14 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         function this = flirt_fdg2t1w(this)
             %% #FLIRT_FDG2T1W
 
+            if this.force_resolve_to_brain
+                t1w__ = this.t1w_brain;
+            else
+                t1w__ = this.t1w_blurred;
+            end
             this.flirt_fdg = mlfsl.Flirt( ...
                 'in', this.fdg.fqfilename, ...
-                'ref', this.t1w_blurred.fqfilename, ...
+                'ref', t1w__.fqfilename, ...
                 'out', this.niigz(this.fdg_on_t1w), ...
                 'omat', this.mat(this.fdg_on_t1w), ...
                 'bins', 256, ...
@@ -1550,16 +1643,26 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             catch
             end
         end
+        function e    = resolve_err(~, ic)
+            j = jsondecode(fileread(strcat(ic.fqfp, '.json')));
+            rerr = str2double(j.mlfourdfp_SimpleT4ResolveBuilder.cost_final.pairs_rotation_error.err); 
+            terr = str2double(j.mlfourdfp_SimpleT4ResolveBuilder.cost_final.pairs_translation_error.err);
+            e = [rerr, terr];
+        end
         function this = resolve_fdg2t1w(this)
-            if isfile(this.niigz(this.fdg_on_t1w))
-                return
-            end
+            %if isfile(this.niigz(this.fdg_on_t1w))
+            %    return
+            %end
 
             pwd0 = pushd(this.fdg.filepath);
             
             msks{1} = this.t1w_dlicv;
             msks{2} = mlfourd.ImagingContext2('none.nii.gz');
-            imgs{1} = this.t1w_blurred;
+            if this.force_resolve_to_brain
+                imgs{1} = this.t1w_brain;
+            else
+                imgs{1} = this.t1w_blurred;
+            end
             imgs{2} = this.fdg;
             t4rb = mlfourd.SimpleT4ResolveBuilder( ...
                 'workpath', this.fdg.filepath, ...
@@ -1639,14 +1742,16 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             %      opts.atl = fullfile(getenv("REFDIR"), "MNI152_T1_2mm.nii.gz")
             %      opts.blur double {mustBeScalarOrEmpty} = 2
             %      opts.fdg_proc {mustBeTextScalar} = mladni.FDG.PROC
-            %      opts.fdg_reference {mustBeTextScalar} = 'pons-vermis'            
+            %      opts.fdg_reference {mustBeTextScalar} = 'pons-vermis'   
+            %      opts.force_resolve_to_brain logical = 'true'
             
             arguments
                 fdg = []
                 opts.atl = fullfile(getenv("REFDIR"), "MNI152_T1_2mm.nii.gz")
-                opts.blur double {mustBeScalarOrEmpty} = 2
+                opts.blur double {mustBeScalarOrEmpty} = 5
                 opts.fdg_proc {mustBeTextScalar} = mladni.FDG.PROC
                 opts.fdg_reference {mustBeTextScalar} = 'ponsvermis'
+                opts.force_resolve_to_brain logical = 'true'
             end
             
             this.atl_ = mlfourd.ImagingContext2(opts.atl);
@@ -1668,6 +1773,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         bids_
         blur_
         demog_
+        fqfns_scans_gt_3y_
         
         atl_
         atl_mask_
