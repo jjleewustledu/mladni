@@ -190,7 +190,7 @@
                 ipr.csv_out = fullfile(pth, strcat(fp, '_', x));
             end
 
-            fprintf('mladni.NMF.filter_missing_images():\n')
+            %fprintf('mladni.NMF.filter_missing_images():\n')
             
             lines = readlines(ipr.csv); % string vector
             lines1 = {};
@@ -213,11 +213,18 @@
             end
 
             writetable(table(lines1), ipr.csv_out, 'WriteVariableNames', false);
-            fprintf('\tdiscovered %i missing files\n', Nmissing);
+            if Nmissing > 0
+                fprintf('\tdiscovered %i missing files\n', Nmissing);
+            end
             fprintf('\tread %s\n', ipr.csv);
             fprintf('\twrote %s\n', ipr.csv_out);
             csv_out = ipr.csv_out;
         end      
+        function diagnose_reproducibility()
+            this = mladni.NMF(nmfDataset='baseline_cn');
+            cd(this.outputDir);            
+            this.evaluateRepeatedReproducibility2('cn')
+        end
         function parcall()
             groups = mladni.NMF.groups;
             parfor gi = 1:length(groups)
@@ -233,21 +240,34 @@
             end
         end
         function parcall2()
-            groups = mladni.NMF.groups1;
-            bases = mladni.NMF.bases1;
             targetDatasetDir = fullfile(getenv('ADNI_HOME'), 'NMF_FDG', 'baseline_cn');
             assert(isfolder(targetDatasetDir))
-            parfor gi = 2:length(groups)
-                try
-                    this = mladni.NMF( ...
-                        selectedNumBases=bases(1), ...
-                        nmfDataset=sprintf('baseline_%s', groups{gi}));
-                    cd(this.outputDir);
-                    call2(this, targetDatasetDir, 'on_cn');
-                catch ME
-                    handwarning(ME)
+
+            b = 2:2:40;
+            parfor bi = 1:length(b)
+                groups = mladni.NMF.groups1;
+                for gi = 1:length(groups)
+                    try
+                        this = mladni.NMF( ...
+                            selectedNumBases=b(bi), ...
+                            nmfDataset=sprintf('baseline_%s', groups{gi}));
+                        cd(this.outputDir);
+                        call2(this, targetDatasetDir, 'on_cn');
+                    catch ME
+                        handwarning(ME)
+                    end
                 end
             end
+
+            %% gather component files on local machine
+            % for b in baseline_*; do
+            % pushd $b
+            % for n in NumBases*; do
+            % pushd $n
+            % rsync -ra login3.chpc.wustl.edu:/scratch/jjlee/Singularity/ADNI/NMF_FDG/$b/$n/components .
+            % popd; done
+            % popd; done
+
         end
         function par_create_montage(gid)
             arguments
@@ -365,11 +385,10 @@
                 frmtWrite=[frmtWrite '%f\n'];
                 
                 wA = zeros(count,numBases) ;
-                for i=1:count
-                    
-                    %print statement added by tom
-                    disp(sprintf('(%d/%d)', i, count)); %#ok<DSPS>
-                    
+                  
+                %print statement added by tom
+                disp(sprintf('calculateComponentWeightedAverageNIFTI: loading %d files', count)); %#ok<DSPS>
+                for i=1:count                    
                     nii = load_untouch_nii(datafullpath{i});
                     wA(i,:) = double(nii.img(:)')*nB;
                     fprintf(fid,frmtWrite,datafullpath{i},wA(i,:)');
@@ -706,6 +725,97 @@
                 saveas(gcf, fullfile(outputDir_, 'AdjustedRandIndexReproducibility.png'))
             end
         end
+        function evaluateRepeatedReproducibility2(subgroup, N, K, saveGcf, opts)
+            arguments
+                subgroup {mustBeTextScalar} = 'cn'
+                N double {mustBeInteger} = 20 % # repetitions
+                K double {mustBeInteger} = 20 % # bases checked by VolBin/*
+                saveGcf logical = true
+                opts.fracx double = 0.5
+                opts.Npx double = 3400
+                opts.fracy double = 0.5
+                opts.Npy double = 1440
+            end
+
+            import mladni.Jones2022.boxchart
+
+            home = fullfile(getenv('ADNI_HOME'), 'NMF_FDG');
+            subgroups = { ...
+                'cn', 'preclinical', ...
+                'cdr_0p5_aneg_emci', 'cdr_0p5_aneg_mci', 'cdr_0p5_aneg_lmci', ...
+                'cdr_0p5_apos_emci', 'cdr_0p5_apos_mci', 'cdr_0p5_apos_lmci', ...
+                'cdr_gt_0p5_aneg', 'cdr_gt_0p5_apos'};
+            assert(any(strcmp(subgroup, subgroups)));
+            
+            outputDir_ = fullfile(home, sprintf('baseline_%s', subgroup));
+            ensuredir(outputDir_);
+            ARI = nan(K, N);
+            overlap = cell(K, N);
+
+            if ~isfile(fullfile(outputDir_, 'evaluateRepeatedReproducibility2.mat'))
+                parfor rep = 1:N
+                    try
+                        pathDir1_ = fullfile(home, sprintf('baseline_%s_repA%i', subgroup, rep));
+                        pathDir2_ = strrep(pathDir1_, 'repA', 'repB');
+                        [~,~,A_,o_] = mladni.NMF.evaluateReproducibility( ...
+                            pathDir1_, pathDir2_, outputDir_, false);
+                        ARI(:,rep) = A_;
+                        for ik = 1:K
+                            try
+                                overlap{ik,rep} = o_{ik};
+                            catch
+                            end
+                        end
+                    catch ME
+                        handwarning(ME)
+                    end
+                end
+                save(fullfile(outputDir_, 'evaluateRepeatedReproducibility2.mat'), ...
+                    'ARI', 'overlap');
+            else
+                ld = load(fullfile(outputDir_, 'evaluateRepeatedReproducibility2.mat'));
+                ARI = ld.ARI;
+                overlap = ld.overlap;
+            end
+
+            if saveGcf
+                sortedBasisNum = 2:2:2*K;
+                sortedBasisNames = cellfun(@num2str, num2cell(2:2:2*K), UniformOutput=false);
+
+                meanInner=cell2mat(cellfun(@(x) mean(x),overlap,'UniformOutput', false));
+                medianInner=cell2mat(cellfun(@(x) median(x),overlap,'UniformOutput', false));
+                N_ARI = numel(ARI);                
+                basisLabel = repmat(sortedBasisNum', [1 N]);                
+
+                figure
+                boxchart(reshape(basisLabel, [N_ARI 1]), sortedBasisNames, reshape(ARI, [N_ARI 1]), 4);
+                xlabel('Number of components','fontsize',20)
+                ylabel({'Split-sample reproducibility' ;'(Adjusted Rand Index)'},'fontsize',20)
+                set(gca,'fontsize',20)
+                set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
+                saveas(gcf,[outputDir_ '/AdjustedRandIndexReproducibility_repeat2.fig'])
+                saveas(gcf,[outputDir_ '/AdjustedRandIndexReproducibility_repeat2.png'])
+
+                figure
+                boxchart(reshape(basisLabel, [N_ARI 1]), sortedBasisNames, reshape(meanInner, [N_ARI 1]), 4);
+                xlabel('Number of components','fontsize',20)
+                ylabel({'Split-sample reproducibility';'(mean inner product)'},'fontsize',20)
+                set(gca,'fontsize',20)
+                set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
+                saveas(gcf,[outputDir_ '/MeanInnerProductReproducibility_repeat2.fig'])
+                saveas(gcf,[outputDir_ '/MeanInnerProductReproducibility_repeat2.png'])
+
+                figure
+                boxchart(reshape(basisLabel, [N_ARI 1]), sortedBasisNames, reshape(medianInner, [N_ARI 1]), 4);
+                xlabel('Number of components','fontsize',20)
+                ylabel({'Split-sample reproducibility';'(median inner product)'},'fontsize',20)
+                set(gca,'fontsize',20)
+                set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
+                saveas(gcf,[outputDir_ '/MedianInnerProductReproducibility_repeat2.fig'])
+                saveas(gcf,[outputDir_ '/MedianInnerProductReproducibility_repeat2.png'])
+
+            end
+        end
         function [meanInner,medianInner,ARI,overlap,sortedBasisNum] = evaluateReproducibility( ...
                 pathDir1, pathDir2, outputDir, saveGcf)
             %% https://github.com/sotiraslab/aris_nmf_analyses/blob/main/evaluateReproducibility.m
@@ -984,11 +1094,10 @@
             data.mask = mask ;
             
             % load data
+            % added print statement - Tom
+            disp(sprintf("Loading %d images from %s ...", count, param.componentDir)); %#ok<DSPS>
             for i=1:count
-                
-                % added print statement - Tom
-                disp(sprintf("Loading image (%d/%d)...", i, count)); %#ok<DSPS>
-                
+                                
                 if(~isempty(param.smooth) && param.smooth ~= 0)
                     smooth_command = ['3dmerge -1blur_fwhm ' num2str(param.smooth) ' -prefix ' tmpDirName '/smoothed_image_' num2str(i) '.nii.gz ' datafullpath{i} ] ;
                     [status,~] = system(smooth_command) ;
@@ -1125,7 +1234,6 @@
         memInGB
         nmfDataset
         numBases
-        outputDir
         selectedNumBases
         volbin
         Xmat
@@ -1137,26 +1245,43 @@
             'cdr_0p5_apos_emci', 'cdr_0p5_apos_lmci'}
         groups = { ...
             'cn', 'preclinical', ...
-            'cdr_gt_0p5_apos', ... 
-            'cdr_0p5_aneg_emci', 'cdr_0p5_aneg_lmci', ...
+            'cdr_gt_0p5_apos', ...
             'cdr_0p5_apos_emci', 'cdr_0p5_apos_lmci', ...
+            'cdr_ge_0p5_aneg', ... 
+            'cdr_0p5_aneg_emci', 'cdr_0p5_aneg_lmci', ...
             'cdr_0p5_aneg', 'cdr_0p5_apos', 'cdr_0p5_anan'}
         groups1 = { ...
             'cn', 'preclinical', ...
             'cdr_0p5_apos_emci', 'cdr_0p5_apos_lmci', ...
-            'cdr_gt_0p5_apos'}
+            'cdr_gt_0p5_apos', ...
+            'cdr_ge_0p5_aneg'}
         bases1 = [16 30 34 32 38]
         repetitions = 20
+    end
+
+    properties (Dependent)
+        outputDir
+    end
+
+    methods % GET
+        function g = get.outputDir(this)
+            g = fullfile(getenv('ADNI_HOME'), 'NMF_FDG', this.nmfDataset, '');
+        end
     end
     
     methods
         function call(this)
+            componentDir = fullfile(this.outputDir, sprintf('NumBases%i', this.selectedNumBases), 'components');
+            ensuredir(componentDir);
+
             param.isList = 1 ;
             param.downSample = 1 ;
             param.smooth = 0;
             param.mask = [];
             param.permute = 0;
             param.numBase = this.selectedNumBases;
+            param.componentDir = componentDir;
+
             if isfile(this.Xmat)
                 load(this.Xmat);
             else
@@ -1170,8 +1295,6 @@
             ensuredir(resultsDir);
             this.calcRecError(X, this.outputDir, resultsDir, meanX>0);
 
-            componentDir = fullfile(this.outputDir, sprintf('NumBases%i', param.numBase), 'components');
-            ensuredir(componentDir);
             this.calculateComponentWeightedAverageNIFTI( ...
                 this.inFiles, this.outputDir, this.selectedNumBases, fullfile(componentDir, 'component_weighted_average.csv'));
 
@@ -1210,11 +1333,11 @@
             ensuredir(componentDir);
             csvFilename = sprintf('component_weighted_average_%s.csv', tags);
             this.calculateRepeatedComponentWeightedAverageNIFTI( ...
-                this.inFiles, targetDatasetDir, this.bases1(1), fullfile(componentDir, csvFilename));
+                this.inFiles, targetDatasetDir, this.selectedNumBases, fullfile(componentDir, csvFilename));
 
             pwd0 = pushd(componentDir);
-            fdg = mladni.FDGDemographics();
-            fdg.table_covariates(csvFilename, tags=tags);
+            fdgd = mladni.FDGDemographics();
+            fdgd.table_covariates(csvFilename, tags=tags);
             popd(pwd0);
         end
         function inFiles2 = replace_inFiles(~, inFiles)
@@ -1272,7 +1395,6 @@
             
             this.memInGB = ipr.memInGB;
             this.nmfDataset = ipr.nmfDataset;
-            this.outputDir = fullfile(ipr.workDir, this.nmfDataset, '');
             assert(isfolder(this.outputDir));
             this.inFiles = fullfile(this.outputDir, 'nifti_files.csv');
             this.inFiles = this.replace_inFiles(this.inFiles);

@@ -6,14 +6,18 @@ classdef NMFRadar
     %  Developed on Matlab 9.12.0.2170939 (R2022a) Update 6 for MACI64.  Copyright 2023 John J. Lee.
     
     properties
-        cohorts = { ...
-            'CN' 'pre-clinical' 'early MCI' 'late MCI' 'AD'}
-        groups1 = { ...
+        groups = { ...
+            'cn', 'preclinical', 'emci', 'lmci', 'cdr_gt_0p5_apos'}
+        groups0 = { ...
             'cn', 'preclinical', ...
             'cdr_0p5_apos_emci', 'cdr_0p5_apos_lmci', ...
             'cdr_gt_0p5_apos'}
-        bases1 = [16 30 34 32 38]
-        matfile = 'mladni_FDGDemographics_table_covariates_on_cn.mat'
+        mergeDx = { ...
+            'CN' 'pre-clinical' 'early MCI' 'late MCI' 'AD'}
+
+        bases0 = [16 30 34 32 38]
+        matfile0 = 'mladni_FDGDemographics_table_covariates_on_cn.mat'
+        matfile = 'CohortCoefficients.mat'
         workdir
     end
 
@@ -23,22 +27,22 @@ classdef NMFRadar
 
     methods % GET
         function g = get.N_bases_target(this)
-            g = this.bases1(1);
+            g = this.bases0(1);
         end
     end
 
     methods
         function this = call(this)
-            mu = nan(length(this.cohorts), this.N_bases_target);
-            sigma = nan(length(this.cohorts), this.N_bases_target);
-            snr = nan(length(this.cohorts), this.N_bases_target);
-            cov = nan(length(this.cohorts), this.N_bases_target);
-            grad = nan(length(this.cohorts), this.N_bases_target);
-            for c = 1:length(this.cohorts)
+            mu = nan(length(this.mergeDx), this.N_bases_target);
+            sigma = nan(length(this.mergeDx), this.N_bases_target);
+            snr = nan(length(this.mergeDx), this.N_bases_target);
+            cov = nan(length(this.mergeDx), this.N_bases_target);
+            grad = nan(length(this.mergeDx), this.N_bases_target);
+            for c = 1:length(this.mergeDx)
                 ld = load(fullfile(this.workdir, ...
-                    sprintf('baseline_%s', this.groups1{c}), ...
+                    sprintf('baseline_%s', this.groups0{c}), ...
                     sprintf('NumBases%i', this.N_bases_target), ...
-                    'components', this.matfile));
+                    'components', this.matfile0));
 
                 mu(c,:) = mean(ld.t.Components, 1);
                 sigma(c,:) = std(ld.t.Components, 1);
@@ -77,7 +81,7 @@ classdef NMFRadar
                 ti='\sigma/\mu Pattern Coefficients for Diagnostic Cohorts')
         end
         function h = plot(this, P, opts)
-            %% Example 5: Excel-like radar charts.
+            %% spider_plot_class_examples.m Example 5: Excel-like radar charts.
 
             arguments
                 this mladni.NMFRadar
@@ -118,7 +122,7 @@ classdef NMFRadar
             s.AxesLabelsEdge = 'none';
             s.AxesRadial = 'off';
             
-            s.LegendLabels = this.cohorts;
+            s.LegendLabels = this.mergeDx;
             title(opts.ti, 'FontSize', 14);
 
         end

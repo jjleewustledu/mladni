@@ -1,5 +1,9 @@
 classdef FDGDemographics < handle
-    %% 
+    %% Best source of ADNIMerge data for "Patterns of Neurodegeneration" paper is:  
+    %  table_cohorts ~ ADNI/NMF_FDG/mladni_FDGDemographics_table_covariates_on_cn_relevant_cohorts.mat,
+    %  which is a superset of table_fdg1, table_covariates, and contains variable cohort that identifies
+    %  diagnostic groups.  Most other objects from this class and mladni.AdniDemographics serve to generate
+    %  table_cohorts
     %  
     %  Created 18-May-2022 20:19:23 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.10.0.1851785 (R2021a) Update 6 for MACI64.  Copyright 2022 John J. Lee.
@@ -171,16 +175,13 @@ classdef FDGDemographics < handle
         adni_demographics
     end
     
-    methods
-
-        %% GET
-        
+    methods % GET
         function g = get.adni_demographics(this)
             g = this.adni_demo_;
         end
-        
-        %%
-        
+    end
+
+    methods        
         function globbed_dx_csv = rawdata_pet_filename_dx(this, varargin)
             %% Builds and writes a subtable of rawdata PET filenames for subjects with a specified Merge Dx code.
             %  Args:
@@ -359,6 +360,19 @@ classdef FDGDemographics < handle
             tbl.Properties.VariableNames = {sprintf('filename_pve%i_%s', ipr.pve, lower(ipr.merge_dx))};
             writetable(tbl, globbed_dx_csv);
         end        
+        
+        %% tables
+
+        function t = table_cohorts(this)
+            if ~isempty(this.table_cohorts_)
+                t = this.table_cohorts_;
+                return
+            end
+            ld = load(fullfile(getenv('SINGULARITY_HOME'), ...
+                'ADNI/NMF_FDG/mladni_FDGDemographics_table_covariates_on_cn_relevant_cohorts.mat'));
+            this.table_cohorts_ = ld.t;
+            t = this.table_cohorts_;
+        end
         function t = table_covariates(this, varargin)
             %% Saves and returns table with ICV and all components in last columns.
             %  Saves separate tables for each component.
@@ -374,7 +388,7 @@ classdef FDGDemographics < handle
             addParameter(ip, 'tags', '', @istext);
             addParameter(ip, 'trap_outliers', true, @islogical);
             addParameter(ip, 'save_1comp', false, @islogical);
-            addParameter(ip, 'remove_vars', true, @islogical);
+            addParameter(ip, 'remove_vars', false, @islogical);
             parse(ip, varargin{:});
             ipr = ip.Results;
             if ~startsWith(ipr.tags, '_')
@@ -388,7 +402,6 @@ classdef FDGDemographics < handle
                     {'Group', 'Age', 'Modality', 'Type', 'AcqDate', 'Format', 'Downloaded', ...
                     'MergeVisCode', ...
                     'MergeExamDateBl', ...
-                    'PonsVermis', ...
                     'VISCODE2', 'USERDATE', 'ID'});
             end
 
@@ -401,8 +414,8 @@ classdef FDGDemographics < handle
 
             % ICV ~ intracranial mass
             icvs = mladni.FDGDemographics.csv_to_icvs(ipr.fn_csv);
-            ICV = icvs(index);
-            assert(length(Components) == length(ICV));
+            Dlicv = icvs(index);
+            assert(length(Components) == length(Dlicv));
 
             % assemble & save final table
             t = t(matches(t.ImageDataID, idids), :);
@@ -413,10 +426,9 @@ classdef FDGDemographics < handle
                 handwarning(ME);
             end
             t = addvars(t, Filelist, 'Before', 1);
-            t = addvars(t, ICV, 'After', 'SITEID');
+            t = addvars(t, Dlicv);
             t = addvars(t, Components);
             t = t(~isnan(t.MergeAge),:);
-
             t = t(t.CDGLOBAL ~= -1, :);
 
             this.table_covariates_cache_ = t;
@@ -465,6 +477,7 @@ classdef FDGDemographics < handle
     
     properties (Access = private)
         adni_demo_
+        table_cohorts_
         table_covariates_cache_
         table_fdg1_
     end

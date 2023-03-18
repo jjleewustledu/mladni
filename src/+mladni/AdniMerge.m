@@ -123,31 +123,53 @@ classdef AdniMerge < handle
     
     properties
         home
-    end
-
-    properties (Constant)
-        categories = {'CN', 'EMCI', 'MCI', 'LMCI', 'SMC', 'AD'};
+        study_design
+        reuse_cache
     end
 
     properties (Dependent)
+        amyloid_file
+        apoe_file
+        cdr_file
         dict_file
         merge_file
         mpr_meta_file
         mri_imageqc_file
         mri_quality_file
         mri_quality_adni3_file
+        neuropath_file
+        pet_c3_file
+        pet_meta_adni1_file
+        pet_meta_adnigo2_file
+        pet_meta_adni3_file
+        pet_meta_list_file
+        pet_qc_file
         registry_file
+        strokesum_file
         subjects
+        tau_file
+        ucberkeleyav1451_file
+        ucberkeleyfdg_file
+        ucsdvol_file
+        ucsfsntvol_file
     end
 
-    methods
-
-        %% GET
-
+    methods % GET
+        function g = get.amyloid_file(~)
+            g = fullfile(getenv("ADNI_HOME"), 'studydata', 'ucberkeley_av45_fbb_skinny.csv');
+            % unique RID ~ 1325
+        end
+        function g = get.apoe_file(~)
+            g = fullfile(getenv("ADNI_HOME"), 'studydata', 'APOERES.csv');
+        end
+        function g = get.cdr_file(~)
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "CDR.csv"); %"cdr_20220602.csv");
+            % unique RID ~ 3418
+        end
         function g = get.dict_file(~)
             g = fullfile(getenv("ADNI_HOME"), "studydata", "ADNIMERGE_DICT.csv");
         end
-        function g = get.merge_file(this)
+        function g = get.merge_file(~)
             g = fullfile(getenv("ADNI_HOME"), "studydata", "ADNIMERGE.csv"); % "adnimerge_20220602.csv");
             % unique PTID ~ 1855, unique IMAGEUID ~ 13923
         end
@@ -167,45 +189,170 @@ classdef AdniMerge < handle
             g = fullfile(getenv("ADNI_HOME"), "studydata", "MAYOADIRL_MRI_QUALITY_ADNI3.csv");
             % unique PTID ~ 1035, unique LONI_IMAGE ~ 21744
         end
+        function g = get.neuropath_file(~)
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "NEUROPATH_05_17_21.csv");
+        end
+        function g = get.pet_c3_file(~)
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "PETC3.csv");
+            % unique RID ~ 395, unique LONIUID ~ 407
+        end
+        function g = get.pet_meta_adni1_file(~)
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "PETMETA_ADNI1.csv");
+            % unique RID ~ 420
+        end
+        function g = get.pet_meta_adnigo2_file(~)
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "PETMETA_ADNIGO2.csv");
+            % unique RID ~ 1212
+        end
+        function g = get.pet_meta_adni3_file(~)
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "PETMETA3.csv");
+            % unique RID ~ 641
+        end
+        function g = get.pet_meta_list_file(~)
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "PET_META_LIST.csv");
+            % unique Subject ~ 2028, unique ImageID ~ 50843
+        end
+        function g = get.pet_qc_file(~)
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "PETQC.csv");
+            % unique RID ~ 1413, unique LONIUID ~ 3950
+        end
         function g = get.registry_file(~)
             g = fullfile(getenv("ADNI_HOME"), "studydata", "REGISTRY.csv"); %"registry_20220602.csv");
             % unique RID ~ 4045, unique ID ~ 15637
         end
+        function g = get.strokesum_file(~)
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "STROKESUM_V2.csv");
+        end
         function g = get.subjects(this)
             g = this.subjects_;
+        end
+        function g = get.tau_file(~)
+            g = fullfile(getenv("ADNI_HOME"), 'studydata', 'ucberkeley_av1451_pvc_skinny.csv');
+        end
+        function g = get.ucberkeleyav1451_file(~)
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "UCBERKELEYAV1451_PVC_04_29_22.csv");
+        end
+        function g = get.ucberkeleyfdg_file(~)
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "UCBERKELEYFDG_03_25_22.csv");
+        end
+        function g = get.ucsdvol_file(~)
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "UCSDVOL.csv");
+        end
+        function g = get.ucsfsntvol_file(~)
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "UCSFSNTVOL.csv");
         end       
+    end
 
-        %%
+    methods
+        function t = dict(this, varargin)
+            t = this.dict_;
+            t = this.table_paren(t, varargin{:});
+        end
+        function t = reduce_cross_tables(this, t1, t2, opts)
+            %% Reduce cross-sectional tables
 
-        function d = dict(this, varargin)
-            d = this.dict_;
+            arguments
+                this mladni.AdniMerge  
+                t1 table
+                t2 table
+                opts.vars cell = {'RID', 'EXAMDATE', 'TRACER', 'AmyloidStatus', 'SUMMARYSUVR_WHOLECEREBNORM', 'SUMMARYSUVR_COMPOSITE_REFNORM'} % {pivot_var, ..., kept_var, ...}
+                opts.pivot_vars {mustBeText} = {'RID', 'EXAMDATE'}
+            end
+
+            t_ = reduce_long_tables(this, t1, t2, vars=opts.vars, pivot_vars=opts.pivot_vars);
+            t  = table();
+            urid = unique(t_.RID);
+            for idx = 1:length(urid)
+                trid_ = t_(t_.RID == urid(idx),:); % match multiple rows of longitudinal data, usually
+                trid_ = sortrows(trid_, 'EXAMDATE'); % select earlist row for urid()
+                t = [t; trid_(1,:)]; %#ok<AGROW> 
+            end
+        end
+        function t = reduce_long_tables(this, t1, t2, opts)
+            %% Reduce longitudinal tables
+
+            arguments
+                this mladni.AdniMerge %#ok<INUSA> 
+                t1 table
+                t2 table
+                opts.vars cell = {'RID', 'EXAMDATE', 'TRACER', 'AmyloidStatus', 'SUMMARYSUVR_WHOLECEREBNORM', 'SUMMARYSUVR_COMPOSITE_REFNORM'} % {pivot_var, ..., kept_var, ...}
+                opts.pivot_vars {mustBeText} = {'RID', 'EXAMDATE'}
+            end
+
+            t1 = t1(:,opts.vars);
+            t2 = t2(:,opts.vars);
+            t = [t1; t2];
+            t = sortrows(t, opts.pivot_vars);            
         end
         function t = table(this, varargin)
-            t = this.merge_;
+            t = this.table_merge(varargin{:});
         end
-        function t = table_dCDRSB(this, varargin)
-            if ~isempty(this.dCDRSB_)
-                t = this.dCDRSB_;
+        function t = table_amyloid(this, varargin)
+            %% Strictly from Berkeley imaging
+            %  https://adni.bitbucket.io/reference/docs/UCBERKELEYAV45/UCBERKELEY_AV45_Methods_04.25.2022.pdf
+            %  https://adni.bitbucket.io/reference/docs/UCBERKELEYFBB/UCBerkeley_FBB_Methods_04.25.2022.pdf
+
+            if ~isempty(this.amyloid_)
+                t = this.amyloid_;
+
+                % slice the table with varargin
+                t = this.table_paren(t, varargin{:});
                 return
             end
 
-            % lazy init
-            s = this.subjects_(1);
-            t_ = this.merge_;
-            t__ = t_(t_.RID == s & ~isnan(t_.FDG), :); % pick subject subtable
-            d = max(t__.CDRSB) - min(t__.CDRSB_bl); % scalar dCDRSB
-            t = table(s, d, 'VariableNames', {'RID', 'dCDRSB'});
-            for ui = 2:length(this.subjects_)
-                s = this.subjects_(ui);
-                u__ = t_(t_.RID == s & ~isnan(t_.FDG), :); 
-                d = max(u__.CDRSB) - min(u__.CDRSB_bl);
-                try
-                    t = [t; table(s, d, 'VariableNames', {'RID', 'dCDRSB'})];
-                catch
-                    %fprintf("no reasonable subtable for RID ~ %g\n", this.subjects_(ui))
-                end
+            if isfile(this.amyloid_file) && this.reuse_cache
+                t = readtable(this.amyloid_file);
+                t.EXAMDATE = datetime(t.EXAMDATE);
+                this.amyloid_ = t;
+
+                % slice the table with varargin
+                t = this.table_paren(t, varargin{:});
+                return
             end
-            this.dCDRSB_ = t;
+
+            % rebuild caches
+            % read tables of av45, florbetaben
+            pth = fileparts(this.amyloid_file);                
+            av45 = fullfile(pth, 'UCBERKELEYAV45_04_26_22.csv');
+            assert(isfile(av45))
+            t_av45 = readtable(av45);
+            t_av45.TRACER = repmat("av45", [size(t_av45,1) 1]);
+            fbb = fullfile(pth, 'UCBERKELEYFBB_04_26_22.csv');
+            assert(isfile(fbb))
+            t_fbb = readtable(fbb);
+            t_fbb.TRACER = repmat("fbb", [size(t_fbb,1) 1]);
+
+            % reduce tables according to study design
+            switch this.study_design
+                case 'cross-sectional'
+                    t_av45.AmyloidStatus = double(t_av45{:, 'SUMMARYSUVR_WHOLECEREBNORM'} >= 1.11);
+                    t_fbb.AmyloidStatus = double(t_fbb{:, 'SUMMARYSUVR_WHOLECEREBNORM'} >= 1.08);
+                    t = this.reduce_cross_tables(t_av45, t_fbb);
+                case 'longitudinal'
+                    t_av45.AmyloidStatus = double(t_av45{:, 'SUMMARYSUVR_COMPOSITE_REFNORM'} >= 0.78);
+                    t_fbb.AmyloidStatus = double(t_fbb{:, 'SUMMARYSUVR_COMPOSITE_REFNORM'} >= 0.74);
+                    t = this.reduce_long_tables(t_av45, t_fbb);
+                otherwise
+                    error('mladni:ValueError', 'this.study_design->%s', this.study_design)
+            end
+            writetable(t, this.amyloid_file);
+
+            % slice the table with varargin
+            t = this.table_paren(t, varargin{:});
+        end
+        function t = table_apoe(this, varargin)
+            if isempty(this.apoe_)
+                this.apoe_ = readtable(this.apoe_file);
+            end
+            t = this.apoe_;
+            t = this.table_paren(t, varargin{:});
+        end
+        function t = table_cdr(this, varargin)
+            if isempty(this.cdr_)
+                this.cdr_ = readtable(this.cdr_file);
+            end
+            t = this.cdr_;
+            t = this.table_paren(t, varargin{:});
         end
         function t = table_CDRSB_from_bl(this, varargin)
             %  bl_thresh ~ 0 => 411 subjects
@@ -239,100 +386,185 @@ classdef AdniMerge < handle
                 u__ = t_(t_.RID == s & ~isnan(t_.FDG), :); 
                 d = max(u__.CDRSB);
                 try
-                    t = [t; table(s, d, 'VariableNames', {'RID', 'CDRSB'})];
+                    t = [t; table(s, d, 'VariableNames', {'RID', 'CDRSB'})]; %#ok<AGROW> 
                 catch
                     %fprintf("no reasonable subtable for RID ~ %g\n", this.subjects_(ui))
                 end
             end
             this.CDRSB_bl_ = t;
-        end        
+            t = this.table_paren(t, varargin{:});
+        end
         function t = table_merge(this, varargin)
             if isempty(this.merge_)
                 this.merge_ = readtable(this.merge_file);
             end
             t = this.merge_;
-            if ~isempty(varargin)
-                t = t(varargin{:});
-            end
+            t = this.table_paren(t, varargin{:});
         end
         function t = table_mpr_meta(this, varargin)
             if isempty(this.mpr_meta_)
                 this.mpr_meta_ = readtable(this.mpr_meta_file);
             end
             t = this.mpr_meta_;
-            if ~isempty(varargin)
-                t = t(varargin{:});
-            end
-            
-            %t = readtable(this.mpr_meta_file);
-            %select_subs = contains(t.SubjectID, this.subjects);
-            %t = t(select_subs, :);   
-
-            %select_scans = contains(t.Type, 'Processed');
-            %t = t(select_scans, :);
-
-            %select_scans = contains(t.Description, 'correct', 'IgnoreCase', true);
-            %t = t(select_scans, :);
-
-            %select_scans = contains(t.Sequence, 'mpr', 'IgnoreCase', true) | ...
-            %               contains(t.Sequence, 'rage', 'IgnoreCase', true) | ...
-            %               contains(t.Sequence, 'mt1', 'IgnoreCase', true) | ...
-            %               contains(t.Sequence, 'ir-fspgr', 'IgnoreCase', true);
-            %t = t(select_scans, :);
-
-            %unwanted = ...
-            %    {'localizer' 'calibration' 'loc' 'mapping' 'surv' 'fgre' 'scout' 'smartbrain' 't2' 'fmri' ...
-            %     'calibration'};
-            %select_scans = ~contains(t.Sequence, unwanted, 'IgnoreCase', true);
-            %t = t(select_scans, :);
-
-            %this.mpr_meta_ = t;
+            t = this.table_paren(t, varargin{:});
         end
         function t = table_mri_imageqc(this, varargin)
             if isempty(this.mri_imageqc_)
                 this.mri_imageqc_ = readtable(this.mri_imageqc_file);
             end
             t = this.mri_imageqc_;
-            if ~isempty(varargin)
-                t = t(varargin{:});
-            end
+            t = this.table_paren(t, varargin{:});
         end
         function t = table_mri_quality(this, varargin)
             if isempty(this.mri_quality_)
                 this.mri_quality_ = readtable(this.mri_quality_file);
             end
             t = this.mri_quality_;
-            if ~isempty(varargin)
-                t = t(varargin{:});
-            end
+            t = this.table_paren(t, varargin{:});
         end
         function t = table_mri_quality_adni3(this, varargin)
             if isempty(this.mri_quality_adni3_)
                 this.mri_quality_adni3_ = readtable(this.mri_quality_adni3_file);
             end
             t = this.mri_quality_adni3_;
-            if ~isempty(varargin)
-                t = t(varargin{:});
+            t = this.table_paren(t, varargin{:});
+        end
+        function t = table_neuropath(this, varargin)
+            if isempty(this.neuropath_)
+                this.neuropath_ = readtable(this.neuropath_file);
             end
+            t = this.neuropath_;
+            t = this.table_paren(t, varargin{:});
+        end
+        function t = table_pet_c3(this, varargin)
+            if isempty(this.pet_c3_)
+                this.pet_c3_ = readtable(this.pet_c3_file);
+            end
+            t = this.pet_c3_;
+            t = this.table_paren(t, varargin{:});
+        end
+        function t = table_pet_qc(this, varargin)
+            if isempty(this.pet_qc_)
+                this.pet_qc_ = readtable(this.pet_qc_file);
+            end
+            t = this.pet_qc_;
+            t = this.table_paren(t, varargin{:});
         end
         function t = table_registry(this, varargin)
             if isempty(this.registry_)
                 this.registry_ = readtable(this.registry_file);
             end
             t = this.registry_;
-            if ~isempty(varargin)
-                t = t(varargin{:});
-            end
+            t = this.table_paren(t, varargin{:});
         end
+        function t = table_strokesum(this, varargin)
+            if isempty(this.strokesum_)
+                this.strokesum_ = readtable(this.strokesum_file);
+            end
+            t = this.strokesum_;
+            t = this.table_paren(t, varargin{:});
+        end
+        function t = table_tau(this, varargin)
+            %% Strictly from Berkeley imaging
+            %  https://adni.bitbucket.io/reference/ucberkeleyav1451.html
+            %  https://adni.bitbucket.io/reference/docs/UCBERKELEYAV1451/UCBERKELEY_AV1451_Methods_04.25.2022.pdf
+
+            vars = {'RID' 'EXAMDATE' ...
+                'META_TEMPORAL_SUVR' 'BRAAK1_SUVR' 'BRAAK34_SUVR' 'BRAAK56_SUVR' ...
+                'META_TEMPORAL_VOLUME' 'BRAAK1_VOLUME' 'BRAAK34_VOLUME' 'BRAAK56_VOLUME'}; % BRAAK2 is excessively contaminated per *.pdf above
+                
+            if ~isempty(this.tau_)
+                t = this.tau_;
+
+                % slice the table with varargin
+                t = this.table_paren(t, varargin{:});
+                return
+            end
+
+            if isfile(this.tau_file) && this.reuse_cache
+                t = readtable(this.tau_file);
+                t.EXAMDATE = datetime(t.EXAMDATE);
+                this.tau_ = t;
+                
+                % slice the table with varargin
+                t = this.table_paren(t, varargin{:});
+                return
+            end
+
+            % rebuild caches
+            t_av1451 = this.table_ucberkeleyav1451;
+            t = t_av1451(:, vars);
+
+            % adjust tables according to study design
+            switch this.study_design
+                case 'cross-sectional'
+                    norm = t_av1451.INFERIOR_CEREBGM_SUVR;
+                case 'longitudinal'
+                    norm = t_av1451.INFERIOR_CEREBGM_SUVR;
+                otherwise
+                    error('mladni:ValueError', 'this.study_design->%s', this.study_design)
+            end
+            for v = vars(contains(vars, 'SUVR'))
+                t{:, v{1}} = t{:, v{1}}./norm;
+            end
+            writetable(t, this.tau_file);
+
+            % slice the table with varargin
+            t = this.table_paren(t, varargin{:});
+        end
+        function t = table_ucberkeleyav1451(this, varargin)
+            %% https://adni.bitbucket.io/reference/ucberkeleyav1451.html
+            %  https://adni.bitbucket.io/reference/docs/UCBERKELEYAV1451/UCBERKELEY_AV1451_Methods_04.25.2022.pdf
+
+            if isempty(this.ucberkeleyav1451_) 
+                t_ = readtable(this.ucberkeleyav1451_file);            
+                t_.EXAMDATE = datetime(t_.EXAMDATE);
+                this.ucberkeleyav1451_ = t_;
+            end
+            t = this.ucberkeleyav1451_;
+            t = this.table_paren(t, varargin{:});
+        end
+        function t = table_ucberkeleyfdg(this, varargin)
+            if isempty(this.ucberkeleyfdg_)
+                t_ = readtable(this.ucberkeleyfdg_file);            
+                t_.EXAMDATE = datetime(t_.EXAMDATE);
+                this.ucberkeleyfdg_ = t_;
+            end
+            t = this.ucberkeleyfdg_;
+            t = this.table_paren(t, varargin{:});
+        end
+        function t = table_ucsdvol(this, varargin)
+            if isempty(this.ucsdvol_)
+                t_ = readtable(this.ucsdvol_file); 
+                t_.CDATE = datetime(t_.CDATE, 'InputFormat','MM/dd/uuuu');
+                t_.EXAMDATE = datetime(t_.EXAMDATE);
+                this.ucsdvol_ = t_;
+            end
+            t = this.ucsdvol_;
+            t = this.table_paren(t, varargin{:});
+        end
+        function t = table_ucsfsntvol(this, varargin)
+            if isempty(this.ucsfsntvol_)
+                t_ = readtable(this.ucsfsntvol_file);            
+                t_.EXAMDATE = datetime(t_.EXAMDATE);
+                this.ucsfsntvol_ = t_;
+            end
+            t = this.ucsfsntvol_;
+            t = this.table_paren(t, varargin{:});
+        end 
         function v = variableNames(this)
             v = this.merge_.Properties.VariableNames;
         end
 
-        function this = AdniMerge(home)
+        function this = AdniMerge(home, design, opts)
             arguments
                 home {mustBeFolder} = pwd
+                design {mustBeTextScalar} = 'cross-sectional'
+                opts.reuse_cache logical = true
             end
             this.home = home;
+            this.study_design = design;
+            this.reuse_cache = opts.reuse_cache;
             
             cd(this.home)
             this.merge_ = readtable(this.merge_file);
@@ -342,20 +574,39 @@ classdef AdniMerge < handle
         end
     end
 
+    methods (Static)
+        function t = table_paren(t, varargin)
+            assert(istable(t))
+            if ~isempty(varargin)
+                t = t(varargin{:});
+            end
+        end
+    end
+
     %% PROTECTED
 
-    properties (Access = protected)        
+    properties (Access = protected)
+        amyloid_
+        apoe_
+        cdr_
         CDRSB_bl_
-        dCDRSB_
         dict_
-        lastscan_
         merge_
         mpr_meta_
         mri_imageqc_
         mri_quality_
         mri_quality_adni3_
+        neuropath_
+        pet_c3_
+        pet_qc_
         registry_
+        strokesum_
         subjects_
+        tau_
+        ucberkeleyav1451_
+        ucberkeleyfdg_
+        ucsdvol_
+        ucsfsntvol_
     end
     
     %  Created with mlsystem.Newcl, inspired by Frank Gonzalez-Morphy's newfcn.
