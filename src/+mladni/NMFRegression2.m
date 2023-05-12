@@ -28,7 +28,7 @@ classdef NMFRegression2 < handle
             ld = load('mladni_FDGDemographics_table_covariates.mat');
             this.table_covariates = ld.t;
             this.table_covariates = this.table_covariates(this.table_covariates.CDGLOBAL ~= -1, :);
-            writetable(this.table_covariates, 'mladni_FDGDemographics_table_covariates.csv');
+            writetable(this.table_covariates, 'mladni_NMFRegression2_table_covariates.csv');
             this.selected_covariates = {'MergePtGender', 'MergeAge', 'MergeCdrsbBl', 'CDGLOBAL', 'AmyloidStatus', 'Components'};
 
             g = table;

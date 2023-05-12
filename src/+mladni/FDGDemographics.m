@@ -394,6 +394,7 @@ classdef FDGDemographics < handle
             if ~startsWith(ipr.tags, '_')
                 ipr.tags = strcat('_', ipr.tags);
             end
+            ipr.tags = strcat(ipr.tags, '_', datetime('now', Format='yyyyMMdd'));
 
             % from ADNIDemographics
             t = table_fdg1(this);  

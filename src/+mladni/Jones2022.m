@@ -1,4 +1,4 @@
-classdef Jones2022
+classdef Jones2022 < handle
     %% https://www.nature.com/articles/s41467-022-29047-4
     %
     %  "Relevant" objects are discussed in Jones' paper, esp. Table 2.
@@ -7,14 +7,38 @@ classdef Jones2022
     %  Developed on Matlab 9.12.0.2170939 (R2022a) Update 6 for MACI64.  Copyright 2023 John J. Lee.
     
     properties (Dependent)
+        jones2022dir
         labels_check_mvregress % labels for plots
-        labels_check_mvregress_ % labels for plots, excluding NpBraak
-        relevant_file % mat file:  nii Filelist, merge/demographic variables, Components
+        labels_check_mvregress_2 % labels for plots, excluding NpBraak
+        mask
+        nbases
+        relevant_file % mat file:  nii Filelist, merge/demographic variables, Components.  N = 781.
         responses_table2 % cell of var names
-        responses_table2_ % cell of var names, excluding NpBraak
+        responses_table2_2 % cell of var names, excluding NpBraak
+        workdir
     end
 
-    methods % GET
+    methods % GET, SET
+        function g = get.jones2022dir(~)
+            g = fullfile(getenv('ADNI_HOME'), 'Jones_2022');
+        end
+        function g = get.mask(this)
+            if ~isempty(this.mask_)
+                g = this.mask_;
+                return
+            end
+            mask_fqfn = fullfile(getenv('ADNI_HOME'), 'VolBin', 'mask.nii.gz');
+            assert(isfile(mask_fqfn))
+            this.mask_ = mlfourd.ImagingContext2(mask_fqfn);
+            assert(all(size(this.mask_) == size(this.imaging{1})))
+            g = this.mask_;
+        end
+        function     set.mask(this, s)
+            this.mask_ = mlfourd.ImagingContext2(s);
+        end        
+        function g = get.nbases(~)
+            g = 16;
+        end
         function g = get.relevant_file(~)
             g = fullfile(getenv('ADNI_HOME'), 'NMF_FDG', ...
                 'mladni_FDGDemographics_table_covariates_on_cn_relevant_baselines.mat');
@@ -29,7 +53,7 @@ classdef Jones2022
             % BRAAK*:  tau PET
             % SUMMARSUVR*:  amyloid PET
         end
-        function g_ = get.responses_table2_(this)
+        function g_ = get.responses_table2_2(this)
             g = this.responses_table2;
             g_ = g(~contains(g, 'NpBraak', IgnoreCase=true));
         end
@@ -41,16 +65,44 @@ classdef Jones2022
                 'Amyloid-PET', ...
                 'E4+', 'E2+'};
         end
-        function g_ = get.labels_check_mvregress_(this)
+        function g_ = get.labels_check_mvregress_2(this)
             g = this.labels_check_mvregress;
             g_ = g(~contains(g, 'Braak NFT'));
+        end
+        function g = get.workdir(~)
+            g = fullfile(getenv('ADNI_HOME'), 'NMF_FDG');
         end
     end
 
     methods
         function this = Jones2022(varargin)
         end
+
+        %% adjust spatial-autocorrelations
+
+        function T = build_for_brainsmash(this)
+            %% Prepares intermediates needed for brainsmash inference described in 
+            %  test_neurodegeneration2.py/TestNeurodegeneration2.test_build_stats27.
+            %  Requires availability of AFNI.3dmaskdump.
+            %
+            %  Returns table of 'SummaryTerm', 'TopicTermNumber', 'Filename'}
+
+            workdir__ = fullfile(this.jones2022dir, 'Eigenbrains');
+            cd(workdir__)
+
+            Number = (1:10)';
+            Label = cellfun(@(x) sprintf('EB%i', x), num2cell(Number), UniformOutput=false);
+            Filename = cellfun(@(x) sprintf('MNI152_EB_%02i.nii.gz', x), num2cell(Number), UniformOutput=false);
+            AltFileprefix = Label;
+            T = table(Label, Number, Filename, AltFileprefix);
+            parfor idx = 1:length(Number)
+                system(sprintf('3dmaskdump -mask mask.nii.gz -o %s.txt -noijk %s', AltFileprefix{idx}, Filename{idx}))
+            end
+            writetable(T, sprintf('%s_T.csv', stackstr()));
+        end
         function build_table_relevant(this)
+            %% builds "mladni_FDGDemographics_table_covariates_on-cn.mat" using all visible baseline_* folders
+
             pwd0 = pushd(fileparts(this.relevant_file));
             
             g = glob('baseline_*');
@@ -65,9 +117,157 @@ classdef Jones2022
 
             popd(pwd0);
         end
+        function h = heatmap_eigenbrains(this, mat, clbls, rlbls, opts)
+            arguments
+                this mladni.Jones2022
+                mat double = []
+                clbls cell = {}
+                rlbls cell = {}
+                opts.CellLabelFormat {mustBeTextScalar} = '%0.2g'
+                opts.Colormap double = viridis
+                opts.ColorScaling {mustBeTextScalar} = 'scaled' % 'scaledrows' 'scaledcolumns'
+                opts.FlipColormap logical = false
+                opts.FontSize {mustBeScalarOrEmpty} = 18
+            end
+            if isempty(mat)
+                T = this.table();
+                mat = T.corr;
+                mat(T.fdr > 0.05) = 0;
+            end
+            if isempty(clbls)
+                clbls = num2cell(1:this.nbases);
+                clbls = cellfun(@(x) sprintf('ADNI P%i', x), clbls, UniformOutput=false);
+            end
+            if isempty(rlbls)
+                rlbls = asrow(convertStringsToChars(T.term));
+            end
+            if opts.FlipColormap
+                opts.Colormap = flipud(opts.Colormap);
+            end
+            figure;
+            h = heatmap(clbls, rlbls, mat, ...
+                CellLabelColor='auto', ...
+                CellLabelFormat=opts.CellLabelFormat, ...
+                Colormap=opts.Colormap, ColorScaling=opts.ColorScaling, ...
+                FontSize=opts.FontSize);
+            h.Title = "Pearson correlation of eigenbrains and ADNI patterns";
+        end
+        function T = table_built_stats(this, varargin)
+            %% test_neurodegeneration2.test_build_eigenbrains; 
+            %  hand-assembled by importing test_build_eigenbrains.log
+
+            if ~isempty(this.table_built_stats_)
+                T = this.table_built_stats_;
+                return
+            end
+            ld = load(fullfile(this.jones2022dir, 'testbuildeigenbrains.mat'));
+            this.table_built_stats_ = ld.testbuildeigenbrains;
+            T = this.table_built_stats_;            
+            T = this.table_paren(T, varargin{:});
+        end
+        function T = table_termlist(this, varargin)
+            %% enumerations of Jones Table 3
+
+            if ~isempty(this.table_termlist_)
+                T = this.table_termlist_;
+                return
+            end
+            
+            index = (1:10)';
+            filename = cellfun(@(x) sprintf('EB%i.txt', x), num2cell(index), UniformOutput=false);            
+            term = cellfun(@(x) sprintf('EB%i', x), num2cell(index), UniformOutput=false);
+            this.table_termlist_ = table(index, filename, term);
+            T = this.table_termlist_;            
+            T = this.table_paren(T, varargin{:});
+        end
+        function T = table(this, varargin)
+            %% compendium
+            %  VariableNames:  'index', 'odd', 'term', 'corr', 'pval', 'fdr', 'groups'
+
+            if ~isempty(this.table_)
+                T = this.table_;
+                return
+            end
+
+            % aufbau new table variables
+
+            this.table_ = this.table_termlist;
+            corr = zeros(length(this.table_.index), this.nbases);
+            pval = ones(length(this.table_.index), this.nbases);
+            fdr = ones(length(this.table_.index), this.nbases);
+            this.table_ = addvars(this.table_, corr, pval, fdr, 'After', 'term', ...
+                'NewVariableNames', {'corr', 'pval', 'fdr'});
+
+            terms = unique(this.table_built_stats.term); % categorical
+            for it = 1:length(terms)
+                term_ = terms(it);
+
+                % find idx of term_ in this.table_termlist
+                it1 = find(this.table_.term == string(term_)); 
+                if isempty(it1)
+                    continue
+                end
+                assert(isscalar(it1))
+
+                % term_-selected subtable of this.table_built_stats; 
+                % avoid caches
+                S = this.table_built_stats_(this.table_built_stats_.term == term_, ':'); 
+                S = sortrows(S, 'basis');
+                if this.nbases == length(S.basis)
+                    r_row = S.r';
+                    p_row = S.p';
+                    this.table_.corr(it1,:) = r_row;
+                    this.table_.pval(it1,:) = p_row;
+                    continue
+                end
+
+                % special cases of U.basis
+                r_row = nan(1, this.nbases);
+                p_row = nan(1, this.nbases);
+                for abasis = S.basis % int-valued
+                    r_row(abasis) = S.r(abasis);
+                    p_row(abasis) = S.p(abasis);
+                end
+                this.table_.corr(it1,:) = r_row;
+                this.table_.pval(it1,:) = p_row;
+            end
+            
+            % trim new table; update index -> index1
+            %this.table_ = this.table_(~contains(this.table_.filename, ".txt"), ':');
+            %this.table_ = this.table_(~any(isnan(this.table_.corr), 2), ':');
+            %this.table_ = this.table_(~any(isnan(this.table_.pval), 2), ':');
+            Nrows = size(this.table_, 1);
+            this.table_ = addvars(this.table_, (1:Nrows)', 'After', 'index', 'NewVariableNames', 'index1');
+
+            % do fdr
+            for bi = 1:this.nbases
+                [~,~,~,P] = fdr_bh(this.table_.pval(:,bi), 0.05, 'dep', 'yes');
+                this.table_.fdr(:,bi) = ascol(P);
+            end
+
+            T = this.table_;
+            T = this.table_paren(T, varargin{:});
+        end
 
         %% table 2; mvregress related
 
+        function h = heatmap_patterns_to_vars(this, fn)
+            arguments
+                this mladni.Jones2022
+                fn {mustBeFile} = fullfile(this.workdir, 'dat_20230310T015754.mat')
+            end
+
+            ld = load(fn);
+            B = ld.dat.B';
+            clbls = {'intercept' 'P1' 'P2' 'P3' 'P4' 'P5' 'P6' 'P7' 'P8' 'P9' 'P10' 'P11' 'P12' 'P13' 'P14' 'P15' 'P16'}; 
+            rlbls = this.labels_check_mvregress_2;            
+
+            h = this.heatmap(abs(B), clbls, rlbls, ColorScaling='scaledrows');
+            title('abs(\beta)')
+            ylabel('Dependent variables')
+            xlabel('NMF pattern from ADNI CN')
+            saveFigures(this.workdir, closeFigure=false, prefix=stackstr())
+        end
         function dat = mvregress(this, maxiter)
             %% Following Jones' Table 2.
             %  Regression approach:
@@ -104,7 +304,7 @@ classdef Jones2022
             ld = load(this.relevant_file);
 
             % responses from Jones' table 2
-            Y = ld.t(:, this.responses_table2_);
+            Y = ld.t(:, this.responses_table2_2);
             Y = this.adjust_table_relevant(Y);
             sex = Y.Sex;
             sex = double(contains(sex, 'F'));
@@ -318,6 +518,33 @@ classdef Jones2022
             T2 = splitvars(T2);
         end
 
+        %% bases compared
+
+        function h = heatmap_patterns_to_eigenbrain(this)
+            %% Kuehback-Leibler divergence, relative entropy from eigenbrains to patterns
+
+            patt_path = '/Volumes/PrecunealSSD/Singularity/ADNI/NMF_FDG/baseline_cn/NumBases16/OPNMF/niiImg';
+            eb_path = '/Volumes/PrecunealSSD/Singularity/ADNI/Jones_2022/Eigenbrains';
+            mat = nan(10, 16);
+
+            for irow = 1:10
+
+                eb = mlfourd.ImagingContext2(fullfile(eb_path, sprintf('MNI152_EB_%02i', irow)));    
+
+                for icol = 1:16        
+
+                    patt = mlfourd.ImagingContext2(fullfile(patt_path, sprintf('Basis_%i.nii', icol))); 
+                    div = eb.kldiv(patt, this.mask);    
+                    mat(irow, icol) = div.nifti.img;
+                end
+            end
+
+            clbls = {'P1' 'P2' 'P3' 'P4' 'P5' 'P6' 'P7' 'P8' 'P9' 'P10' 'P11' 'P12' 'P13' 'P14' 'P15' 'P16'};
+            rlbls = {'EB1' 'EB2' 'EB3' 'EB4' 'EB5' 'EB6' 'EB7' 'EB8' 'EB9' 'EB10'};
+            h = mladni.Jones2022.heatmap(mat, clbls, rlbls, CellLabelFormat='%3.1f', ColorScaling='scaledrows', FlipColormap=true);
+            ylabel('Eigenbrains');
+            xlabel('ADNI Patterns');
+        end
     end
 
     methods (Static)
@@ -342,6 +569,27 @@ classdef Jones2022
             %s.XJitter = 'rand';
             %s.XJitterWidth = 0.25;
             hold off
+        end
+        function h = heatmap(mat, clbls, rlbls, opts)
+            arguments
+                mat double
+                clbls cell
+                rlbls cell
+                opts.CellLabelFormat {mustBeTextScalar} = '%0.2g'
+                opts.Colormap double = viridis
+                opts.ColorScaling {mustBeTextScalar} = 'scaled' % 'scaledrows' 'scaledcolumns'
+                opts.FlipColormap logical = false
+                opts.FontSize {mustBeScalarOrEmpty} = 18
+            end
+            if opts.FlipColormap
+                opts.Colormap = flipud(opts.Colormap);
+            end
+            figure;
+            h = heatmap(mat, ...
+                XData=clbls, YData=rlbls, ...
+                CellLabelFormat=opts.CellLabelFormat, ...
+                Colormap=opts.Colormap, ColorScaling=opts.ColorScaling, ...
+                FontSize=opts.FontSize);
         end
         function errors = regf(X1train,X2train,ytrain,X1test,X2test,ytest)
             tbltrain = table(X1train,X2train,ytrain, ...
@@ -368,14 +616,18 @@ classdef Jones2022
     %% PROTECTED
 
     properties (Access = protected)
+        mask_
         relevant_
+        table_
+        table_built_stats_
+        table_termlist_
     end
 
     methods (Access = protected)
         function hh = check_mvregress(this, dat)
             %  See also web(fullfile(docroot, 'stats/multivariate-general-linear-model.html'))
 
-            lbls = this.labels_check_mvregress_;            
+            lbls = this.labels_check_mvregress_2;            
             hh = figure();
 
             tiledlayout(3,5);
@@ -403,7 +655,7 @@ classdef Jones2022
         function h = heatmap_beta(this, B)
             %B = B(2:end,:); % leave off intercept which can be large valued
             clbls = {'intercept' 'P1' 'P2' 'P3' 'P4' 'P5' 'P6' 'P7' 'P8' 'P9' 'P10' 'P11' 'P12' 'P13' 'P14' 'P15' 'P16'};
-            rlbls = this.labels_check_mvregress_;
+            rlbls = this.labels_check_mvregress_2;
             figure;
             h = heatmap(B', XData=clbls, YData=rlbls, Colormap=parula, ColorScaling='scaledrows', FontSize=18);
             h.Colormap = parula;
@@ -411,12 +663,21 @@ classdef Jones2022
             xlabel('ADNI Pattern')
         end
         function h = heatmap_response(this, sigma)
-            lbls = this.labels_check_mvregress_;
+            lbls = this.labels_check_mvregress_2;
             figure;
             h = heatmap(sigma, XData=lbls, YData=lbls, Colormap=parula, ColorScaling='log', FontSize=18);
             h.Colormap = parula;
             ylabel('Dependent Variables')
             xlabel('Dependent Variables')
+        end
+    end
+
+    methods (Static, Access = protected)
+        function t = table_paren(t, varargin)
+            assert(istable(t))
+            if ~isempty(varargin)
+                t = t(varargin{:});
+            end
         end
     end
     

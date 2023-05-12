@@ -184,6 +184,8 @@ classdef AdniDemographics < handle
                   'sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_pve_2_Warped.nii.gz', ...
                   'sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_Warped.nii.gz'}
         categories = {'CN', 'EMCI', 'MCI', 'LMCI', 'SMC', 'AD'};
+        filt_bl_first = true % select first fdg before selecting by other criteria
+        filt_baseline = true
         LABELS = { ...
                   'sub-cn_ses-all_trc-FDG_pet_on_T1w_Warped_dlicv', ...
                   'sub-cn_ses-all_T1w_dlicv_detJ_Warped', ...
@@ -260,6 +262,7 @@ classdef AdniDemographics < handle
                 desc {mustBeTextScalar} = 'Coreg, Avg, Standardized Image and Voxel Size'
                 design {mustBeTextScalar} = 'cross-sectional'
                 opts.reuse_cache logical = true
+
             end
 
             this.description = desc;
@@ -422,22 +425,24 @@ classdef AdniDemographics < handle
             t = this.fdg1_;   
             t = this.table_paren(t, varargin{:});         
         end
-        function t = table_firstscan(this, varargin)
-            %% lazy init with table_fdg()
+        function t = table_firstscan(this, t_in, varargin)
+            %% do not use lazy init with table_fdg()
 
-            if isempty(this.firstscan_)
-                t_ = this.table_fdg1();
-                t = t_(strcmp(t_.Subject, this.subjects{1}), :); 
-                t = t(t.AcqDate == min(t.AcqDate), :); 
-                for ti = 2:length(this.subjects)
-                    u = t_(strcmp(t_.Subject, this.subjects{ti}), :); % pick subject
-                    v = u(u.AcqDate == min(u.AcqDate), :); % pick first scan                
-                    t = [t; v]; %#ok<AGROW> % append 
-                end
-                this.firstscan_ = t;
-            else
-                t = this.firstscan_;
+            if ~this.filt_baseline
+                t = t_in;                
+                t = this.table_paren(t, varargin{:});
+                return
             end
+
+            t_ = t_in;
+            t = t_(strcmp(t_.Subject, this.subjects{1}), :); 
+            t = t(t.AcqDate == min(t.AcqDate), :); 
+            for ti = 2:length(this.subjects)
+                u = t_(strcmp(t_.Subject, this.subjects{ti}), :); % pick subject
+                v = u(u.AcqDate == min(u.AcqDate), :); % pick first scan                
+                t = [t; v]; %#ok<AGROW> % append 
+            end
+            this.firstscan_ = t;
             t = this.table_paren(t, varargin{:});
         end
         function t = table_lastscan(this, varargin)
@@ -517,6 +522,7 @@ classdef AdniDemographics < handle
 
         %% subgroups defined
         %  1660 baseline FDG scans with CASU
+        %  subgroup total = 247 + 133 + 148 + 166 + 87 = 781
 
         function     call_subgroups_ic_means(this)
             %% sequentially calls create_subgroups(), create_ic_means()
@@ -608,85 +614,182 @@ classdef AdniDemographics < handle
             save('T.mat', 'T')
         end
         function t = table_cn(this)
-            %% N = 247 in nifti_files.csv
+            %% N = 247 in nifti_files.csv; N = 281
 
-            first = this.table_firstscan();
-            first = this.table_select_description(first);
-            t = first(first.AmyloidStatus == 0 & first.CDGLOBAL == 0, :);
+            fdg1 = this.table_fdg1();
+            fdg1 = this.table_select_description(fdg1);
+            if this.filt_bl_first
+                fdg1 = this.table_firstscan(fdg1);
+                Nsub = length(unique(fdg1.Subject));
+                fprintf('table_cn: %i baseline scans found for %i subjects.\n', size(fdg1,1), Nsub)
+                t = fdg1(fdg1.AmyloidStatus == 0 & fdg1.CDGLOBAL == 0, :);
+                fprintf('table_cn: %i cn scans found for %i subjects.\n', size(t,1), Nsub)
+            else
+                t = fdg1(fdg1.AmyloidStatus == 0 & fdg1.CDGLOBAL == 0, :);
+                Nsub = length(unique(t.Subject));
+                fprintf('table_cn: %i cn scans found for %i subjects.\n', size(t,1), Nsub)
+                t = this.table_firstscan(t);
+                fprintf('table_cn: %i baseline scans found for %i subjects.\n', size(t,1), Nsub)
+            end
         end
         function t = table_preclinical(this)
-            %% N = 133 in nifti_files.csv
+            %% N = 133 in nifti_files.csv; N = 150
 
-            first = this.table_firstscan();
-            first = this.table_select_description(first);
-            t = first(first.AmyloidStatus == 1 & first.CDGLOBAL == 0, :);
+            fdg1 = this.table_fdg1();
+            fdg1 = this.table_select_description(fdg1);
+            if this.filt_bl_first
+                fdg1 = this.table_firstscan(fdg1);
+                Nsub = length(unique(fdg1.Subject));
+                fprintf('table_preclinical: %i baseline scans found for %i subjects.\n', size(fdg1,1), Nsub)
+                t = fdg1(fdg1.AmyloidStatus == 1 & fdg1.CDGLOBAL == 0, :);
+                fprintf('table_preclinical: %i preclinical scans found for %i subjects.\n', size(t,1), Nsub)
+            else
+                t = fdg1(fdg1.AmyloidStatus == 1 & fdg1.CDGLOBAL == 0, :);
+                Nsub = length(unique(t.Subject));
+                fprintf('table_preclinical: %i preclinical scans found for %i subjects.\n', size(t,1), Nsub)
+                t = this.table_firstscan(t);
+                fprintf('table_preclinical: %i baseline scans found for %i subjects.\n', size(t,1), Nsub)
+            end
         end
         function t = table_cdr_0p5_aneg(this)
-            %% N = 260 in nifti_files.csv
+            %% N = 260 in nifti_files.csv; N = 295
 
-            first = this.table_firstscan();
-            first = this.table_select_description(first);
-            t = first(first.CDGLOBAL == 0.5 & first.AmyloidStatus == 0, :);
+            fdg1 = this.table_fdg1();
+            fdg1 = this.table_select_description(fdg1);
+            if this.filt_bl_first
+                fdg1 = this.table_firstscan(fdg1);
+                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 0, :);
+            else
+                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 0, :);
+                t = this.table_firstscan(t);
+            end
+
         end
         function t = table_cdr_0p5_aneg_emci(this)
-            %% N = 166 in nifti_files.csv
+            %% N = 166 in nifti_files.csv; N = 170
 
-            first = this.table_firstscan();
-            first = this.table_select_description(first);
-            first = this.table_select_available(first, 'MergeDxBl');
-            t = first(first.CDGLOBAL == 0.5 & first.AmyloidStatus == 0 & strcmp(first.MergeDxBl, 'EMCI'), :);
+            fdg1 = this.table_fdg1();
+            fdg1 = this.table_select_description(fdg1);
+            fdg1 = this.table_select_available(fdg1, 'MergeDxBl');            
+            if this.filt_bl_first
+                fdg1 = this.table_firstscan(fdg1);
+                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 0 & strcmp(fdg1.MergeDxBl, 'EMCI'), :);
+            else
+                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 0 & strcmp(fdg1.MergeDxBl, 'EMCI'), :);
+                t = this.table_firstscan(t);
+            end
         end
         function t = table_cdr_0p5_aneg_lmci(this)
-            %% N = 83 in nifti_files.csv
+            %% N = 83 in nifti_files.csv; N = 87
 
-            first = this.table_firstscan();
-            first = this.table_select_description(first);
-            first = this.table_select_available(first, 'MergeDxBl');
-            t = first(first.CDGLOBAL == 0.5 & first.AmyloidStatus == 0 & strcmp(first.MergeDxBl, 'LMCI'), :);
+            fdg1 = this.table_fdg1();
+            fdg1 = this.table_select_description(fdg1);
+            fdg1 = this.table_select_available(fdg1, 'MergeDxBl');
+            if this.filt_bl_first
+                fdg1 = this.table_firstscan(fdg1);
+                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 0 & strcmp(fdg1.MergeDxBl, 'LMCI'), :);
+            else
+                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 0 & strcmp(fdg1.MergeDxBl, 'LMCI'), :);
+                t = this.table_firstscan(t);
+            end
         end
         function t = table_cdr_0p5_apos(this)
-            %% N = 374 in nifti_files.csv
+            %% N = 385 in nifti_files.csv; N = 421
 
-            first = this.table_firstscan();
-            first = this.table_select_description(first);
-            t = first(first.CDGLOBAL == 0.5 & first.AmyloidStatus == 1, :);
+            fdg1 = this.table_fdg1();
+            fdg1 = this.table_select_description(fdg1);
+            if this.filt_bl_first
+                fdg1 = this.table_firstscan(fdg1);
+                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 1, :);
+            else
+                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 1, :);
+                t = this.table_firstscan(t);
+            end
         end
         function t = table_cdr_0p5_apos_emci(this)
-            %% N = 148 in nifti_files.csv
+            %% N = 148 in nifti_files.csv; N = 152
 
-            first = this.table_firstscan();
-            first = this.table_select_description(first);
-            first = this.table_select_available(first, 'MergeDxBl');
-            t = first(first.CDGLOBAL == 0.5 & first.AmyloidStatus == 1 & strcmp(first.MergeDxBl, 'EMCI'), :);
+            fdg1 = this.table_fdg1();
+            fdg1 = this.table_select_description(fdg1);
+            fdg1 = this.table_select_available(fdg1, 'MergeDxBl');
+            if this.filt_bl_first
+                fdg1 = this.table_firstscan(fdg1);
+                Nsub = length(unique(fdg1.Subject));
+                fprintf('table_cdr_0p5_apos_emci: %i baseline scans found for %i subjects.\n', size(fdg1,1), Nsub)
+                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 1 & strcmp(fdg1.MergeDxBl, 'EMCI'), :);
+                fprintf('table_cdr_0p5_apos_emci: %i emci scans found for %i subjects.\n', size(t,1), Nsub)
+            else
+                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 1 & strcmp(fdg1.MergeDxBl, 'EMCI'), :);
+                Nsub = length(unique(t.Subject));
+                fprintf('table_cdr_0p5_apos_emci: %i emci scans found for %i subjects.\n', size(t,1), Nsub)
+                t = this.table_firstscan(t);            
+                fprintf('table_cdr_0p5_apos_emci: %i baseline scans found for %i subjects.\n', size(t,1), Nsub)
+            end
         end
         function t = table_cdr_0p5_apos_lmci(this)
-            %% N = 166 in nifti_files.csv
+            %% N = 166 in nifti_files.csv; N = 172
 
-            first = this.table_firstscan();
-            first = this.table_select_description(first);
-            first = this.table_select_available(first, 'MergeDxBl');
-            t = first(first.CDGLOBAL == 0.5 & first.AmyloidStatus == 1 & strcmp(first.MergeDxBl, 'LMCI'), :);
+            fdg1 = this.table_fdg1();
+            fdg1 = this.table_select_description(fdg1);
+            fdg1 = this.table_select_available(fdg1, 'MergeDxBl');
+            if this.filt_bl_first
+                fdg1 = this.table_firstscan(fdg1);
+                Nsub = length(unique(fdg1.Subject));
+                fprintf('table_cdr_0p5_apos_lmci: %i baseline scans found for %i subjects.\n', size(fdg1,1), Nsub)
+                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 1 & strcmp(fdg1.MergeDxBl, 'LMCI'), :);
+                fprintf('table_cdr_0p5_apos_lmci: %i lmci scans found for %i subjects.\n', size(t,1), Nsub)
+            else
+                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 1 & strcmp(fdg1.MergeDxBl, 'LMCI'), :);
+                Nsub = length(unique(t.Subject));
+                fprintf('table_cdr_0p5_apos_lmci: %i lmci scans found for %i subjects.\n', size(t,1), Nsub)
+                t = this.table_firstscan(t);            
+                fprintf('table_cdr_0p5_apos_lmci: %i baseline scans found for %i subjects.\n', size(t,1), Nsub)
+            end
         end
         function t = table_cdr_0p5_anan(this)
-            %% N == 187 in nifti_files.csv
+            %% N = 187 in nifti_files.csv; N = 220
 
-            first = this.table_firstscan();
-            first = this.table_select_description(first);
-            t = first(first.CDGLOBAL == 0.5 & isnan(first.AmyloidStatus), :);
+            fdg1 = this.table_fdg1();
+            fdg1 = this.table_select_description(fdg1);
+            if this.filt_bl_first
+                fdg1 = this.table_firstscan(fdg1);
+                t = fdg1(fdg1.CDGLOBAL == 0.5 & isnan(fdg1.AmyloidStatus), :);
+            else
+                t = fdg1(fdg1.CDGLOBAL == 0.5 & isnan(fdg1.AmyloidStatus), :);
+                t = this.table_firstscan(t);
+            end
         end
         function t = table_cdr_gt_0p5_apos(this)
-            %% N == 87 in nifti_files.csv
+            %% N = 87 in nifti_files.csv; N = 156
 
-            first = this.table_firstscan();
-            first = this.table_select_description(first);
-            t = first(first.CDGLOBAL > 0.5 & first.AmyloidStatus == 1, :);
+            fdg1 = this.table_fdg1();
+            fdg1 = this.table_select_description(fdg1);
+            if this.filt_bl_first
+                fdg1 = this.table_firstscan(fdg1);
+                Nsub = length(unique(fdg1.Subject));
+                fprintf('table_cdr_gt_0p5_apos: %i baseline scans found for %i subjects.\n', size(fdg1,1), Nsub)
+                t = fdg1(fdg1.CDGLOBAL > 0.5 & fdg1.AmyloidStatus == 1, :);
+                fprintf('table_cdr_gt_0p5_apos: %i ad scans found for %i subjects.\n', size(t,1), Nsub)
+            else
+                t = fdg1(fdg1.CDGLOBAL > 0.5 & fdg1.AmyloidStatus == 1, :);
+                Nsub = length(unique(t.Subject));
+                fprintf('table_cdr_gt_0p5_apos: %i ad scans found for %i subjects.\n', size(t,1), Nsub)
+                t = this.table_firstscan(t);
+                fprintf('table_cdr_gt_0p5_apos: %i baseline scans found for %i subjects.\n', size(t,1), Nsub)
+            end            
         end
         function t = table_cdr_ge_0p5_aneg(this)
-            %% N == 247
+            %% N = 247; N = 309
 
-            first = this.table_firstscan();
-            first = this.table_select_description(first);
-            t = first(first.CDGLOBAL >= 0.5 & first.AmyloidStatus == 0, :);
+            fdg1 = this.table_fdg1();
+            fdg1 = this.table_select_description(fdg1);
+            if this.filt_bl_first
+                fdg1 = this.table_firstscan(fdg1);
+                t = fdg1(fdg1.CDGLOBAL >= 0.5 & fdg1.AmyloidStatus == 0, :);
+            else
+                t = fdg1(fdg1.CDGLOBAL >= 0.5 & fdg1.AmyloidStatus == 0, :);
+                t = this.table_firstscan(t);
+            end            
         end
 
         %% visualizations
