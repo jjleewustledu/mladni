@@ -167,21 +167,18 @@ classdef Neurosynth27 < handle
         end
     end
 
+    methods (Static)
+        function t = table_paren(varargin)
+            t = mladni.AdniMerge.table_paren(varargin{:});
+        end
+    end
+
     %% PRIVATE
 
     properties (Access = private)
         table_
         table_built_stats_
         table_termlist_
-    end
-
-    methods (Static, Access = private)
-        function t = table_paren(t, varargin)
-            assert(istable(t))
-            if ~isempty(varargin)
-                t = t(varargin{:});
-            end
-        end
     end
     
     %  Created with mlsystem.Newcl, inspired by Frank Gonzalez-Morphy's newfcn.

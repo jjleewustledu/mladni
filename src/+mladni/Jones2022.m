@@ -611,6 +611,9 @@ classdef Jones2022 < handle
             end
             set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
         end
+        function t = table_paren(varargin)
+            t = mladni.AdniMerge.table_paren(varargin{:});
+        end
     end
 
     %% PROTECTED
@@ -669,15 +672,6 @@ classdef Jones2022 < handle
             h.Colormap = parula;
             ylabel('Dependent Variables')
             xlabel('Dependent Variables')
-        end
-    end
-
-    methods (Static, Access = protected)
-        function t = table_paren(t, varargin)
-            assert(istable(t))
-            if ~isempty(varargin)
-                t = t(varargin{:});
-            end
         end
     end
     

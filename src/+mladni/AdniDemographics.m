@@ -1,5 +1,7 @@
 classdef AdniDemographics < handle
-    %% queries "all_FDG_20211123_12_14_2021.csv", "ADNIMERGE.csv"
+    %% Supports ADNI demographic data and other meta-data at granularity larger than single scan objects.
+    %  
+    %  Queries "all_FDG_20211123_12_14_2021.csv", "ADNIMERGE.csv", mladni.AdniMerge
     %
     %  14358 imaging items, all DCM, acquired 09/22/2005 - 10/13/2021
     %  1660 unique subjects, acquisition ages 55 - 96 years, 924 males, 736 females
@@ -81,6 +83,22 @@ classdef AdniDemographics < handle
 
             fprintf('%s: Nerr->%g\n', stackstr(), Nerr)
         end
+        function list_acqdate = fqfns2AcqDate(list_fqfns)
+            assert(iscell(list_fqfns))
+            list_acqdate = cell(size(list_fqfns));
+            for idx = 1:length(list_fqfns)
+                re = regexp(list_fqfns{idx}, '\S+sub-(?<sub>\d{3}S\d{4})_ses-(?<acqdate>\d{14})\S+', 'names');
+                list_acqdate{idx} = datetime(re.acqdate, InputFormat='yyyyMMddHHmmss');
+            end
+        end
+        function list_sub = fqfns2Subject(list_fqfns)
+            assert(iscell(list_fqfns))
+            list_sub = cell(size(list_fqfns));
+            for idx = 1:length(list_fqfns)
+                re = regexp(list_fqfns{idx}, '\S+sub-(?<sub>\d{3}S\d{4})_ses-\S+', 'names');
+                list_sub{idx} = strrep(re.sub, 'S', '_S_');
+            end
+        end
         function g = glob_fdg_raw(varargin)
             ip = inputParser;
             ip.KeepUnmatched = true;
@@ -130,7 +148,8 @@ classdef AdniDemographics < handle
             g = ascol(g);
         end
         function g = table2fqfns(T, opts)
-            % e.g., sub-*_ses-*_trc-FDG_proc-CASU*_orient-rpi_pet_on_T1w_Warped_dlicv.nii.gz
+            % e.g., opts.globbing ->
+            %       sub-*_ses-*_trc-FDG_proc-CASU*_orient-rpi_pet_on_T1w_Warped_dlicv.nii.gz
             %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_Warped.nii.gz
             %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_pve_0_Warped.nii.gz
             %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_pve_1_Warped.nii.gz
@@ -138,9 +157,12 @@ classdef AdniDemographics < handle
             %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_detJ.nii.gz
             %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_dlicv_detJ_Warped.nii.gz
 
+            %       sub-*_ses-*_trc-FDG_proc-CASU_orient-rpi_pet.nii.gz
+            %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w.nii.gz
+
             arguments
                 T table = []
-                opts.globbing {mustBeTextScalar} = 'sub-*_ses-*_trc-FDG_proc-CASU*_orient-rpi_pet_on_T1w_Warped_dlicv.nii.gz';
+                opts.globbing {mustBeTextScalar} = 'sub-*_ses-*_trc-FDG_proc-CASU_orient-rpi_pet_on_T1w.nii.gz';
             end
             if isempty(T)
                 ad = mladni.AdniDemographics;
@@ -166,10 +188,31 @@ classdef AdniDemographics < handle
                 end
             end
         end
+        function t = table_paren(varargin)
+            t = mladni.AdniMerge.table_paren(varargin{:});
+        end
+        function t = table_excluding_table(t1, t2)
+            %% from t1, exclude all rows with Subject & AcqDate found anywhere in t2
+
+            assert(any(contains(t1.Properties.VariableNames, 'Subject')))
+            assert(any(contains(t1.Properties.VariableNames, 'AcqDate')))
+            assert(any(contains(t2.Properties.VariableNames, 'Subject')))
+            assert(any(contains(t2.Properties.VariableNames, 'AcqDate')))
+
+            select = false(size(t1,1), 1);
+            for row2 = 1:size(t2, 1)
+                selectSubject = contains(t1.Subject, t2.Subject{row2});
+                selectAcqDate = t1.AcqDate == t2.AcqDate(row2);
+                select = select | (selectSubject & selectAcqDate);
+            end
+            t = t1(~select, :);
+        end
     end
 
     properties
+        datetime_separation_tol
         description
+        filt_bl_first = true % select first fdg before selecting by other criteria
         study_design
         reuse_cache
     end
@@ -184,8 +227,6 @@ classdef AdniDemographics < handle
                   'sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_pve_2_Warped.nii.gz', ...
                   'sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_Warped.nii.gz'}
         categories = {'CN', 'EMCI', 'MCI', 'LMCI', 'SMC', 'AD'};
-        filt_bl_first = true % select first fdg before selecting by other criteria
-        filt_baseline = true
         LABELS = { ...
                   'sub-cn_ses-all_trc-FDG_pet_on_T1w_Warped_dlicv', ...
                   'sub-cn_ses-all_T1w_dlicv_detJ_Warped', ...
@@ -194,47 +235,60 @@ classdef AdniDemographics < handle
                   'sub-cn_ses-all_T1w_brain_pve_1_Warped', ...
                   'sub-cn_ses-all_T1w_brain_pve_2_Warped', ...
                   'sub-cn_ses-all_T1w_brain_Warped'}
-        LABELS_G = {'fdg' 'dlicv-detJ' 'brain-detJ' 'pve0' 'pve1' 'pve2' 'brain'}
+        LABELS_G = {'fdg'} % {'dlicv-detJ' 'brain-detJ' 'pve0' 'pve1' 'pve2' 'brain'}
         subgroups = { ...
-                'cn', 'preclinical', ...
-                'cdr_0p5_aneg_emci', 'cdr_0p5_aneg_lmci', ...
-                'cdr_0p5_apos_emci', 'cdr_0p5_apos_lmci', ...
-                'cdr_0p5_aneg', 'cdr_0p5_apos', 'cdr_0p5_anan', ...
+                'cn', ...
+                'preclinical', ...
+                'cdr_0p5_apos', ...
                 'cdr_gt_0p5_apos', ...
                 'cdr_ge_0p5_aneg'}
         viscode2_months = [0 6 12 18 24 36 48 54 60 66 72 78 84 90 96 108 120 126 132 138 144 150];
     end
 
     properties (Dependent)
-        adni_merge        
+        adni_merge
+        fdg1_file
         fdg_orig_file
         fdg_proc1_file
         fdg_proc2_file
-        fqfns_scans_gt_1y %% N == 191
+        filt_baseline
+        fqfns_scans_gt_1y %% N == 191, FDG scans with T1w > 1y of separation
         merge
         subjects
+        workdir
     end
 
     methods % GET
         function g = get.adni_merge(this)
-            g = this.merge_;
-        end        
+            g = this.merge;
+        end  
+        function g = get.fdg1_file(this)
+            g = fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', ...
+                sprintf('AdniDemographics_table_fdg1_%s.mat', this.study_design));
+        end
         function g = get.fdg_orig_file(~)
-            g = fullfile(getenv("ADNI_HOME"), "staging", "FDG_original_20211118", "all_FDG_20211118_11_18_2021.csv");
-            % unique Subject ~ 1662
+            %% unique Subject ~ 1662
+
+            g = fullfile(getenv("ADNI_HOME"), "staging", "FDG_original_20211118", "all_FDG_20211118_11_18_2021.csv");            
         end
         function g = get.fdg_proc1_file(~)
-            g = fullfile(getenv("ADNI_HOME"), "staging", "FDG_processed_20211123", "all_FDG_20211123_12_14_2021.csv");
-            % unique Subject ~ 1660, unique ImageDataID ~ 14358
+            %% unique Subject ~ 1660, unique ImageDataID ~ 14358
+
+            g = fullfile(getenv("ADNI_HOME"), "staging", "FDG_processed_20211123", "all_FDG_20211123_12_14_2021.csv");            
         end
         function g = get.fdg_proc2_file(~)
-            g = fullfile(getenv("ADNI_HOME"), "staging", "FDG_processed_20220104", "prev_failed_FDG_20220104_1_04_2022.csv");
-            % unique Subject ~ 5, included in fdg_proc1_file
+            %% unique Subject ~ 5, included in fdg_proc1_file
+
+            g = fullfile(getenv("ADNI_HOME"), "staging", "FDG_processed_20220104", "prev_failed_FDG_20220104_1_04_2022.csv");            
         end 
+        function g = get.filt_baseline(this)
+            g = strcmp('cross-sectional', this.study_design);
+        end
         function g = get.fqfns_scans_gt_1y(this)
             if isempty(this.fqfns_scans_gt_1y_)
-                ld = load(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'fqfns_scans_gt_1y.mat'));
-                this.fqfns_scans_gt_1y_ = ld.fqfns_scans_gt_1y; 
+                this.fqfns_scans_gt_1y_ = {'disabling_fqfns_scans_gt_1y'};
+                % ld = load(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'fqfns_scans_gt_1y.mat'));
+                % this.fqfns_scans_gt_1y_ = ld.fqfns_scans_gt_1y; 
             end
             g = this.fqfns_scans_gt_1y_;
         end
@@ -248,32 +302,114 @@ classdef AdniDemographics < handle
             end
             g = this.subjects_;
         end
+        function g = get.workdir(~)
+            g = fullfile(getenv('ADNI_HOME'), 'NMF_FDG');
+        end
     end
 
     methods
-        function this = AdniDemographics(desc, design, opts)
+        function this = AdniDemographics(opts)
             %% ADNIDEMOGRAPHICS
             %  Args:
-            %      desc {mustBeTextScalar} = 'Co-registered Dynamic' | 'Coreg, Avg, Standardized Image and Voxel Size'
-            %      design {mustBeTextScalar} = 'cross-sectional' | 'longitudinal'
-            %      opts.reuse_cache logical = true
+            %      opts.desc {mustBeTextScalar} = 'Co-registered Dynamic' | 'Coreg, Avg, Standardized Image and Voxel Size'
+            %      opts.design {mustBeTextScalar} = 'cross-sectional' | 'longitudinal'
+            %      opts.reuse_cache logical = false
+            %      opts.filt_bl_first logical = true
+            %      opts.datetime_separation_tol duration = years(100)
+            %      opts.propagate_amyloid_positivity logical = true
 
             arguments
-                desc {mustBeTextScalar} = 'Coreg, Avg, Standardized Image and Voxel Size'
-                design {mustBeTextScalar} = 'cross-sectional'
+                opts.desc {mustBeTextScalar} = 'Coreg, Avg, Standardized Image and Voxel Size'
+                opts.design {mustBeTextScalar} = 'longitudinal'
                 opts.reuse_cache logical = true
-
+                opts.filt_bl_first logical = true
+                opts.datetime_separation_tol duration = years(100)
             end
-
-            this.description = desc;
-            this.study_design = design;
+            this.description = opts.desc;
+            this.study_design = opts.design;
             this.reuse_cache = opts.reuse_cache;
+            this.filt_bl_first = opts.filt_bl_first;   
+            this.datetime_separation_tol = opts.datetime_separation_tol;
             warning('off', 'MATLAB:table:ModifiedAndSavedVarnames') 
-            this.merge_ = mladni.AdniMerge(pwd, 'cross-sectional', reuse_cache=true);
+            this.merge_ = mladni.AdniMerge(pwd, this.study_design, reuse_cache=opts.reuse_cache);
         end
 
-        function t = table_amyloid(this, varargin)
-            t = this.merge_.table_amyloid(varargin{:});
+        function T = addvars_separation(this, opts)
+            %% separation := datetime(measurement) - datetime(fdg acqdate), in days
+            %  must read all NIfTI in ADNI/bids/derivatives
+
+            arguments
+                this mladni.AdniDemographics
+                opts.T table = this.table_fdg1
+                opts.measurement {mustBeTextScalar} = 'T1w'
+            end
+            measurement = convertStringsToChars(opts.measurement);
+            switch lower(measurement)
+                case 't1w'
+                    Nrows = size(opts.T, 1);
+                    t1w_acqdate = NaT(Nrows, 1);
+                    for row = 1:Nrows
+                        try
+                            T_row = opts.T(row,:);
+                            fqfns = this.table2fqfns(T_row, ...
+                                globbing='sub-*_ses-*_trc-FDG_proc-CASU_orient-rpi_pet_on_T1w.json');
+                            j = jsondecode(fileread(fqfns{1}));
+                            re = regexp(j.T1wFilename, '\S+/sub-(?<sub>\d{3}S\d{4})_ses-(?<acqdate>\d{14})\S+', 'names');
+                            t1w_acqdate(row) = datetime(re.acqdate, InputFormat='yyyyMMddHHmmss');
+                        catch ME
+                            fprintf('skipping %s %s; %s\n', T_row.Subject{1}, T_row.AcqDate, ME.message);
+                        end
+                    end
+                    separation = days(t1w_acqdate - opts.T.AcqDate);
+                case 'cdglobal'
+                    separation = days(opts.T.CDEXAMDATE - opts.T.AcqDate);
+                case 'amyloid'
+                    separation = days(opts.T.AmyloidExamDate - opts.T.AcqDate);
+                otherwise
+                    error('mladni:ValueError', '%s.measurement->%s', stackstr, measurement)
+            end
+            T = addvars(opts.T, separation, ...
+                NewVariableNames={sprintf('SeparationOf%s%s', upper(measurement(1)), lower(measurement(2:end)))});
+        end    
+        function as = AmyloidStatus(this, acqdate, amyloid_s1)
+            arguments
+                this mladni.AdniDemographics
+                acqdate datetime
+                amyloid_s1 table % derived from this.table_amyloid, for single subject
+            end
+
+            assert(1 == length(unique(amyloid_s1.RID)))
+            amyloid_s1 = amyloid_s1(~isnat(amyloid_s1.EXAMDATE), :);
+            amyloid_s1 = sortrows(amyloid_s1, 'EXAMDATE'); % ascending
+
+            % no known amyloidosis through end of amy scanning
+            if all(amyloid_s1.AmyloidStatus == 0)
+                if acqdate <= amyloid_s1.EXAMDATE(end) + duration(this.datetime_separation_tol)
+                    as = 0;
+                    return
+                else
+                    as = nan;
+                    return
+                end
+            end
+
+            % known amyloidosis since start of amy scanning
+            if amyloid_s1.AmyloidStatus(1)
+                if acqdate >= amyloid_s1.EXAMDATE(1) - duration(this.datetime_separation_tol)
+                    as = 1;
+                    return
+                else
+                    as = nan;
+                    return
+                end
+            end
+
+            % at least one amy+ scan after first amy scan
+            [~,idx] = max(amyloid_s1.AmyloidStatus); 
+            as = double(acqdate >= amyloid_s1.EXAMDATE(idx) - duration(this.datetime_separation_tol));
+        end
+        function [t,t_av45,t_fbb] = table_amyloid(this, varargin)
+            [t,t_av45,t_fbb] = this.merge_.table_amyloid(varargin{:});
         end
         function t = table_apoe(this, varargin)
             t = this.merge_.table_apoe(varargin{:});            
@@ -385,6 +521,8 @@ classdef AdniDemographics < handle
             t = this.table_paren(t, varargin{:});
         end
         function t = table_fdg(this, varargin)
+            %% Table of FDG metrics provided by LONI's downloading services.
+
             if isempty(this.fdg_)
                 this.fdg_ = readtable(this.fdg_proc1_file);
             end
@@ -392,13 +530,32 @@ classdef AdniDemographics < handle
             t = this.table_paren(t, varargin{:});
         end
         function t = table_fdg_select_description(this, varargin)
-            t = this.fdg_(strcmp(this.fdg_.Description, this.description), :);
-            t = this.table_paren(t, varargin{:});
+            t = this.table_select_description(this.table_fdg, varargin{:});
         end  
         function t = table_fdg1(this, varargin)
+            %%  Build a single table containing mutually consistent data elements for purposes of analyses
+            %   of FDG from ADNI.  
+            %   - Prefer using csv tables obtained directly from LONI, ensuring csv dates are sufficiently spanning.
+            %     See this.table_fdg_proc1_file, generated by LONI at download of FDG imaging, and 
+            %     mladni.AdniMerge.*_file for native csv files names.  Collect data acquisition dates specific for each
+            %     native csv table, e.g., EXAMDATE, APTESTDT, renaming for disambiguation.  N.B.:
+            %     ADNIMERGE*.csv, CDR*.csv, UCBERKELEYFDG*.csv, UCBERKELEYAV45*.csv, UCBERKELEYFBB*.csv, APOERES*.csv,
+            %     which are needed for essential covariates age, sex, CDR, FDG references, AV45, FBB and ApoE.
+            %   - For data from csv file ADNIMERGE*.csv, replace all EXAMDATES with values from REGISTRY*.csv,
+            %     using RID and VISCODE as selectors.  Appears unnecessary since ADNIMERGE_14May2023.csv.
+            %   - Select an FDG preprocessing directive, e.g., 'Coreg, Avg, Std Img and Vox Siz, Uniform Resolution'
+            %   - For each subject, selected by RID:
+            %       Use FDG scan acquisition date from this.table_fdg_proc1_file:AcqDate.  
+            %       For each scan acquisition date:
+            %         For each native csv table: 
+            %           manage multiple data collection dates, e.g., for CDR*.csv, USERDATE, USERDATE2, CDDATE, EXAMDATE.
+            %           if table is for amyloid:
+            %             See also: mladni.AdniDemographics.AmyloidStatus 
+            %             (https://github.com/sotiraslab/mladni/blob/main/src/%2Bmladni/AdniDemographics.m function AmyloidStatus lines 34-69.)
 
             % cached in memory
             if ~isempty(this.fdg1_)
+                fprintf('%s: using cached in memory\n', stackstr)
                 t = this.fdg1_;
                 if ~isempty(varargin)
                     t = t(varargin{:});
@@ -407,9 +564,9 @@ classdef AdniDemographics < handle
             end
 
             % cached on filesystem
-            cache_file = fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', 'AdniDemographics_table_fdg1.mat');
-            if isfile(cache_file) && this.reuse_cache
-                ld = load(cache_file);
+            if isfile(this.fdg1_file) && this.reuse_cache
+                fprintf('%s: using cached on filesystem\n', stackstr)
+                ld = load(this.fdg1_file);
                 this.fdg1_ = ld.table_fdg1;
                 t = this.fdg1_;
                 if ~isempty(varargin)
@@ -419,27 +576,22 @@ classdef AdniDemographics < handle
             end
             
             % build caches
+            fprintf('%s: building cache\n', stackstr)
             this.fdg1_ = this.buildTableFdg1();
             table_fdg1 = this.fdg1_;
-            save(cache_file, 'table_fdg1');
+            save(this.fdg1_file, 'table_fdg1');
             t = this.fdg1_;   
             t = this.table_paren(t, varargin{:});         
         end
         function t = table_firstscan(this, t_in, varargin)
             %% do not use lazy init with table_fdg()
 
-            if ~this.filt_baseline
-                t = t_in;                
-                t = this.table_paren(t, varargin{:});
-                return
-            end
-
             t_ = t_in;
             t = t_(strcmp(t_.Subject, this.subjects{1}), :); 
             t = t(t.AcqDate == min(t.AcqDate), :); 
             for ti = 2:length(this.subjects)
                 u = t_(strcmp(t_.Subject, this.subjects{ti}), :); % pick subject
-                v = u(u.AcqDate == min(u.AcqDate), :); % pick first scan                
+                v = u(u.AcqDate == min(u.AcqDate), :); % pick subject's first scan                
                 t = [t; v]; %#ok<AGROW> % append 
             end
             this.firstscan_ = t;
@@ -524,7 +676,7 @@ classdef AdniDemographics < handle
         %  1660 baseline FDG scans with CASU
         %  subgroup total = 247 + 133 + 148 + 166 + 87 = 781
 
-        function     call_subgroups_ic_means(this)
+        function     call(this)
             %% sequentially calls create_subgroups(), create_ic_means()
 
             f1 = @this.create_subgroups;
@@ -533,7 +685,7 @@ classdef AdniDemographics < handle
             f2 = @this.create_ic_means;
             lbl = this.LABELS;
             for idx = 1:length(aglobs)
-%                f1(aglobs{idx}, lblg{idx});
+                f1(aglobs{idx}, lblg{idx});
                 f2(lbl{idx}, lblg{idx});
             end
         end
@@ -551,8 +703,10 @@ classdef AdniDemographics < handle
                 label {mustBeTextScalar} = 'sub-cn_ses-all_trc-FDG_pet_on_T1w_Warped_dlicv'
                 labelg {mustBeTextScalar} = 'fdg'
             end
+            labelg = strcat('AdniDemographics_create_subgroups_', labelg); % find mat saved by create_subgroups
             
-            load(strcat(labelg, '_fqfns.mat')) %#ok<*LOAD> 
+            pwd0 = pushd(this.workdir);
+            load(sprintf('%s_%s_fqfns.mat', labelg, this.study_design)) %#ok<*LOAD> 
             
             for sg = this.subgroups
 
@@ -561,7 +715,6 @@ classdef AdniDemographics < handle
                 ic.(sg{1}).fileprefix = strrep(label, this.subgroups{1}, sg{1});
                 ic.(sg{1}).save();   
             end
-
             for sg = this.subgroups(2:end)
 
                 % differences, view_qc()
@@ -570,6 +723,7 @@ classdef AdniDemographics < handle
                 %ic.(this.subgroups{1}).view_qc(icd.(sg{1}));
                 ic.(this.subgroups{1}).save_qc(icd.(sg{1}));
             end
+            popd(pwd0);
         end 
         function     create_subgroups(this, aglob, label)
             %% 
@@ -591,7 +745,8 @@ classdef AdniDemographics < handle
                 label {mustBeTextScalar} = 'fdg'
             end
             
-            to_rem = mybasename(this.fqfns_scans_gt_1y);
+            pwd0 = pushd(this.workdir);
+            to_remove = mybasename(this.fqfns_scans_gt_1y);
             
             for sg = this.subgroups
                 table_ = strcat('table_', sg{1});
@@ -603,25 +758,27 @@ classdef AdniDemographics < handle
                 T.(sg{1}) = renamevars(T.(sg{1}), "Var1", "Filename");
                 
                 fqfn_ = fqfns.(sg{1});
-                fqfns.(sg{1})  = fqfn_(~contains(fqfn_, to_rem) & ~isempty(fqfn_)); % remove to_rem, scans > 1y separated
+                fqfns.(sg{1})  = fqfn_(~contains(fqfn_, to_remove) & ~isempty(fqfn_)); % remove FDG scans > 1y separated from T1w
                 T_ = T.(sg{1});
-                T.(sg{1}) = T_(~contains(T_.Filename, to_rem) & ~isempty(T_.Filename), :);
+                T.(sg{1}) = T_(~contains(T_.Filename, to_remove) & ~isempty(T_.Filename), :);
 
-                writetable(T.(sg{1}), sprintf('table_%s.csv', sg{1}), WriteVariableNames=true)
+                writetable(T.(sg{1}), sprintf('table_%s_%s.csv', sg{1}, this.study_design), WriteVariableNames=true)
             end
 
-            save(sprintf('%s_fqfns.mat', label), 'fqfns')
-            save('T.mat', 'T')
+            save(sprintf('%s_%s_%s_fqfns.mat', stackstr(), label, this.study_design), 'fqfns')
+            save(strcat(stackstr, '_T.mat'), 'T')
+            popd(pwd0);
         end
         function t = table_cn(this)
-            %% N = 247 in nifti_files.csv; N = 281
+            %% N = 247 in nifti_files.csv; N = 281 with late baseline; N = 364 longitudinal.
+            %  
 
             fdg1 = this.table_fdg1();
-            fdg1 = this.table_select_description(fdg1);
+            %fdg1 = this.table_select_description(fdg1);
             if this.filt_bl_first
                 fdg1 = this.table_firstscan(fdg1);
                 Nsub = length(unique(fdg1.Subject));
-                fprintf('table_cn: %i baseline scans found for %i subjects.\n', size(fdg1,1), Nsub)
+                fprintf('table_cn: %i scans found for %i subjects.\n', size(fdg1,1), Nsub)
                 t = fdg1(fdg1.AmyloidStatus == 0 & fdg1.CDGLOBAL == 0, :);
                 fprintf('table_cn: %i cn scans found for %i subjects.\n', size(t,1), Nsub)
             else
@@ -633,14 +790,14 @@ classdef AdniDemographics < handle
             end
         end
         function t = table_preclinical(this)
-            %% N = 133 in nifti_files.csv; N = 150
+            %% N = 133 in nifti_files.csv; N = 150 with late baseline; N = 497 longitudinal
 
             fdg1 = this.table_fdg1();
-            fdg1 = this.table_select_description(fdg1);
+            %fdg1 = this.table_select_description(fdg1);
             if this.filt_bl_first
                 fdg1 = this.table_firstscan(fdg1);
                 Nsub = length(unique(fdg1.Subject));
-                fprintf('table_preclinical: %i baseline scans found for %i subjects.\n', size(fdg1,1), Nsub)
+                fprintf('table_preclinical: %i scans found for %i subjects.\n', size(fdg1,1), Nsub)
                 t = fdg1(fdg1.AmyloidStatus == 1 & fdg1.CDGLOBAL == 0, :);
                 fprintf('table_preclinical: %i preclinical scans found for %i subjects.\n', size(t,1), Nsub)
             else
@@ -652,10 +809,10 @@ classdef AdniDemographics < handle
             end
         end
         function t = table_cdr_0p5_aneg(this)
-            %% N = 260 in nifti_files.csv; N = 295
+            %% N = 260 in nifti_files.csv; N = 295; N = 330 longitudinal
 
             fdg1 = this.table_fdg1();
-            fdg1 = this.table_select_description(fdg1);
+            %fdg1 = this.table_select_description(fdg1);
             if this.filt_bl_first
                 fdg1 = this.table_firstscan(fdg1);
                 t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 0, :);
@@ -664,93 +821,28 @@ classdef AdniDemographics < handle
                 t = this.table_firstscan(t);
             end
 
-        end
-        function t = table_cdr_0p5_aneg_emci(this)
-            %% N = 166 in nifti_files.csv; N = 170
-
-            fdg1 = this.table_fdg1();
-            fdg1 = this.table_select_description(fdg1);
-            fdg1 = this.table_select_available(fdg1, 'MergeDxBl');            
-            if this.filt_bl_first
-                fdg1 = this.table_firstscan(fdg1);
-                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 0 & strcmp(fdg1.MergeDxBl, 'EMCI'), :);
-            else
-                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 0 & strcmp(fdg1.MergeDxBl, 'EMCI'), :);
-                t = this.table_firstscan(t);
-            end
-        end
-        function t = table_cdr_0p5_aneg_lmci(this)
-            %% N = 83 in nifti_files.csv; N = 87
-
-            fdg1 = this.table_fdg1();
-            fdg1 = this.table_select_description(fdg1);
-            fdg1 = this.table_select_available(fdg1, 'MergeDxBl');
-            if this.filt_bl_first
-                fdg1 = this.table_firstscan(fdg1);
-                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 0 & strcmp(fdg1.MergeDxBl, 'LMCI'), :);
-            else
-                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 0 & strcmp(fdg1.MergeDxBl, 'LMCI'), :);
-                t = this.table_firstscan(t);
-            end
         end
         function t = table_cdr_0p5_apos(this)
-            %% N = 385 in nifti_files.csv; N = 421
+            %% N = 385 in nifti_files.csv; N = 421 with late baseline; N = 1061 longitudinal
 
             fdg1 = this.table_fdg1();
-            fdg1 = this.table_select_description(fdg1);
+            %fdg1 = this.table_select_description(fdg1);
             if this.filt_bl_first
                 fdg1 = this.table_firstscan(fdg1);
+                Nsub = length(unique(fdg1.Subject));
+                fprintf('table_cdr_0p5_apos: %i scans found for %i subjects.\n', size(fdg1,1), Nsub)
                 t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 1, :);
+                fprintf('table_cdr_0p5_apos: %i cn scans found for %i subjects.\n', size(t,1), Nsub)
             else
                 t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 1, :);
                 t = this.table_firstscan(t);
-            end
-        end
-        function t = table_cdr_0p5_apos_emci(this)
-            %% N = 148 in nifti_files.csv; N = 152
-
-            fdg1 = this.table_fdg1();
-            fdg1 = this.table_select_description(fdg1);
-            fdg1 = this.table_select_available(fdg1, 'MergeDxBl');
-            if this.filt_bl_first
-                fdg1 = this.table_firstscan(fdg1);
-                Nsub = length(unique(fdg1.Subject));
-                fprintf('table_cdr_0p5_apos_emci: %i baseline scans found for %i subjects.\n', size(fdg1,1), Nsub)
-                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 1 & strcmp(fdg1.MergeDxBl, 'EMCI'), :);
-                fprintf('table_cdr_0p5_apos_emci: %i emci scans found for %i subjects.\n', size(t,1), Nsub)
-            else
-                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 1 & strcmp(fdg1.MergeDxBl, 'EMCI'), :);
-                Nsub = length(unique(t.Subject));
-                fprintf('table_cdr_0p5_apos_emci: %i emci scans found for %i subjects.\n', size(t,1), Nsub)
-                t = this.table_firstscan(t);            
-                fprintf('table_cdr_0p5_apos_emci: %i baseline scans found for %i subjects.\n', size(t,1), Nsub)
-            end
-        end
-        function t = table_cdr_0p5_apos_lmci(this)
-            %% N = 166 in nifti_files.csv; N = 172
-
-            fdg1 = this.table_fdg1();
-            fdg1 = this.table_select_description(fdg1);
-            fdg1 = this.table_select_available(fdg1, 'MergeDxBl');
-            if this.filt_bl_first
-                fdg1 = this.table_firstscan(fdg1);
-                Nsub = length(unique(fdg1.Subject));
-                fprintf('table_cdr_0p5_apos_lmci: %i baseline scans found for %i subjects.\n', size(fdg1,1), Nsub)
-                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 1 & strcmp(fdg1.MergeDxBl, 'LMCI'), :);
-                fprintf('table_cdr_0p5_apos_lmci: %i lmci scans found for %i subjects.\n', size(t,1), Nsub)
-            else
-                t = fdg1(fdg1.CDGLOBAL == 0.5 & fdg1.AmyloidStatus == 1 & strcmp(fdg1.MergeDxBl, 'LMCI'), :);
-                Nsub = length(unique(t.Subject));
-                fprintf('table_cdr_0p5_apos_lmci: %i lmci scans found for %i subjects.\n', size(t,1), Nsub)
-                t = this.table_firstscan(t);            
-                fprintf('table_cdr_0p5_apos_lmci: %i baseline scans found for %i subjects.\n', size(t,1), Nsub)
             end
         end
         function t = table_cdr_0p5_anan(this)
-            %% N = 187 in nifti_files.csv; N = 220
+            %% N = 187 in nifti_files.csv; N = 220; N = 673
 
             fdg1 = this.table_fdg1();
-            fdg1 = this.table_select_description(fdg1);
+            %fdg1 = this.table_select_description(fdg1);
             if this.filt_bl_first
                 fdg1 = this.table_firstscan(fdg1);
                 t = fdg1(fdg1.CDGLOBAL == 0.5 & isnan(fdg1.AmyloidStatus), :);
@@ -760,14 +852,14 @@ classdef AdniDemographics < handle
             end
         end
         function t = table_cdr_gt_0p5_apos(this)
-            %% N = 87 in nifti_files.csv; N = 156
+            %% N = 87 in nifti_files.csv; N = 156 with late baseline; N = 230
 
             fdg1 = this.table_fdg1();
-            fdg1 = this.table_select_description(fdg1);
+            %fdg1 = this.table_select_description(fdg1);
             if this.filt_bl_first
                 fdg1 = this.table_firstscan(fdg1);
                 Nsub = length(unique(fdg1.Subject));
-                fprintf('table_cdr_gt_0p5_apos: %i baseline scans found for %i subjects.\n', size(fdg1,1), Nsub)
+                fprintf('table_cdr_gt_0p5_apos: %i scans found for %i subjects.\n', size(fdg1,1), Nsub)
                 t = fdg1(fdg1.CDGLOBAL > 0.5 & fdg1.AmyloidStatus == 1, :);
                 fprintf('table_cdr_gt_0p5_apos: %i ad scans found for %i subjects.\n', size(t,1), Nsub)
             else
@@ -779,13 +871,16 @@ classdef AdniDemographics < handle
             end            
         end
         function t = table_cdr_ge_0p5_aneg(this)
-            %% N = 247; N = 309
+            %% N = 247; N = 309 with late baseline; N = 347 longitudinal
 
             fdg1 = this.table_fdg1();
-            fdg1 = this.table_select_description(fdg1);
+            %fdg1 = this.table_select_description(fdg1);
             if this.filt_bl_first
                 fdg1 = this.table_firstscan(fdg1);
+                Nsub = length(unique(fdg1.Subject));
+                fprintf('table_cdr_ge_0p5_aneg: %i scans found for %i subjects.\n', size(fdg1,1), Nsub)
                 t = fdg1(fdg1.CDGLOBAL >= 0.5 & fdg1.AmyloidStatus == 0, :);
+                fprintf('table_cdr_ge_0p5_aneg: %i ad scans found for %i subjects.\n', size(t,1), Nsub)
             else
                 t = fdg1(fdg1.CDGLOBAL >= 0.5 & fdg1.AmyloidStatus == 0, :);
                 t = this.table_firstscan(t);
@@ -961,11 +1056,12 @@ classdef AdniDemographics < handle
 
     methods (Access = protected)
         function t = buildTableFdg1(this)
-
-            % UCSFFSX.csv:  (FreeSurfer)
+            % Additional sources of FreeSurfer:
+            % UCSFFSX.csv: 
             % UCSFFSX51.csv
 
-            % UPENNBIOMK.csv:  (abeta, tau, ptau)
+            % Additional sources of abeta, tau, ptau:
+            % UPENNBIOMK.csv:  
             % UPENNBIOMK2.csv
             % UPENNBIOMK3.csv
             % UPENNBIOMK4.csv
@@ -973,6 +1069,7 @@ classdef AdniDemographics < handle
             % UPENNBIOMK6.csv
 
             t = this.table_fdg(); % enumerates ADNI/bids/derivatives/sub-*/ses-*/*_trc-fdg_*.nii.gz
+            t = t(contains(t.Description, this.description), :);
             t.AcqDate = datetime(t.AcqDate);
             sz = size(t.ImageDataID);
 
@@ -1006,6 +1103,8 @@ classdef AdniDemographics < handle
             t.MergeWholeBrain = nan(sz);
             t.MergeIcv = nan(sz);
             t.MergeDx = cell(sz);
+            t.MergeMPACCdigit = nan(sz);
+            t.MergeMPACCtrailsB = nan(sz);
 
             t.MergeExamDateBl = NaT(sz);
             t.MergeCdrsbBl = nan(sz);
@@ -1017,6 +1116,8 @@ classdef AdniDemographics < handle
             t.MergeRavltLearningBl = nan(sz);
             t.MergeRavltForgettingBl = nan(sz);
             t.MergeRavltPercForgettingBl = nan(sz);
+            t.MergeMPACCdigitBl = nan(sz);
+            t.MergeMPACCtrailsBBl = nan(sz);
             t.MergeVentriclesBl = nan(sz);
             t.MergeHippocampusBl = nan(sz);
             t.MergeWholeBrainBl = nan(sz);
@@ -1047,11 +1148,13 @@ classdef AdniDemographics < handle
 
             %% this.table_ucberkeleyfdg
             
+            t.BerkeleyFdgExamDate = NaT(sz);
             t.Metaroi = nan(sz);
             t.PonsVermis = nan(sz);
 
             %% this.table_amyloid
 
+            t.AmyloidExamDate = NaT(sz);
             t.TRACER = cell(sz);
             t.AmyloidStatus = nan(sz);
             t.SUMMARYSUVR_WHOLECEREBNORM = nan(sz);
@@ -1059,6 +1162,7 @@ classdef AdniDemographics < handle
 
             %% this.table_tau
 
+            t.TauExamDate = NaT(sz);
             t.META_TEMPORAL_SUVR = nan(sz);
             t.BRAAK1_SUVR = nan(sz);
             t.BRAAK34_SUVR = nan(sz);
@@ -1070,13 +1174,17 @@ classdef AdniDemographics < handle
 
             %% this.table_{ucsdvol,ucsfsntvol}
 
+            t.UcsdExamDate = NaT(sz);
             t.UcsdLHippo = nan(sz);
             t.UcsdRHippo = nan(sz);
+
+            t.UcsfExamDate = NaT(sz);
             t.UcsfLHippo = nan(sz);
             t.UcsfRHippo = nan(sz);
 
             %% this.table_apoe
 
+            t.ApTestDt = NaT(sz);
             t.ApGen1 = nan(sz);
             t.ApGen2 = nan(sz);
             t.ApoE2 = nan(sz);
@@ -1087,20 +1195,26 @@ classdef AdniDemographics < handle
 
             %% this.table_cdr
 
-            t.Phase = cell(sz);
-            t.ID = nan(sz);
+            t.ORIGPROT = cell(sz);
+            t.COLPROT = cell(sz);
             t.RID = nan(sz);
             t.SITEID = nan(sz);
-            t.VISCODE2 = cell(sz);
+            t.VISCODE = cell(sz);
             t.USERDATE = NaT(sz);
-            t.EXAMDATE = NaT(sz);
+            t.USERDATE2 = NaT(sz);
+            t.CDCARE = nan(sz);
+            t.CDCOMMUN = nan(sz);
+            t.CDDATE = NaT(sz);
+            t.CDHOME = nan(sz);
+            t.CDJUDGE = nan(sz);
             t.CDMEMORY = nan(sz);
             t.CDORIENT = nan(sz);
-            t.CDJUDGE = nan(sz);
-            t.CDCOMMUN = nan(sz);
-            t.CDHOME = nan(sz);
-            t.CDCARE = nan(sz);
+            t.CDSOURCE = cell(sz);
+            t.CDVERSION = cell(sz);
+            t.SPID = cell(sz);
             t.CDGLOBAL = nan(sz);
+            t.CDEXAMDATE = NaT(sz);
+            t.CDRSB = nan(sz);
 
             %% iterate this.table_fdg.Subject
 
@@ -1110,157 +1224,221 @@ classdef AdniDemographics < handle
             % >> size(unique(this.subjects)) % ~ this.table_fdg.Subject ~ \d{3}_S_\d{4}
             %         1660           1
             % >> size(unique(this.table_merge.PTID)) % ~ ADNIMERGE.csv.PTID ~ \d{3}_S_\d{4}
-            %         1855           1
+            %         2430           1
             % >> size(unique(this.table_merge.RID)) % ~ ADNIMERGE.csv.PTID ~ \d+
-            %         1855           1      
+            %         2430           1      
             % >> size(intersect(this.table_merge.PTID, this.table_fdg.Subject))
-            %         1463           1            
+            %         1656           1            
 
-            N_isempty_merge_s1 = 0;
+            N_skipped_merge = 0;
+            N_skipped_berkeley_metaroi = 0;
+            N_skipped_berkeley_ponsvermis = 0;
+            N_skipped_ucsd_hippo = 0;
+            N_skipped_ucsf_hippo = 0;
+            N_skipped_apoe = 0;
+            N_skipped_cdr = 0;
+            N_skipped_amyloid = 0;
 
             for sub = asrow(this.subjects)
                 try
                     t_s1 = t(strcmp(t.Subject, sub{1}), :); % consider:  t.Subject -> this.subjects
+                    
+                    %% create subtables specific to subject & data source
 
-                    merge_s1 = this.table_merge(strcmp(this.table_merge.PTID, sub{1}), ':');
-                    if isempty(merge_s1)
-                        N_isempty_merge_s1 = N_isempty_merge_s1 + 1;
-                        continue
+                    try
+                        merge_s1 = this.table_merge(strcmp(this.table_merge.PTID, sub{1}), ':');
+                        rid = merge_s1.RID(1);
+                    catch 
+                        % fprintf('%s: table_merge(%s) is missing\n', stackstr, sub{1});
+                        % continue
                     end
-                    rid = merge_s1.RID(1);
                     
                     try
+                        berkeley_fdg_s1 = this.table_ucberkeleyfdg(this.table_ucberkeleyfdg.RID == rid, ':');                        
                         berkeley_metaroi_s1 = this.table_ucberkeleyfdg(this.table_ucberkeleyfdg.RID == rid, ':');
                         berkeley_metaroi_s1 = berkeley_metaroi_s1(contains(berkeley_metaroi_s1.ROINAME, 'metaroi'), :);    
                         berkeley_ponsvermis_s1 = this.table_ucberkeleyfdg(this.table_ucberkeleyfdg.RID == rid, ':');
                         berkeley_ponsvermis_s1 = berkeley_ponsvermis_s1(contains(berkeley_ponsvermis_s1.ROINAME, 'pons-vermis'), :);
                     catch
+                        % fprintf('%s: table_ucberkeleyfdg(%s) is missing\n', stackstr, sub{1});
+                        % continue
                     end
 
                     try
-                        amyloid_s1 = this.table_amyloid(this.table_amyloid.RID == rid, ':');
-                        %amy_sorted = sort(amyloid_s1.EXAMDATE);
-                        %amy_initial = amy_sorted(1) - years(1); % init av45 - 1 year
-                        %amy_future = t_s1.AcqDate > amy_initial; % future fdg following av45
-                    catch
+                        T = this.table_amyloid;
+                        select = T.RID == rid;
+                        assert(islogical(select))
+                        amyloid_s1 = T(select, :); % Incipient BUG ?
+                    catch ME
+                        disp(ME)
+                        % fprintf('%s: table_amyloid(%s) is missing\n', stackstr, sub{1}); % too frequent to fprint
+                        % continue
                     end
 
                     try
-                        tau_s1 = this.table_tau(this.table_tau.RID == rid, ':');
-                    catch
+                        tau_s1 = this.table_ucsfsntvol(this.table_ucsfsntvol.RID == rid, ':');
+                    catch 
                     end
 
                     try
                         ucsd_hippo_s1 = this.table_ucsdvol(this.table_ucsdvol.RID == rid, ':');
                         ucsf_hippo_s1 = this.table_ucsfsntvol(this.table_ucsfsntvol.RID == rid, ':');
-                    catch
+                    catch 
                     end
 
                     try
                         apoe_s1 = this.table_apoe(this.table_apoe.RID == rid, ':');
-                    catch
+                    catch 
                     end
 
                     try
-                        neuropath_s1 = this.table_neuropath(this.table_neuropath.RID == rid, ':');
-                    catch
+                        T = this.table_neuropath;
+                        select = T.RID == rid;
+                        assert(islogical(select))
+                        neuropath_s1 = T(select, :); % Incipient BUG ?
+                    catch 
                     end
 
-                    cdr_s1 = this.table_cdr(this.table_cdr.RID == rid, ':');
+                    try
+                        cdr_s1 = this.table_cdr(this.table_cdr.RID == rid, ':');
+                    catch 
+                        % fprintf('%s: table_cdr(%s) is missing\n', stackstr, sub{1});
+                        % continue
+                    end
 
-                    %% iterate t_s1.AcqDate
+                    %% iterate single subject's t_s1.AcqDate
     
                     numrows_s1 = size(t_s1, 1);
                     for acq = 1:numrows_s1
                         acqdate = t_s1.AcqDate(acq);
-
-                        [~,merge_near] = min(abs(acqdate - merge_s1.EXAMDATE));
-                        t_s1(acq, 'MergeRid') = merge_s1(merge_near, 'RID');
-                        t_s1(acq, 'MergePtid') = merge_s1(merge_near, 'PTID');
-                        t_s1(acq, 'MergeVisCode') = merge_s1(merge_near, 'VISCODE');
-                        t_s1(acq, 'MergeSite') = merge_s1(merge_near, 'SITE');
-                        t_s1(acq, 'MergeExamDate') = merge_s1(merge_near, 'EXAMDATE'); % ------- EXAMDATE -------
-                        t_s1(acq, 'MergeDxBl') = merge_s1(merge_near, 'DX_bl');
-                        t_s1(acq, 'MergeAge') = merge_s1(merge_near, 'AGE');
-                        t_s1(acq, 'MergePtGender') = merge_s1(merge_near, 'PTGENDER');
-                        t_s1(acq, 'MergePtEducat') = merge_s1(merge_near, 'PTEDUCAT');
-                        t_s1(acq, 'MergePtEthCat') = merge_s1(merge_near, 'PTETHCAT');
-                        t_s1(acq, 'MergePtRacCat') = merge_s1(merge_near, 'PTRACCAT');
-                        t_s1(acq, 'MergePtMarry') = merge_s1(merge_near, 'PTMARRY');
-                        t_s1(acq, 'MergeApoE4') = merge_s1(merge_near, 'APOE4');
-                        t_s1(acq, 'MergeFdg') = merge_s1(merge_near, 'FDG');
-                        t_s1(acq, 'MergePib') = merge_s1(merge_near, 'PIB');
-                        t_s1(acq, 'MergeAv45') = merge_s1(merge_near, 'AV45');
-                        t_s1(acq, 'MergeAbeta') = merge_s1(merge_near, 'ABETA');
-                        t_s1(acq, 'MergeTau') = merge_s1(merge_near, 'TAU');
-                        t_s1(acq, 'MergePTau') = merge_s1(merge_near, 'PTAU');
-                        t_s1(acq, 'MergeCdrsb') = merge_s1(merge_near, 'CDRSB');
-                        t_s1(acq, 'MergeMmse') = merge_s1(merge_near, 'MMSE');
-                        t_s1(acq, 'MergeMoca') = merge_s1(merge_near, 'MOCA');
-                        t_s1(acq, 'MergeImageUid') = merge_s1(merge_near, 'IMAGEUID');
-                        t_s1(acq, 'MergeVentricles') = merge_s1(merge_near, 'Ventricles');
-                        t_s1(acq, 'MergeHippocampus') = merge_s1(merge_near, 'Hippocampus');
-                        t_s1(acq, 'MergeWholeBrain') = merge_s1(merge_near, 'WholeBrain');
-                        t_s1(acq, 'MergeIcv') = merge_s1(merge_near, 'ICV');
-                        t_s1(acq, 'MergeDx') = merge_s1(merge_near, 'DX');
-
-                        t_s1(acq, 'MergeExamDateBl') = merge_s1(merge_near, 'EXAMDATE_bl');
-                        t_s1(acq, 'MergeCdrsbBl') = merge_s1(merge_near, 'CDRSB_bl');
-                        t_s1(acq, 'MergeAdas11Bl') = merge_s1(merge_near, 'ADAS11_bl');
-                        t_s1(acq, 'MergeAdas13Bl') = merge_s1(merge_near, 'ADAS13_bl');
-                        t_s1(acq, 'MergeAdasq4Bl') = merge_s1(merge_near, 'ADASQ4_bl');
-                        t_s1(acq, 'MergeMmseBl') = merge_s1(merge_near, 'MMSE_bl');
-                        t_s1(acq, 'MergeRavltImmediateBl') = merge_s1(merge_near, 'RAVLT_immediate_bl');
-                        t_s1(acq, 'MergeRavltLearningBl') = merge_s1(merge_near, 'RAVLT_learning_bl');
-                        t_s1(acq, 'MergeRavltForgettingBl') = merge_s1(merge_near, 'RAVLT_forgetting_bl');
-                        t_s1(acq, 'MergeRavltPercForgettingBl') = merge_s1(merge_near, 'RAVLT_perc_forgetting_bl');
-                        t_s1(acq, 'MergeVentriclesBl') = merge_s1(merge_near, 'Ventricles_bl');
-                        t_s1(acq, 'MergeHippocampusBl') = merge_s1(merge_near, 'Hippocampus_bl');
-                        t_s1(acq, 'MergeWholeBrainBl') = merge_s1(merge_near, 'WholeBrain_bl');
-                        t_s1(acq, 'MergeIcvBl') = merge_s1(merge_near, 'ICV_bl');
-                        t_s1(acq, 'MergeMocaBl') = merge_s1(merge_near, 'MOCA_bl');
-                        t_s1(acq, 'MergeEcogPtMemBl') = merge_s1(merge_near, 'EcogPtMem_bl');
-                        t_s1(acq, 'MergeEcogPtLangBl') = merge_s1(merge_near, 'EcogPtLang_bl');
-                        t_s1(acq, 'MergeEcogPtVisspatBl') = merge_s1(merge_near, 'EcogPtVisspat_bl');
-                        t_s1(acq, 'MergeEcogPtPlanBl') = merge_s1(merge_near, 'EcogPtPlan_bl');
-                        t_s1(acq, 'MergeEcogPtOrganBl') = merge_s1(merge_near, 'EcogPtOrgan_bl');
-                        t_s1(acq, 'MergeEcogPtDivattBl') = merge_s1(merge_near, 'EcogPtDivatt_bl');
-                        t_s1(acq, 'MergeEcogPtTotalBl') = merge_s1(merge_near, 'EcogPtTotal_bl');
-                        t_s1(acq, 'MergeEcogSPMemBl') = merge_s1(merge_near, 'EcogSPMem_bl');
-                        t_s1(acq, 'MergeEcogSPLangBl') = merge_s1(merge_near, 'EcogSPLang_bl');
-                        t_s1(acq, 'MergeEcogSPVisspatBl') = merge_s1(merge_near, 'EcogSPVisspat_bl');
-                        t_s1(acq, 'MergeEcogSPPlanBl') = merge_s1(merge_near, 'EcogSPPlan_bl');
-                        t_s1(acq, 'MergeEcogSPOrganBl') = merge_s1(merge_near, 'EcogSPOrgan_bl');
-                        t_s1(acq, 'MergeEcogSPDivattBl') = merge_s1(merge_near, 'EcogSPDivatt_bl');
-                        t_s1(acq, 'MergeEcogSPTotalBl') = merge_s1(merge_near, 'EcogSPTotal_bl');
-                        t_s1(acq, 'MergeAbetaBl') = merge_s1(merge_near, 'ABETA_bl');
-                        t_s1(acq, 'MergeTauBl') = merge_s1(merge_near, 'TAU_bl');
-                        t_s1(acq, 'MergePTauBl') = merge_s1(merge_near, 'PTAU_bl');
-                        t_s1(acq, 'MergeFdgBl') = merge_s1(merge_near, 'FDG_bl');
-                        t_s1(acq, 'MergePibBl') = merge_s1(merge_near, 'PIB_bl');
-                        t_s1(acq, 'MergeAv45Bl') = merge_s1(merge_near, 'AV45_bl');
-                        t_s1(acq, 'MergeYearsBl') = merge_s1(merge_near, 'Years_bl');
-                        t_s1(acq, 'MergeMonthBl') = merge_s1(merge_near, 'Month_bl');
+                        acqdate.Format = 'default';
 
                         try
-                            [~,berkeley_near] = min(abs(acqdate - berkeley_metaroi_s1.EXAMDATE));
-                            t_s1(acq, 'Metaroi') = berkeley_metaroi_s1(berkeley_near, 'MEAN');    
-                            [~,berkeley_near] = min(abs(acqdate - berkeley_ponsvermis_s1.EXAMDATE));
+                            [sep,merge_near] = min(abs(acqdate - merge_s1.EXAMDATE));
+                            if duration(sep) > duration(this.datetime_separation_tol)
+                                N_skipped_merge = N_skipped_merge + 1;
+                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
+                                    'merge_s1 datetime separation = %s years', years(sep - this.datetime_separation_tol)))
+                            end
+                            t_s1(acq, 'MergeRid') = merge_s1(merge_near, 'RID');
+                            t_s1(acq, 'MergePtid') = merge_s1(merge_near, 'PTID');
+                            t_s1(acq, 'MergeVisCode') = merge_s1(merge_near, 'VISCODE');
+                            t_s1(acq, 'MergeSite') = merge_s1(merge_near, 'SITE');
+                            t_s1(acq, 'MergeExamDate') = merge_s1(merge_near, 'EXAMDATE'); % ------- Merge EXAMDATE -------
+                            t_s1(acq, 'MergeDxBl') = merge_s1(merge_near, 'DX_bl');
+                            t_s1(acq, 'MergeAge') = merge_s1(merge_near, 'AGE');
+                            t_s1(acq, 'MergePtGender') = merge_s1(merge_near, 'PTGENDER');
+                            t_s1(acq, 'MergePtEducat') = merge_s1(merge_near, 'PTEDUCAT');
+                            t_s1(acq, 'MergePtEthCat') = merge_s1(merge_near, 'PTETHCAT');
+                            t_s1(acq, 'MergePtRacCat') = merge_s1(merge_near, 'PTRACCAT');
+                            t_s1(acq, 'MergePtMarry') = merge_s1(merge_near, 'PTMARRY');
+                            t_s1(acq, 'MergeApoE4') = merge_s1(merge_near, 'APOE4');
+                            t_s1(acq, 'MergeFdg') = merge_s1(merge_near, 'FDG');
+                            t_s1(acq, 'MergePib') = merge_s1(merge_near, 'PIB');
+                            t_s1(acq, 'MergeAv45') = merge_s1(merge_near, 'AV45');
+                            t_s1(acq, 'MergeAbeta') = merge_s1(merge_near, 'ABETA');
+                            t_s1(acq, 'MergeTau') = merge_s1(merge_near, 'TAU');
+                            t_s1(acq, 'MergePTau') = merge_s1(merge_near, 'PTAU');
+                            t_s1(acq, 'MergeCdrsb') = merge_s1(merge_near, 'CDRSB');
+                            t_s1(acq, 'MergeMmse') = merge_s1(merge_near, 'MMSE');
+                            t_s1(acq, 'MergeMoca') = merge_s1(merge_near, 'MOCA');
+                            t_s1(acq, 'MergeImageUid') = merge_s1(merge_near, 'IMAGEUID');
+                            t_s1(acq, 'MergeVentricles') = merge_s1(merge_near, 'Ventricles');
+                            t_s1(acq, 'MergeHippocampus') = merge_s1(merge_near, 'Hippocampus');
+                            t_s1(acq, 'MergeWholeBrain') = merge_s1(merge_near, 'WholeBrain');
+                            t_s1(acq, 'MergeIcv') = merge_s1(merge_near, 'ICV');
+                            t_s1(acq, 'MergeDx') = merge_s1(merge_near, 'DX');
+                            t_s1(acq, 'MergeMPACCdigit') = merge_s1(merge_near, 'mPACCdigit');
+                            t_s1(acq, 'MergeMPACCtrailsB') = merge_s1(merge_near, 'mPACCtrailsB');
+                            t_s1(acq, 'MergeExamDateBl') = merge_s1(merge_near, 'EXAMDATE_bl');
+                            t_s1(acq, 'MergeCdrsbBl') = merge_s1(merge_near, 'CDRSB_bl');
+                            t_s1(acq, 'MergeAdas11Bl') = merge_s1(merge_near, 'ADAS11_bl');
+                            t_s1(acq, 'MergeAdas13Bl') = merge_s1(merge_near, 'ADAS13_bl');
+                            t_s1(acq, 'MergeAdasq4Bl') = merge_s1(merge_near, 'ADASQ4_bl');
+                            t_s1(acq, 'MergeMmseBl') = merge_s1(merge_near, 'MMSE_bl');
+                            t_s1(acq, 'MergeRavltImmediateBl') = merge_s1(merge_near, 'RAVLT_immediate_bl');
+                            t_s1(acq, 'MergeRavltLearningBl') = merge_s1(merge_near, 'RAVLT_learning_bl');
+                            t_s1(acq, 'MergeRavltForgettingBl') = merge_s1(merge_near, 'RAVLT_forgetting_bl');
+                            t_s1(acq, 'MergeRavltPercForgettingBl') = merge_s1(merge_near, 'RAVLT_perc_forgetting_bl');
+                            t_s1(acq, 'MergeMPACCdigitBl') = merge_s1(merge_near, 'mPACCdigit_bl');
+                            t_s1(acq, 'MergeMPACCtrailsBBl') = merge_s1(merge_near, 'mPACCtrailsB_bl');
+                            t_s1(acq, 'MergeVentriclesBl') = merge_s1(merge_near, 'Ventricles_bl');
+                            t_s1(acq, 'MergeHippocampusBl') = merge_s1(merge_near, 'Hippocampus_bl');
+                            t_s1(acq, 'MergeWholeBrainBl') = merge_s1(merge_near, 'WholeBrain_bl');
+                            t_s1(acq, 'MergeIcvBl') = merge_s1(merge_near, 'ICV_bl');
+                            t_s1(acq, 'MergeMocaBl') = merge_s1(merge_near, 'MOCA_bl');
+                            t_s1(acq, 'MergeEcogPtMemBl') = merge_s1(merge_near, 'EcogPtMem_bl');
+                            t_s1(acq, 'MergeEcogPtLangBl') = merge_s1(merge_near, 'EcogPtLang_bl');
+                            t_s1(acq, 'MergeEcogPtVisspatBl') = merge_s1(merge_near, 'EcogPtVisspat_bl');
+                            t_s1(acq, 'MergeEcogPtPlanBl') = merge_s1(merge_near, 'EcogPtPlan_bl');
+                            t_s1(acq, 'MergeEcogPtOrganBl') = merge_s1(merge_near, 'EcogPtOrgan_bl');
+                            t_s1(acq, 'MergeEcogPtDivattBl') = merge_s1(merge_near, 'EcogPtDivatt_bl');
+                            t_s1(acq, 'MergeEcogPtTotalBl') = merge_s1(merge_near, 'EcogPtTotal_bl');
+                            t_s1(acq, 'MergeEcogSPMemBl') = merge_s1(merge_near, 'EcogSPMem_bl');
+                            t_s1(acq, 'MergeEcogSPLangBl') = merge_s1(merge_near, 'EcogSPLang_bl');
+                            t_s1(acq, 'MergeEcogSPVisspatBl') = merge_s1(merge_near, 'EcogSPVisspat_bl');
+                            t_s1(acq, 'MergeEcogSPPlanBl') = merge_s1(merge_near, 'EcogSPPlan_bl');
+                            t_s1(acq, 'MergeEcogSPOrganBl') = merge_s1(merge_near, 'EcogSPOrgan_bl');
+                            t_s1(acq, 'MergeEcogSPDivattBl') = merge_s1(merge_near, 'EcogSPDivatt_bl');
+                            t_s1(acq, 'MergeEcogSPTotalBl') = merge_s1(merge_near, 'EcogSPTotal_bl');
+                            t_s1(acq, 'MergeAbetaBl') = merge_s1(merge_near, 'ABETA_bl');
+                            t_s1(acq, 'MergeTauBl') = merge_s1(merge_near, 'TAU_bl');
+                            t_s1(acq, 'MergePTauBl') = merge_s1(merge_near, 'PTAU_bl');
+                            t_s1(acq, 'MergeFdgBl') = merge_s1(merge_near, 'FDG_bl');
+                            t_s1(acq, 'MergePibBl') = merge_s1(merge_near, 'PIB_bl');
+                            t_s1(acq, 'MergeAv45Bl') = merge_s1(merge_near, 'AV45_bl');
+                            t_s1(acq, 'MergeYearsBl') = merge_s1(merge_near, 'Years_bl');
+                            t_s1(acq, 'MergeMonthBl') = merge_s1(merge_near, 'Month_bl');
+                        catch ME
+                            if contains(ME.message, 'datetime separation')
+                                disp(ME.message)
+                            end
+                        end
+
+                        try
+                            [sep,berkeley_near] = min(abs(acqdate - berkeley_metaroi_s1.EXAMDATE));
+                            if duration(sep) > duration(this.datetime_separation_tol)
+                                N_skipped_berkeley_metaroi = N_skipped_berkeley_metaroi + 1;                                
+                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
+                                    'berkeley_metaroi_s1 datetime separation = %s years', years(sep - this.datetime_separation_tol)))
+                            end
+                            t_s1(acq, 'Metaroi') = berkeley_metaroi_s1(berkeley_near, 'MEAN');   
+
+                            [sep,berkeley_near] = min(abs(acqdate - berkeley_ponsvermis_s1.EXAMDATE));
+                            if duration(sep) > duration(this.datetime_separation_tol)
+                                N_skipped_berkeley_ponsvermis = N_skipped_berkeley_ponsvermis + 1;
+                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
+                                    'berkeley_ponsvermis_s1 datetime separation = %s years', years(sep - this.datetime_separation_tol)))
+                            end
                             t_s1(acq, 'PonsVermis') = berkeley_ponsvermis_s1(berkeley_near, 'MEAN');
-                        catch
+
+                            t_s1(acq, 'BerkeleyFdgExamDate') = berkeley_fdg_s1(berkeley_near, 'EXAMDATE');
+                        catch ME
+                            if contains(ME.message, 'datetime separation')
+                                disp(ME.message)
+                            end
                         end
 
                         try
                             [~,amyloid_near] = min(abs(acqdate - amyloid_s1.EXAMDATE));
+                            t_s1(acq, 'AmyloidExamDate') = amyloid_s1(amyloid_near, 'EXAMDATE');
                             t_s1(acq, 'TRACER') = amyloid_s1(amyloid_near, 'TRACER');
-                            t_s1(acq, 'AmyloidStatus') = amyloid_s1(amyloid_near, 'AmyloidStatus');
                             t_s1(acq, 'SUMMARYSUVR_WHOLECEREBNORM') = amyloid_s1(amyloid_near, 'SUMMARYSUVR_WHOLECEREBNORM');
                             t_s1(acq, 'SUMMARYSUVR_COMPOSITE_REFNORM') = amyloid_s1(amyloid_near, 'SUMMARYSUVR_COMPOSITE_REFNORM');
-                        catch
+                            t_s1{acq, 'AmyloidStatus'} = this.AmyloidStatus(acqdate, amyloid_s1);
+                        catch ME
+                            if ~strcmp(ME.identifier, 'MATLAB:table:RowDimensionMismatch')
+                                disp(ME.message)
+                            end
                         end
 
                         try
-                            [~,tau_near] = min(abs(acqdate - tau_s1.EXAMDATE));
+                            [sep,tau_near] = min(abs(acqdate - tau_s1.EXAMDATE));
+                            if duration(sep) > duration(this.datetime_separation_tol)
+                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
+                                    'tau_s1 datetime separation = %s years', years(sep - this.datetime_separation_tol)))
+                            end
+                            t_s1(acq, 'TauExamDate') = tau_s1(tau_near, 'EXAMDATE');
                             t_s1(acq, 'META_TEMPORAL_SUVR') = tau_s1(tau_near, 'META_TEMPORAL_SUVR');
                             t_s1(acq, 'BRAAK1_SUVR') = tau_s1(tau_near, 'BRAAK1_SUVR');
                             t_s1(acq, 'BRAAK34_SUVR') = tau_s1(tau_near, 'BRAAK34_SUVR');
@@ -1269,55 +1447,111 @@ classdef AdniDemographics < handle
                             t_s1(acq, 'BRAAK1_VOLUME') = tau_s1(tau_near, 'BRAAK1_VOLUME');
                             t_s1(acq, 'BRAAK34_VOLUME') = tau_s1(tau_near, 'BRAAK34_VOLUME');
                             t_s1(acq, 'BRAAK56_VOLUME') = tau_s1(tau_near, 'BRAAK56_VOLUME');
-                        catch
+                        catch 
+                            % BRAAK staging is post-mortem, so tau_s1 is mostly empty
                         end
 
                         try
-                            [~,ucsd_near] = min(abs(acqdate - ucsd_hippo_s1.EXAMDATE));
+                            [sep,ucsd_near] = min(abs(acqdate - ucsd_hippo_s1.EXAMDATE));
+                            if duration(sep) > duration(this.datetime_separation_tol)
+                                N_skipped_ucsd_hippo = N_skipped_ucsd_hippo + 1;
+                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
+                                    'ucsd_hippo_s1 datetime separation = %s years', years(sep - this.datetime_separation_tol)))
+                            end
+                            t_s1(acq, 'UcsdExamDate') = ucsd_hippo_s1(ucsd_near, 'EXAMDATE');
                             t_s1(acq, 'UcsdLHippo') = ucsd_hippo_s1(ucsd_near, 'LHIPPOC');
                             t_s1(acq, 'UcsdRHippo') = ucsd_hippo_s1(ucsd_near, 'RHIPPOC');
-                        catch
+                        catch ME
+                            if contains(ME.message, 'datetime separation')
+                                disp(ME.message)
+                            end
                         end
 
                         try
-                            [~,ucsf_near] = min(abs(acqdate - ucsf_hippo_s1.EXAMDATE));
+                            [sep,ucsf_near] = min(abs(acqdate - ucsf_hippo_s1.EXAMDATE));
+                            if duration(sep) > duration(this.datetime_separation_tol)
+                                N_skipped_ucsf_hippo = N_skipped_ucsf_hippo + 1;
+                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
+                                    'ucsf_hippo_s1 datetime separation = %s years', years(sep - this.datetime_separation_tol)))
+                            end
+                            t_s1(acq, 'UcsfExamDate') = ucsf_hippo_s1(ucsf_near, 'EXAMDATE');
                             t_s1(acq, 'UcsfLHippo') = ucsf_hippo_s1(ucsf_near, 'LEFTHIPPO');
                             t_s1(acq, 'UcsfRHippo') = ucsf_hippo_s1(ucsf_near, 'RIGHTHIPPO');
-                        catch
+                        catch ME
+                            if contains(ME.message, 'datetime separation')
+                                disp(ME.message)
+                            end
                         end
 
                         try
-                            [~,apoe_near] = min(abs(acqdate - apoe_s1.USERDATE));
+                            [sep,apoe_near] = min(abs(acqdate - apoe_s1.APTESTDT));
+                            if duration(sep) > duration(this.datetime_separation_tol)
+                                N_skipped_apoe = N_skipped_apoe + 1;
+                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
+                                    'apoe_s1 datetime separation = %s years', years(sep - this.datetime_separation_tol)))
+                            end
+                            t_s1(acq, 'ApTestDt') = apoe_s1(apoe_near, 'APTESTDT');
                             t_s1(acq, 'ApGen1') = apoe_s1(apoe_near, 'APGEN1');
                             t_s1(acq, 'ApGen2') = apoe_s1(apoe_near, 'APGEN2');
                             ApoE2 = (apoe_s1{apoe_near, 'APGEN1'} == 2) + ...
                                 (apoe_s1{apoe_near, 'APGEN2'} == 2);
                             t_s1(acq, 'ApoE2') = table(ApoE2);
-                        catch
+                        catch ME
+                            if contains(ME.message, 'datetime separation')
+                                disp(ME.message)
+                            end
                         end
 
                         try
                             t_s1(acq, 'NpBraak') = neuropath_s1(1, 'NPBRAAK');
-                        catch
+                        catch 
+                            % BRAAK staging is post-mortem, so neuropath_s1 is mostly empty
                         end
 
-                        [~,cdr_near] = min(abs(acqdate - cdr_s1.USERDATE));
-                        t_s1(acq, 'Phase') = cdr_s1(cdr_near, 'Phase');
-                        t_s1(acq, 'ID') = cdr_s1(cdr_near, 'ID');
-                        t_s1(acq, 'RID') = cdr_s1(cdr_near, 'RID');
-                        t_s1(acq, 'SITEID') = cdr_s1(cdr_near, 'SITEID'); 
-                        t_s1(acq, 'VISCODE2') = cdr_s1{cdr_near, 'VISCODE2'};
-                        t_s1{acq, 'USERDATE'} = cdr_s1{cdr_near, 'USERDATE'};
-                        t_s1{acq, 'EXAMDATE'} = cdr_s1{cdr_near, 'EXAMDATE'}; % ------- EXAMDATE -------
-                        t_s1(acq, 'CDMEMORY') = cdr_s1(cdr_near, 'CDMEMORY');
-                        t_s1(acq, 'CDORIENT') = cdr_s1(cdr_near, 'CDORIENT');
-                        t_s1(acq, 'CDJUDGE') = cdr_s1(cdr_near, 'CDJUDGE');
-                        t_s1(acq, 'CDCOMMUN') = cdr_s1(cdr_near, 'CDCOMMUN');
-                        t_s1(acq, 'CDHOME') = cdr_s1(cdr_near, 'CDHOME');
-                        t_s1(acq, 'CDCARE') = cdr_s1(cdr_near, 'CDCARE');
-                        t_s1(acq, 'CDGLOBAL') = cdr_s1(cdr_near, 'CDGLOBAL');                          
-                        if isnat(t_s1{acq, 'EXAMDATE'}) && ~isnat(acqdate) % ------- EXAMDATE -------
-                            t_s1{acq, 'EXAMDATE'} = acqdate;
+                        try
+                            % impute nans
+                            nats_ = isnat(cdr_s1.EXAMDATE);
+                            nats_u_ = isnat(cdr_s1.USERDATE);
+                            cdr_s1.EXAMDATE(nats_ & ~nats_u_) = cdr_s1.USERDATE(nats_ & ~nats_u_);
+                            % iterate
+                            nats_ = isnat(cdr_s1.EXAMDATE);
+                            nats_u_ = isnat(cdr_s1.USERDATE2);
+                            cdr_s1.EXAMDATE(nats_ & ~nats_u_) = cdr_s1.USERDATE2(nats_ & ~nats_u_);
+                            % iterate
+                            nats_ = isnat(cdr_s1.EXAMDATE);
+                            nats_date_ = isnat(cdr_s1.CDDATE);
+                            cdr_s1.EXAMDATE(nats_ & ~nats_date_) = cdr_s1.CDDATE(nats_ & ~nats_date_);
+
+                            [sep,cdr_near] = min(abs(acqdate - cdr_s1.EXAMDATE));
+                            if duration(sep) > duration(this.datetime_separation_tol)
+                                N_skipped_cdr = N_skipped_cdr + 1;
+                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
+                                    'cdr_s1 datetime separation = %s years', years(sep - this.datetime_separation_tol)))
+                            end
+                            t_s1(acq, 'ORIGPROT') = cdr_s1(cdr_near, 'ORIGPROT');
+                            t_s1(acq, 'COLPROT') = cdr_s1(cdr_near, 'COLPROT');
+                            t_s1(acq, 'RID') = cdr_s1(cdr_near, 'RID');
+                            t_s1(acq, 'SITEID') = cdr_s1(cdr_near, 'SITEID'); 
+                            t_s1(acq, 'VISCODE') = cdr_s1{cdr_near, 'VISCODE'};
+                            t_s1{acq, 'USERDATE'} = cdr_s1{cdr_near, 'USERDATE'};
+                            t_s1{acq, 'USERDATE2'} = cdr_s1{cdr_near, 'USERDATE2'};
+                            t_s1(acq, 'CDCARE') = cdr_s1(cdr_near, 'CDCARE');
+                            t_s1(acq, 'CDCOMMUN') = cdr_s1(cdr_near, 'CDCOMMUN');
+                            t_s1(acq, 'CDDATE') = cdr_s1(cdr_near, 'CDDATE');
+                            t_s1(acq, 'CDHOME') = cdr_s1(cdr_near, 'CDHOME');
+                            t_s1(acq, 'CDJUDGE') = cdr_s1(cdr_near, 'CDJUDGE');
+                            t_s1(acq, 'CDMEMORY') = cdr_s1(cdr_near, 'CDMEMORY');
+                            t_s1(acq, 'CDORIENT') = cdr_s1(cdr_near, 'CDORIENT');
+                            t_s1(acq, 'CDSOURCE') = cdr_s1(cdr_near, 'CDSOURCE');
+                            t_s1(acq, 'CDVERSION') = cdr_s1(cdr_near, 'CDVERSION');
+                            t_s1(acq, 'SPID') = cdr_s1(cdr_near, 'SPID');
+                            t_s1(acq, 'CDGLOBAL') = cdr_s1(cdr_near, 'CDGLOBAL');  
+                            t_s1{acq, 'CDEXAMDATE'} = cdr_s1{cdr_near, 'EXAMDATE'}; % ------- CDR EXAMDATE -------
+                            t_s1(acq, 'CDRSB') = cdr_s1(cdr_near, 'CDRSB'); 
+                        catch ME
+                            if contains(ME.message, 'datetime separation')
+                                disp(ME.message)
+                            end
                         end
                     end
                     
@@ -1327,34 +1561,21 @@ classdef AdniDemographics < handle
                 end
             end
 
-            fprintf('buildTableFg1.N_isempty_merge_s1: %g\n', N_isempty_merge_s1)
-            
-            t = this.best_practice_EXAMDATE(t);
+            fprintf('%s: N_skipped_merge = %g\n', stackstr, N_skipped_merge)
+            fprintf('%s: N_skipped_berkeley_metaroi = %g\n', stackstr, N_skipped_berkeley_metaroi)
+            fprintf('%s: N_skipped_berkeley_ponsvermis = %g\n', stackstr, N_skipped_berkeley_ponsvermis)
+            fprintf('%s: N_skipped_ucsd_hippo = %g\n', stackstr, N_skipped_ucsd_hippo)
+            fprintf('%s: N_skipped_ucsf_hippo = %g\n', stackstr, N_skipped_ucsf_hippo)
+            fprintf('%s: N_skipped_apoe = %g\n', stackstr, N_skipped_apoe)
+            fprintf('%s: N_skipped_cdr = %g\n', stackstr, N_skipped_cdr)
+            fprintf('%s: N_skipped_amyloid = %g\n', stackstr, N_skipped_amyloid)
         end
     end
 
     methods (Access = protected)
-        function t = best_practice_EXAMDATE(this, t)
-            %% Update t with table_registry.EXAMDATE (cf. ADNI Google Group)
-
-            t_reg = this.table_registry();
-            for row = 1:size(t, 1)
-                t_row = t(row, :);
-                ED1 = t_reg{t_reg.ID == t_row.ID, 'EXAMDATE'};
-                if isscalar(ED1) && ~isnat(ED1)
-                    t{row, 'EXAMDATE'} = ED1;
-                end
-            end
-        end
     end
 
     methods (Static, Access = protected)
-        function t = table_paren(t, varargin)
-            assert(istable(t))
-            if ~isempty(varargin)
-                t = t(varargin{:});
-            end
-        end
     end
     
     %  Created with mlsystem.Newcl, inspired by Frank Gonzalez-Morphy's newfcn.

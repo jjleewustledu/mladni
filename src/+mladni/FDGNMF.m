@@ -1,6 +1,5 @@
 classdef FDGNMF < handle & mladni.NMF
-    %% line1
-    %  line2
+    %% Contains simple utilities for creating & adjustinng filenames, including BIDS filenames.
     %  
     %  Created 23-Jun-2022 13:18:55 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.10.0.1851785 (R2021a) Update 6 for MACI64.  Copyright 2022 John J. Lee.
@@ -39,6 +38,8 @@ classdef FDGNMF < handle & mladni.NMF
             deleteExisting(ftmp)
         end
         function adjust_modality_csv(fin, fout, varargin)
+            %% conveniently calls adjust_fdg_csv, adjust_t1w_csv.
+
             ip = inputParser;
             ip.KeepUnmatched = true;
             addParameter(ip, 'modality', 'fdg', @istext);
@@ -55,6 +56,8 @@ classdef FDGNMF < handle & mladni.NMF
             end
         end
         function adjust_fdg_csv(fin, fout, varargin)
+            %% adjust BIDS names:  proc- and final suffix.
+
             ip = inputParser;
             ip.KeepUnmatched = true;
             addRequired(ip, 'fin', @(x) isfile(x) && contains(x, '.csv'));
@@ -79,6 +82,8 @@ classdef FDGNMF < handle & mladni.NMF
             writetable(table(c), ipr.fout, 'WriteVariableNames', false)
         end
         function adjust_t1w_csv(fin, fout, varargin)
+            %% adjust BIDS names:  pve_idx
+
             ip = inputParser;
             ip.KeepUnmatched = true;
             addRequired(ip, 'fin', @(x) isfile(x) && contains(x, '.csv'));

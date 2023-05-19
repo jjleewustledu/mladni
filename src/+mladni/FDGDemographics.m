@@ -1,183 +1,31 @@
 classdef FDGDemographics < handle
-    %% Best source of ADNIMerge data for "Patterns of Neurodegeneration" paper is:  
+    %% Supports FDG-related demographic data and other meta-data approximately at granularity of single scan objects.
+    %  Delegates to instance of mladni.AdniDemographics.
+    %
+    %  Best source of ADNIMerge data for "Patterns of Neurodegeneration" paper is:  
     %  table_cohorts ~ ADNI/NMF_FDG/mladni_FDGDemographics_table_covariates_on_cn_relevant_cohorts.mat,
-    %  which is a superset of table_fdg1, table_covariates, and contains variable cohort that identifies
+    %  derived from ADNI/NMF_FDG/baseline_cn/NumBases16/components/mladni_FDGDemographics_table_covariates_on_cn.mat,
+    %  and which is a superset of table_fdg1, table_covariates, and contains variable cohort that identifies
     %  diagnostic groups.  Most other objects from this class and mladni.AdniDemographics serve to generate
-    %  table_cohorts
+    %  table_cohorts.
+    %
+    %  See also:  mladni.Jones2022
     %  
     %  Created 18-May-2022 20:19:23 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.10.0.1851785 (R2021a) Update 6 for MACI64.  Copyright 2022 John J. Lee.
     
-    methods (Static)
-        function [idids,comps,filelist] = csv_to_imagedataIDs(fn_csv)
-            %% finds imagedataIDs from csv;
-            %  also finds numerical components if fn_csv is, e.g., "component_weighted_average.csv"
-            %  Params:
-            %      fn_csv (file): containing fqfn for NIfTI
-            %
-            %  Returns:
-            %      idids: cell array of char
-            %      comps: numeric component weighted averages
-            %      filelist: cell array of filenames from from fn_csv
-
-            lines = readlines(fn_csv);
-            idids = {};
-            filelist = {};
-            comps = [];
-            for f = asrow(lines)
-                if isempty(f{1}); continue; end
-                try
-                    item = f{1};
-                    itemj = '';
-                    if contains(item, ',')
-                        ss = strsplit(item, ',');
-                        item = ss{1};
-                        itemj = item;
-                        comps = [comps; str2double(ss(2:end))]; %#ok<AGROW> 
-                    end
-                    if ~contains(item, 'orient-rpi_pet')
-                        pth = fileparts(item);
-                        g = glob(fullfile(pth, '*orient-rpi_pet.json'));
-                        assert(~isempty(g))
-                        itemj = g{1};
-                    end
-                    if isempty(itemj)
-                        itemj = item;
-                    end
-                    jfile = strrep(itemj, '.nii.gz', '.json');
-                    if ~isfile(jfile)
-                        % KLUDGE
-                        itemj = strrep(itemj, '_dlicv', '');
-                        jfile = strrep(itemj, '.nii.gz', '.json');
-                    end
-                    if ~isfile(jfile)
-                        % KLUDGE
-                        itemj = strrep(itemj, '_Warped', '');
-                        jfile = strrep(itemj, '.nii.gz', '.json');
-                    end
-                    if ~isfile(jfile)
-                        % KLUDGE
-                        itemj = strrep(itemj, '-ponsvermis', '');
-                        jfile = strrep(itemj, '.nii.gz', '.json');
-                    end
-                    try
-                        j = jsondecode(fileread(jfile));
-                        if endsWith(j.ADNI_INFO.OriginalPath, filesep)
-                            opath = convertStringsToChars(j.ADNI_INFO.OriginalPath);
-                            j.ADNI_INFO.OriginalPath = opath(1:end-1);
-                        end
-                        [~,id] = fileparts(j.ADNI_INFO.OriginalPath);
-                        idids = [idids; id]; %#ok<AGROW> 
-                    catch
-                        idids = [idids; 'unknown']; %#ok<AGROW> 
-                    end
-                    filelist = [filelist; item]; %#ok<AGROW> 
-                catch ME
-                    handwarning(ME);
-                    if ~isempty(comps)
-                        comps = comps(1:end-1,:);
-                    end
-                end
-            end
-        end
-        function icvs = csv_to_icvs(fn_csv)
-            %% finds dlicv json string; estimate icv from image_mass
-            %  Params:
-            %      fn_csv (file): containing fqfn for NIfTI
-            %
-            %  Returns:
-            %      icvs: vector of icvs
-
-            idx = 1;
-            filelist = readlines(fn_csv);
-            for f = asrow(filelist)
-                if isempty(f{1}); continue; end
-                try
-                    item = f{1};
-                    if contains(item, ',')
-                        ss = strsplit(item, ',');
-                        item = ss{1};
-                    end
-                    if ~contains(item, 'orient-rpi_T1w_dlicv.nii.gz')
-                        pth = fileparts(item);
-                        g = glob(fullfile(pth, '*orient-rpi_T1w_dlicv.nii.gz'));
-                        assert(~isempty(g))
-                        item = g{1};
-                    end
-                    jfile = strrep(item, '.nii.gz', '.json');
-                    sarr{idx} = fileread(jfile); %#ok<AGROW> 
-                catch ME
-                    handwarning(ME);
-                    sarr{idx} = ""; %#ok<AGROW> 
-                end
-                idx = idx + 1;
-            end
-            icvs = mladni.FDGDemographics.find_icv(sarr);
-        end
-        function pve1s = csv_to_pve1(fn_csv)
-            %% finds mass of pve1 from csv
-            %  Params:
-            %      fn_csv (file): containing fqfn for NIfTI
-            %
-            %  Returns:
-            %      pve1s: vector of mass of pve1
-
-            idx = 1;
-            filelist = readlines(fn_csv);
-            for f = asrow(filelist)
-                if isempty(f{1}); continue; end
-                try
-                    item = f{1};
-                    if contains(item, ',')
-                        ss = strsplit(item, ',');
-                        item = ss{1};
-                    end
-                    if ~contains(item, 'orient-rpi_T1w_brain_pve_1.nii.gz')
-                        pth = fileparts(item);
-                        g = glob(fullfile(pth, '*orient-rpi_T1w_brain_pve_1.nii.gz'));
-                        assert(~isempty(g))
-                        item = g{1};
-                    end
-                    jfile = strrep(item, '.nii.gz', '.json');
-                    s = readlines(jfile);
-                    j = jsondecode([s{:}]);
-                    pve1s(idx) = j.FDG_fast.image_mass*1.2; %#ok<AGROW> 
-                catch ME
-                    handwarning(ME);
-                    pve1s(idx) = 0; %#ok<AGROW> 
-                end
-                idx = idx + 1;
-            end
-            pve1s = ascol(pve1s);
-        end
-        function icvs = find_icv(obj)
-            if iscell(obj)
-                icv_ = cellfun(@(x) mladni.FDGDemographics.find_icv(x), obj, 'UniformOutput', false);
-                icvs = cell2mat(icv_);
-                icvs = ascol(icvs);
-                return
-            end
-            assert(istext(obj));
-            re = regexp(obj, '"image_mass":\s*(?<image_mass>\S+)', 'names');
-            if isempty(re)
-                icvs = 0;
-                return
-            end
-            if length(re) > 1
-                re = re(end);
-            end
-            icvs = str2double(re.image_mass);
-            icvs = icvs*1.2; % ADNI has T1w voxels ~ [1.2 1 1]
-        end
-    end
-
     properties (Dependent)
         adni_demographics
+        filename_table_cohorts
     end
     
     methods % GET
         function g = get.adni_demographics(this)
             g = this.adni_demo_;
+        end
+        function g = get.filename_table_cohorts(~)
+            g = fullfile(getenv('ADNI_HOME'), 'NMF_FDG', ...
+                'mladni_FDGDemographics_table_covariates_on_cn_relevant_cohorts.mat');
         end
     end
 
@@ -368,8 +216,7 @@ classdef FDGDemographics < handle
                 t = this.table_cohorts_;
                 return
             end
-            ld = load(fullfile(getenv('SINGULARITY_HOME'), ...
-                'ADNI/NMF_FDG/mladni_FDGDemographics_table_covariates_on_cn_relevant_cohorts.mat'));
+            ld = load(this.filename_table_cohorts);
             this.table_cohorts_ = ld.t;
             t = this.table_cohorts_;
         end
@@ -393,8 +240,7 @@ classdef FDGDemographics < handle
             ipr = ip.Results;
             if ~startsWith(ipr.tags, '_')
                 ipr.tags = strcat('_', ipr.tags);
-            end
-            ipr.tags = strcat(ipr.tags, '_', datetime('now', Format='yyyyMMdd'));
+            end            
 
             % from ADNIDemographics
             t = table_fdg1(this);  
@@ -471,8 +317,176 @@ classdef FDGDemographics < handle
 
             this.adni_demo_ = mladni.AdniDemographics();
             this.table_covariates_cache_ = ipr.table_covariates;
+            assert(this.components_are_available)
+        end        
+    end
+
+    methods (Static)
+        function tf = components_are_available()
+            tf = mladni.NMF.components_are_available();
+        end
+        function [idids,comps,filelist] = csv_to_imagedataIDs(fn_csv)
+            %% finds imagedataIDs from csv;
+            %  also finds numerical components if fn_csv is, e.g., "component_weighted_average.csv"
+            %  Params:
+            %      fn_csv (file): containing fqfn for NIfTI
+            %
+            %  Returns:
+            %      idids: cell array of char
+            %      comps: numeric component weighted averages
+            %      filelist: cell array of filenames from from fn_csv
+
+            lines = readlines(fn_csv);
+            idids = {};
+            filelist = {};
+            comps = [];
+            for f = asrow(lines)
+                if isempty(f{1}); continue; end
+                try
+                    item = f{1};
+                    itemj = '';
+                    if contains(item, ',')
+                        ss = strsplit(item, ',');
+                        item = ss{1};
+                        itemj = item;
+                        comps = [comps; str2double(ss(2:end))]; %#ok<AGROW> 
+                    end
+                    if ~contains(item, 'orient-rpi_pet')
+                        pth = fileparts(item);
+                        g = glob(fullfile(pth, '*orient-rpi_pet.json'));
+                        assert(~isempty(g))
+                        itemj = g{1};
+                    end
+                    if isempty(itemj)
+                        itemj = item;
+                    end
+                    jfile = strrep(itemj, '.nii.gz', '.json');
+                    if ~isfile(jfile)
+                        % KLUDGE
+                        itemj = strrep(itemj, '_dlicv', '');
+                        jfile = strrep(itemj, '.nii.gz', '.json');
+                    end
+                    if ~isfile(jfile)
+                        % KLUDGE
+                        itemj = strrep(itemj, '_Warped', '');
+                        jfile = strrep(itemj, '.nii.gz', '.json');
+                    end
+                    if ~isfile(jfile)
+                        % KLUDGE
+                        itemj = strrep(itemj, '-ponsvermis', '');
+                        jfile = strrep(itemj, '.nii.gz', '.json');
+                    end
+                    try
+                        j = jsondecode(fileread(jfile));
+                        if endsWith(j.ADNI_INFO.OriginalPath, filesep)
+                            opath = convertStringsToChars(j.ADNI_INFO.OriginalPath);
+                            j.ADNI_INFO.OriginalPath = opath(1:end-1);
+                        end
+                        [~,id] = fileparts(j.ADNI_INFO.OriginalPath);
+                        idids = [idids; id]; %#ok<AGROW> 
+                    catch
+                        idids = [idids; 'unknown']; %#ok<AGROW> 
+                    end
+                    filelist = [filelist; item]; %#ok<AGROW> 
+                catch ME
+                    handwarning(ME);
+                    if ~isempty(comps)
+                        comps = comps(1:end-1,:);
+                    end
+                end
+            end
+        end
+        function icvs = csv_to_icvs(fn_csv)
+            %% finds dlicv json string; estimate icv from image_mass
+            %  Params:
+            %      fn_csv (file): containing fqfn for NIfTI
+            %
+            %  Returns:
+            %      icvs: vector of icvs
+
+            idx = 1;
+            filelist = readlines(fn_csv);
+            for f = asrow(filelist)
+                if isempty(f{1}); continue; end
+                try
+                    item = f{1};
+                    if contains(item, ',')
+                        ss = strsplit(item, ',');
+                        item = ss{1};
+                    end
+                    if ~contains(item, 'orient-rpi_T1w_dlicv.nii.gz')
+                        pth = fileparts(item);
+                        g = glob(fullfile(pth, '*orient-rpi_T1w_dlicv.nii.gz'));
+                        assert(~isempty(g))
+                        item = g{1};
+                    end
+                    jfile = strrep(item, '.nii.gz', '.json');
+                    sarr{idx} = fileread(jfile); %#ok<AGROW> 
+                catch ME
+                    handwarning(ME);
+                    sarr{idx} = ""; %#ok<AGROW> 
+                end
+                idx = idx + 1;
+            end
+            icvs = mladni.FDGDemographics.find_icv(sarr);
+        end
+        function pve1s = csv_to_pve1(fn_csv)
+            %% finds mass of pve1 from csv
+            %  Params:
+            %      fn_csv (file): containing fqfn for NIfTI
+            %
+            %  Returns:
+            %      pve1s: vector of mass of pve1
+
+            idx = 1;
+            filelist = readlines(fn_csv);
+            for f = asrow(filelist)
+                if isempty(f{1}); continue; end
+                try
+                    item = f{1};
+                    if contains(item, ',')
+                        ss = strsplit(item, ',');
+                        item = ss{1};
+                    end
+                    if ~contains(item, 'orient-rpi_T1w_brain_pve_1.nii.gz')
+                        pth = fileparts(item);
+                        g = glob(fullfile(pth, '*orient-rpi_T1w_brain_pve_1.nii.gz'));
+                        assert(~isempty(g))
+                        item = g{1};
+                    end
+                    jfile = strrep(item, '.nii.gz', '.json');
+                    s = readlines(jfile);
+                    j = jsondecode([s{:}]);
+                    pve1s(idx) = j.FDG_fast.image_mass*1.2; %#ok<AGROW> 
+                catch ME
+                    handwarning(ME);
+                    pve1s(idx) = 0; %#ok<AGROW> 
+                end
+                idx = idx + 1;
+            end
+            pve1s = ascol(pve1s);
+        end
+        function icvs = find_icv(obj)
+            if iscell(obj)
+                icv_ = cellfun(@(x) mladni.FDGDemographics.find_icv(x), obj, 'UniformOutput', false);
+                icvs = cell2mat(icv_);
+                icvs = ascol(icvs);
+                return
+            end
+            assert(istext(obj));
+            re = regexp(obj, '"image_mass":\s*(?<image_mass>\S+)', 'names');
+            if isempty(re)
+                icvs = 0;
+                return
+            end
+            if length(re) > 1
+                re = re(end);
+            end
+            icvs = str2double(re.image_mass);
+            icvs = icvs*1.2; % ADNI has T1w voxels ~ [1.2 1 1]
         end
     end
+
     
     %% PRIVATE
     

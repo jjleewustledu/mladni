@@ -130,8 +130,10 @@ classdef AdniMerge < handle
     properties (Dependent)
         amyloid_file
         apoe_file
+        av45_file
         cdr_file
         dict_file
+        fbb_file
         merge_file
         mpr_meta_file
         mri_imageqc_file
@@ -156,21 +158,27 @@ classdef AdniMerge < handle
 
     methods % GET
         function g = get.amyloid_file(~)
-            g = fullfile(getenv("ADNI_HOME"), 'studydata', 'ucberkeley_av45_fbb_skinny.csv');
+            g = fullfile(getenv("ADNI_HOME"), "studydata", 'ucberkeley_av45_fbb_skinny.csv');
             % unique RID ~ 1325
         end
         function g = get.apoe_file(~)
-            g = fullfile(getenv("ADNI_HOME"), 'studydata', 'APOERES.csv');
+            g = fullfile(getenv("ADNI_HOME"), "studydata", 'APOERES.csv');
         end
-        function g = get.cdr_file(~)
-            g = fullfile(getenv("ADNI_HOME"), "studydata", "CDR.csv"); %"cdr_20220602.csv");
+        function g = get.av45_file(~)
+            g = fullfile(getenv("ADNI_HOME"), "studydata",  'UCBERKELEYAV45_04_26_22.csv');
+        end
+        function g = get.cdr_file(~)-
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "cdr_20220602.csv"); %"CDR.csv");
             % unique RID ~ 3418
         end
         function g = get.dict_file(~)
-            g = fullfile(getenv("ADNI_HOME"), "studydata", "ADNIMERGE_DICT.csv");
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "ADNIMERGE_DICT_14May2023.csv");
+        end
+        function g = get.fbb_file(~)
+            g = fullfile(getenv("ADNI_HOME"), "studydata", 'UCBERKELEYFBB_04_26_22.csv');
         end
         function g = get.merge_file(~)
-            g = fullfile(getenv("ADNI_HOME"), "studydata", "ADNIMERGE.csv"); % "adnimerge_20220602.csv");
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "ADNIMERGE_14May2023.csv"); % "adnimerge_20220602.csv");
             % unique PTID ~ 1855, unique IMAGEUID ~ 13923
         end
         function g = get.mpr_meta_file(~)
@@ -244,6 +252,18 @@ classdef AdniMerge < handle
     end
 
     methods
+        function t = best_practice_baseline_EXAMDATE(this, t)
+            %% Update t with table_registry.EXAMDATE (cf. ADNI Google Group)
+
+            t_reg = this.table_registry();
+            for row = 1:size(t, 1)
+                t_row = t(row, :);
+                ED1 = t_reg{t_reg.RID == t_row.RID & strcmp(t_reg.VISCODE, t_row.VISCODE), 'EXAMDATE'};
+                if isscalar(ED1) && ~isnat(ED1)
+                    t{row, 'EXAMDATE'} = ED1;
+                end
+            end
+        end
         function t = dict(this, varargin)
             t = this.dict_;
             t = this.table_paren(t, varargin{:});
@@ -287,40 +307,51 @@ classdef AdniMerge < handle
         function t = table(this, varargin)
             t = this.table_merge(varargin{:});
         end
-        function t = table_amyloid(this, varargin)
+        function [t,t_av45,t_fbb] = table_amyloid(this, varargin)
             %% Strictly from Berkeley imaging
             %  https://adni.bitbucket.io/reference/docs/UCBERKELEYAV45/UCBERKELEY_AV45_Methods_04.25.2022.pdf
             %  https://adni.bitbucket.io/reference/docs/UCBERKELEYFBB/UCBerkeley_FBB_Methods_04.25.2022.pdf
+            %  
+            %  slice the table with varargin
 
-            if ~isempty(this.amyloid_)
+            if ~isempty(this.amyloid_) && ~isempty(this.av45_) && ~isempty(this.fbb_)
                 t = this.amyloid_;
-
-                % slice the table with varargin
                 t = this.table_paren(t, varargin{:});
+                t_av45 = this.av45_;
+                t_av45 = this.table_paren(t_av45, varargin{:});
+                t_fbb = this.fbb_;
+                t_fbb = this.table_paren(t_fbb, varargin{:});
                 return
             end
 
-            if isfile(this.amyloid_file) && this.reuse_cache
+            if this.reuse_cache && ...
+                    (isfile(this.amyloid_file) && isfile(this.av45_file) && isfile(this.fbb_file))
                 t = readtable(this.amyloid_file);
                 t.EXAMDATE = datetime(t.EXAMDATE);
                 this.amyloid_ = t;
-
-                % slice the table with varargin
                 t = this.table_paren(t, varargin{:});
+
+                t_av45 = readtable(this.av45_file);
+                t_av45.EXAMDATE = datetime(t_av45.EXAMDATE);
+                this.av45_ = t_av45;
+                t_av45 = this.table_paren(t_av45, varargin{:});
+                
+                t_fbb = readtable(this.fbb_file);
+                t_fbb.EXAMDATE = datetime(t_fbb.EXAMDATE);
+                this.fbb_ = t_fbb;
+                t_fbb = this.table_paren(t_fbb, varargin{:});
                 return
             end
 
-            % rebuild caches
             % read tables of av45, florbetaben
-            pth = fileparts(this.amyloid_file);                
-            av45 = fullfile(pth, 'UCBERKELEYAV45_04_26_22.csv');
-            assert(isfile(av45))
-            t_av45 = readtable(av45);
-            t_av45.TRACER = repmat("av45", [size(t_av45,1) 1]);
-            fbb = fullfile(pth, 'UCBERKELEYFBB_04_26_22.csv');
-            assert(isfile(fbb))
-            t_fbb = readtable(fbb);
-            t_fbb.TRACER = repmat("fbb", [size(t_fbb,1) 1]);
+            % rebuild caches
+            % write this.amyloid_file
+            assert(isfile(this.av45_file))
+            t_av45 = readtable(this.av45_file);
+            t_av45.TRACER = repmat({'av45'}, [size(t_av45,1) 1]);
+            assert(isfile(this.fbb_file))
+            t_fbb = readtable(this.fbb_file);
+            t_fbb.TRACER = repmat({'fbb'}, [size(t_fbb,1) 1]);
 
             % reduce tables according to study design
             switch this.study_design
@@ -335,6 +366,11 @@ classdef AdniMerge < handle
                 otherwise
                     error('mladni:ValueError', 'this.study_design->%s', this.study_design)
             end
+            this.av45_ = t_av45;
+            this.fbb_ = t_fbb;
+            this.amyloid_ = t;
+
+            % write reduced amyloid table
             writetable(t, this.amyloid_file);
 
             % slice the table with varargin
@@ -350,6 +386,7 @@ classdef AdniMerge < handle
         function t = table_cdr(this, varargin)
             if isempty(this.cdr_)
                 this.cdr_ = readtable(this.cdr_file);
+                this.cdr_.CDDATE = datetime(this.cdr_.CDDATE, InputFormat='yyyy-MM-dd');
             end
             t = this.cdr_;
             t = this.table_paren(t, varargin{:});
@@ -397,6 +434,7 @@ classdef AdniMerge < handle
         function t = table_merge(this, varargin)
             if isempty(this.merge_)
                 this.merge_ = readtable(this.merge_file);
+                this.merge_ = this.best_practice_baseline_EXAMDATE(this.merge_);
             end
             t = this.merge_;
             t = this.table_paren(t, varargin{:});
@@ -559,8 +597,8 @@ classdef AdniMerge < handle
         function this = AdniMerge(home, design, opts)
             arguments
                 home {mustBeFolder} = pwd
-                design {mustBeTextScalar} = 'cross-sectional'
-                opts.reuse_cache logical = true
+                design {mustBeTextScalar} = 'longitudinal'
+                opts.reuse_cache logical = false
             end
             this.home = home;
             this.study_design = design;
@@ -587,10 +625,12 @@ classdef AdniMerge < handle
 
     properties (Access = protected)
         amyloid_
+        av45_
         apoe_
         cdr_
         CDRSB_bl_
         dict_
+        fbb_
         merge_
         mpr_meta_
         mri_imageqc_
