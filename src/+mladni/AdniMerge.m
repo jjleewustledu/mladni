@@ -167,7 +167,7 @@ classdef AdniMerge < handle
         function g = get.av45_file(~)
             g = fullfile(getenv("ADNI_HOME"), "studydata",  'UCBERKELEYAV45_04_26_22.csv');
         end
-        function g = get.cdr_file(~)-
+        function g = get.cdr_file(~)
             g = fullfile(getenv("ADNI_HOME"), "studydata", "cdr_20220602.csv"); %"CDR.csv");
             % unique RID ~ 3418
         end
@@ -355,14 +355,14 @@ classdef AdniMerge < handle
 
             % reduce tables according to study design
             switch this.study_design
-                case 'cross-sectional'
-                    t_av45.AmyloidStatus = double(t_av45{:, 'SUMMARYSUVR_WHOLECEREBNORM'} >= 1.11);
-                    t_fbb.AmyloidStatus = double(t_fbb{:, 'SUMMARYSUVR_WHOLECEREBNORM'} >= 1.08);
-                    t = this.reduce_cross_tables(t_av45, t_fbb);
                 case 'longitudinal'
                     t_av45.AmyloidStatus = double(t_av45{:, 'SUMMARYSUVR_COMPOSITE_REFNORM'} >= 0.78);
                     t_fbb.AmyloidStatus = double(t_fbb{:, 'SUMMARYSUVR_COMPOSITE_REFNORM'} >= 0.74);
                     t = this.reduce_long_tables(t_av45, t_fbb);
+                case 'cross-sectional'
+                    t_av45.AmyloidStatus = double(t_av45{:, 'SUMMARYSUVR_WHOLECEREBNORM'} >= 1.11);
+                    t_fbb.AmyloidStatus = double(t_fbb{:, 'SUMMARYSUVR_WHOLECEREBNORM'} >= 1.08);
+                    t = this.reduce_cross_tables(t_av45, t_fbb);
                 otherwise
                     error('mladni:ValueError', 'this.study_design->%s', this.study_design)
             end
