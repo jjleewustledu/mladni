@@ -317,7 +317,7 @@ classdef FDGDemographics < handle
 
             this.adni_demo_ = mladni.AdniDemographics();
             this.table_covariates_cache_ = ipr.table_covariates;
-            assert(this.components_are_available)
+            %assert(this.components_are_available)
         end        
     end
 

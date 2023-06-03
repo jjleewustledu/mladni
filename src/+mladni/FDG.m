@@ -1200,7 +1200,10 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             assert(contains(any_fdg.fileprefix, 'fdg', IgnoreCase=true));
             found_t1w = this.findT1w(any_fdg);
             this.t1w_ = this.prepare_derivatives(mlfourd.ImagingContext2(found_t1w));
-            assert(~isempty(this.t1w_))
+            assert(~isempty(this.t1w_))   
+            if isfile(this.t1w_n4)
+                fprintf('%s: found %s\n', stackstr(), this.t1w_n4.fqfn)
+            end
 
             if isfile(this.fdg.fqfn)
                 % augment fdg json with t1w filename
@@ -1449,6 +1452,12 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                     tiss_);
                 this.(lbl_) = tiss_;
             end
+        end
+        function this = call_revisit_renorm(this)
+            this = this.build_fdg_renormalized();
+            this = this.build_fdg_warped();
+            this = this.build_fdg_warped_masked();
+            this.finalize();
         end
         function this = CreateJacobianDeterminantImages(this)
             %% #CREATEJACOBIANDETERMINANTIMAGE creates warping files, t1w_detJ.
@@ -1712,7 +1721,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             %disp(this.AcqDate(this.fdg_on_t1w))
             
             select = contains(t.Subject, this.Subject(this.fdg_on_t1w));
-            select1 = contains(t.Description, 'Coreg, Avg, Standardized Image and Voxel Size');
+            select1 = contains(t.Description, this.DESC);
             select2 = t.AcqDate == this.AcqDate(this.fdg_on_t1w);
 
             s = t{select & select1 & select2, 'PonsVermis'};
@@ -1743,7 +1752,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             %      opts.blur double {mustBeScalarOrEmpty} = 2
             %      opts.fdg_proc {mustBeTextScalar} = mladni.FDG.PROC
             %      opts.fdg_reference {mustBeTextScalar} = 'pons-vermis'   
-            %      opts.force_resolve_to_brain logical = 'true'
+            %      opts.force_resolve_to_brain logical = true
             
             arguments
                 fdg = []

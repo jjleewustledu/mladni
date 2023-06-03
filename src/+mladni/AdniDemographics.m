@@ -78,6 +78,7 @@ classdef AdniDemographics < handle
                     Nerr = Nerr + 1;
                 end
             end
+            ic = ic ./ (N - Nerr);
             ic.fileprefix = strcat(ic.fileprefix, '_mean');
             ic.filepath = pwd;
 
@@ -751,6 +752,8 @@ classdef AdniDemographics < handle
                 cs logical = false
             end
 
+            error("mladni:NotImplementedError", "AdniDemographics.call:  globs, labels do too much")
+
             f1 = @this.create_subgroups;
             f2 = @this.create_ic_means;
 
@@ -830,6 +833,7 @@ classdef AdniDemographics < handle
                 
                 Filename = fqfns.(sg{1}); % rename for addvars()
                 TT.(sg{1}) = addvars(TT.(sg{1}), Filename, 'Before', 1, 'NewVariableNames', {'Filename'});
+                %select = cellfun(@(x) ~isempty(x), Filename);
                 %disp(TT.(sg{1}))
 
                 writetable(TT.(sg{1}), sprintf('table_%s_%s.csv', sg{1}, opts.study_design), WriteVariableNames=true)
@@ -856,18 +860,18 @@ classdef AdniDemographics < handle
             end
         end
         function t = table_cn(this, cs, T_name, bl_1st)
-            %% N = 247 in nifti_files.csv; N = 262 with late baseline; N = 492 longitudinal by table_fdg3.
+            %% N = 247 in nifti_files.csv; N = 262 with late baseline; N = 492->479 longitudinal by table_fdg3.
             
             arguments
                 this mladni.AdniDemographics
-                cs = false % cross-sectional
-                T_name = 'table_fdg3'
-                bl_1st = false
+                cs logical = false % cross-sectional
+                T_name {mustBeTextScalar} = 'table_fdg3'
+                bl_1st logical = false
             end
 
             fdg__ = this.(T_name);
             if ~cs
-                t = fdg__(fdg__.CDGLOBAL == 0 & fdg__.AmyloidStatusLong == 0, :);
+                t = fdg__(fdg__.CDGLOBAL == 0 & fdg__.AmyloidStatusCS == 0, :);
                 return
             end
             if bl_1st
@@ -879,7 +883,7 @@ classdef AdniDemographics < handle
             end
         end
         function t = table_preclinical(this, cs, T_name, bl_1st)
-            %% N = 133 in nifti_files.csv; N = 140 with late baseline; N = 164 longitudinal by table_fdg3.
+            %% N = 133 in nifti_files.csv; N = 140 with late baseline; N = 164->177 longitudinal by table_fdg3.
 
             arguments
                 this mladni.AdniDemographics
@@ -890,7 +894,7 @@ classdef AdniDemographics < handle
 
             fdg__ = this.(T_name);
             if ~cs
-                t = fdg__(fdg__.CDGLOBAL == 0 & fdg__.AmyloidStatusLong == 1, :);
+                t = fdg__(fdg__.CDGLOBAL == 0 & fdg__.AmyloidStatusCS == 1, :);
                 return
             end
             if bl_1st
@@ -902,7 +906,7 @@ classdef AdniDemographics < handle
             end
         end        
         function t = table_cdr_0p5_apos(this, cs, T_name, bl_1st)
-            %% N = 385 in nifti_files.csv; N = 460 with late baseline; N = 566 longitudinal by table_fdg3.
+            %% N = 385 in nifti_files.csv; N = 460 with late baseline; N = 566->575 longitudinal by table_fdg3.
 
             arguments
                 this mladni.AdniDemographics
@@ -913,7 +917,7 @@ classdef AdniDemographics < handle
 
             fdg__ = this.(T_name);
             if ~cs
-                t = fdg__(fdg__.CDGLOBAL == 0.5 & fdg__.AmyloidStatusLong == 1, :);
+                t = fdg__(fdg__.CDGLOBAL == 0.5 & fdg__.AmyloidStatusCS == 1, :);
                 return
             end
             if bl_1st
@@ -925,7 +929,7 @@ classdef AdniDemographics < handle
             end
         end
         function t = table_cdr_gt_0p5_apos(this, cs, T_name, bl_1st)
-            %% N = 87 in nifti_files.csv; N = 149 with late baseline; N = 173 longitudinal by table_fdg3.
+            %% N = 87 in nifti_files.csv; N = 149 with late baseline; N = 173->173 longitudinal by table_fdg3.
 
             arguments
                 this mladni.AdniDemographics
@@ -936,7 +940,7 @@ classdef AdniDemographics < handle
 
             fdg__ = this.(T_name);
             if ~cs
-                t = fdg__(fdg__.CDGLOBAL > 0.5 & fdg__.AmyloidStatusLong == 1, :);
+                t = fdg__(fdg__.CDGLOBAL > 0.5 & fdg__.AmyloidStatusCS == 1, :);
                 return
             end
             if bl_1st
@@ -948,7 +952,7 @@ classdef AdniDemographics < handle
             end            
         end
         function t = table_cdr_ge_0p5_aneg(this, cs, T_name, bl_1st)
-            %% N = 247; N = 333 with late baseline; N = 564 longitudinal by table_fdg3.
+            %% N = 247; N = 333 with late baseline; N = 564->557 longitudinal by table_fdg3.
 
             arguments
                 this mladni.AdniDemographics
@@ -959,7 +963,7 @@ classdef AdniDemographics < handle
 
             fdg__ = this.(T_name);
             if ~cs
-                t = fdg__(fdg__.CDGLOBAL >= 0.5 & fdg__.AmyloidStatusLong == 0, :);
+                t = fdg__(fdg__.CDGLOBAL >= 0.5 & fdg__.AmyloidStatusCS == 0, :);
                 return
             end
             if bl_1st
