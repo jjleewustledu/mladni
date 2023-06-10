@@ -146,6 +146,7 @@ classdef AdniMerge < handle
         pet_meta_adni3_file
         pet_meta_list_file
         pet_qc_file
+        ptdemog_file
         registry_file
         strokesum_file
         subjects
@@ -168,7 +169,7 @@ classdef AdniMerge < handle
             g = fullfile(getenv("ADNI_HOME"), "studydata",  'UCBERKELEYAV45_04_26_22.csv');
         end
         function g = get.cdr_file(~)
-            g = fullfile(getenv("ADNI_HOME"), "studydata", "cdr_20220602.csv"); %"CDR.csv");
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "cdr_20230514_formatted.csv"); 
             % unique RID ~ 3418
         end
         function g = get.dict_file(~)
@@ -224,8 +225,11 @@ classdef AdniMerge < handle
             g = fullfile(getenv("ADNI_HOME"), "studydata", "PETQC.csv");
             % unique RID ~ 1413, unique LONIUID ~ 3950
         end
+        function g = get.ptdemog_file(~)
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "PTDEMOG_09Jun2023.csv");
+        end
         function g = get.registry_file(~)
-            g = fullfile(getenv("ADNI_HOME"), "studydata", "REGISTRY.csv"); %"registry_20220602.csv");
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "REGISTRY_08Jun2023.csv");
             % unique RID ~ 4045, unique ID ~ 15637
         end
         function g = get.strokesum_file(~)
@@ -386,7 +390,6 @@ classdef AdniMerge < handle
         function t = table_cdr(this, varargin)
             if isempty(this.cdr_)
                 this.cdr_ = readtable(this.cdr_file);
-                this.cdr_.CDDATE = datetime(this.cdr_.CDDATE, InputFormat='yyyy-MM-dd');
             end
             t = this.cdr_;
             t = this.table_paren(t, varargin{:});
@@ -488,6 +491,13 @@ classdef AdniMerge < handle
             t = this.pet_qc_;
             t = this.table_paren(t, varargin{:});
         end
+        function t = table_ptdemog(this, varargin)
+            if isempty(this.ptdemog_)
+                this.ptdemog_ = readtable(this.ptdemog_file);
+            end
+            t = this.ptdemog_;
+            t = this.table_paren(t, varargin{:});
+        end
         function t = table_registry(this, varargin)
             if isempty(this.registry_)
                 this.registry_ = readtable(this.registry_file);
@@ -574,8 +584,6 @@ classdef AdniMerge < handle
         function t = table_ucsdvol(this, varargin)
             if isempty(this.ucsdvol_)
                 t_ = readtable(this.ucsdvol_file); 
-                t_.CDATE = datetime(t_.CDATE, 'InputFormat','MM/dd/uuuu');
-                t_.EXAMDATE = datetime(t_.EXAMDATE);
                 this.ucsdvol_ = t_;
             end
             t = this.ucsdvol_;

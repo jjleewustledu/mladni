@@ -593,7 +593,7 @@ classdef AdniDemographics < handle
             %       Use FDG scan acquisition date from this.table_fdg_proc1_file:AcqDate.  
             %       For each scan acquisition date:
             %         For each native csv table: 
-            %           manage multiple data collection dates, e.g., for CDR*.csv, USERDATE, USERDATE2, CDDATE, EXAMDATE.
+            %           manage multiple data collection dates, e.g., for CDR*.csv, CDDATE, EXAMDATE.
             %           if table is for amyloid:
             %             See also: mladni.AdniDemographics.AmyloidStatus*
             %             (https://github.com/sotiraslab/mladni/blob/main/src/%2Bmladni/AdniDemographics.m function AmyloidStatus*.)
@@ -744,15 +744,12 @@ classdef AdniDemographics < handle
         %  1660 baseline FDG scans with CASU
         %  subgroup total = 247 + 133 + 148 + 166 + 87 = 781
 
-        function     call(this, cs)
+        function     call(this)
             %% sequentially calls create_subgroups(), create_ic_means()
 
             arguments
                 this mladni.AdniDemographics
-                cs logical = false
             end
-
-            error("mladni:NotImplementedError", "AdniDemographics.call:  globs, labels do too much")
 
             f1 = @this.create_subgroups;
             f2 = @this.create_ic_means;
@@ -761,11 +758,12 @@ classdef AdniDemographics < handle
             lblg = this.LABELS_G;
             lbl = this.LABELS;
 
-            idx = 1;
-            f1(aglobs{idx}, lblg{idx}, cs);
-            f2(lbl{idx}, lblg{idx}, cs);
+            for d = {'cross-sectional', 'longitudinal'}
+                f1(aglobs{1}, lblg{1}, study_design=d{1});
+                f2(lbl{1}, lblg{1}, study_design=d{1});
+            end
         end
-        function     create_ic_means(this, label, labelg, study_design)
+        function     create_ic_means(this, label, labelg, opts)
             %% 
             %  Args:
             %     label {mustBeTextScalar} = 'sub-cn_ses-all_T1w_dlicv_detJ_Warped'
@@ -778,12 +776,12 @@ classdef AdniDemographics < handle
                 this mladni.AdniDemographics
                 label {mustBeTextScalar} = 'sub-cn_ses-all_trc-FDG_pet_on_T1w_Warped_dlicv'
                 labelg {mustBeTextScalar} = 'fdg'
-                study_design {mustBeTextScalar} = 'longitudinal' % cross-sectional
+                opts.study_design {mustBeTextScalar} = 'longitudinal' % cross-sectional
             end
             labelg = strcat('AdniDemographics_create_subgroups_', labelg); % find mat saved by create_subgroups
             
             pwd0 = pushd(this.workdir);
-            load(sprintf('%s_%s_fqfns.mat', labelg, study_design)) %#ok<*LOAD> 
+            load(sprintf('%s_%s_fqfns.mat', labelg, opts.study_design)) %#ok<*LOAD> 
             
             for sg = this.subgroups
                 % save diagnostic subgroups
@@ -1291,13 +1289,10 @@ classdef AdniDemographics < handle
 
             %% this.table_cdr
 
-            t.ORIGPROT = cell(sz);
-            t.COLPROT = cell(sz);
+            t.Phase = cell(sz);
             t.RID = nan(sz);
             t.SITEID = nan(sz);
             t.VISCODE = cell(sz);
-            t.USERDATE = NaT(sz);
-            t.USERDATE2 = NaT(sz);
             t.CDCARE = nan(sz);
             t.CDCOMMUN = nan(sz);
             t.CDDATE = NaT(sz);
@@ -1305,12 +1300,18 @@ classdef AdniDemographics < handle
             t.CDJUDGE = nan(sz);
             t.CDMEMORY = nan(sz);
             t.CDORIENT = nan(sz);
-            t.CDSOURCE = cell(sz);
-            t.CDVERSION = cell(sz);
-            t.SPID = cell(sz);
+            t.CDSOURCE = nan(sz);
+            t.CDVERSION = nan(sz);
             t.CDGLOBAL = nan(sz);
             t.CDEXAMDATE = NaT(sz);
+            t.CDUSERDATE = NaT(sz);
+            t.CDUSERDATE2 = NaT(sz);
             t.CDRSB = nan(sz);
+
+            %% this.table_registry
+
+            t.RegistryExamDate = NaT(sz);
+            t.RegistryOtherSpecify = cell(sz);
 
             %% iterate this.table_fdg.Subject
 
@@ -1333,8 +1334,9 @@ classdef AdniDemographics < handle
             N_skipped_ucsd_hippo = 0;
             N_skipped_ucsf_hippo = 0;
             N_skipped_apoe = 0;
-            N_skipped_cdr = 0;
             N_skipped_amyloid = 0;
+            N_skipped_cdr = 0;
+            N_skipped_reg = 0;
 
             %%
 
@@ -1370,6 +1372,7 @@ classdef AdniDemographics < handle
                         amyloid_s1 = t_amy(select, :); % Incipient BUG ?
                     catch ME
                         disp(ME)
+                        amyloid_s1 = [];
                         % fprintf('%s: table_amyloid(%s) is missing\n', stackstr, sub{1}); % too frequent to fprint
                         % continue
                     end
@@ -1400,9 +1403,24 @@ classdef AdniDemographics < handle
 
                     try
                         cdr_s1 = this.table_cdr(this.table_cdr.RID == rid, ':');
-                    catch 
+
+                        % defer nats to CDDATE
+                        nats_ = isnat(cdr_s1.EXAMDATE);
+                        nats_date_ = isnat(cdr_s1.CDDATE);
+                        cdr_s1.EXAMDATE(nats_ & ~nats_date_) = cdr_s1.CDDATE(nats_ & ~nats_date_);
+    
+                        % defer nats to REGISTRY
+                        nats_ = isnat(cdr_s1.EXAMDATE);
+                        cdr_s1.EXAMDATE(nats_) = this.registry_EXAMDATE(cdr_s1(nats_,:));
+                    catch ME
+                        rethrow(ME)
                         % fprintf('%s: table_cdr(%s) is missing\n', stackstr, sub{1});
                         % continue
+                    end
+
+                    try
+                        reg_s1 = this.table_registry(this.table_registry.RID == rid, ':');
+                    catch
                     end
 
                     %% iterate single subject's t_s1.AcqDate
@@ -1419,7 +1437,7 @@ classdef AdniDemographics < handle
                             sep = this.filenames2sep(t_s1.FdgFilename{acq}, t_s1.T1wFilename{acq});
                             if duration(sep) > duration(this.datetime_separation_tol)
                                 throw(MException('mladni:datetime_separation_tol_exceeded', ...
-                                    'FdgFilename, T1wFilename datetime separation = %s years', years(sep)))
+                                    'FdgFilename, T1wFilename datetime separation = %s', years(sep)))
                             end
                         catch ME
                             N_skipped_T1w = N_skipped_T1w + 1;
@@ -1433,7 +1451,7 @@ classdef AdniDemographics < handle
                             if duration(sep) > duration(this.datetime_separation_tol)
                                 N_skipped_merge = N_skipped_merge + 1;
                                 throw(MException('mladni:datetime_separation_tol_exceeded', ...
-                                    'merge_s1 datetime separation = %s years', years(sep)))
+                                    'merge_s1 datetime separation = %s', years(sep)))
                             end
                             t_s1(acq, 'MergeRid') = merge_s1(merge_near, 'RID');
                             t_s1(acq, 'MergePtid') = merge_s1(merge_near, 'PTID');
@@ -1515,7 +1533,7 @@ classdef AdniDemographics < handle
                             if duration(sep) > duration(this.datetime_separation_tol)
                                 N_skipped_berkeley_metaroi = N_skipped_berkeley_metaroi + 1;                                
                                 throw(MException('mladni:datetime_separation_tol_exceeded', ...
-                                    'berkeley_metaroi_s1 datetime separation = %s years', years(sep)))
+                                    'berkeley_metaroi_s1 datetime separation = %s', years(sep)))
                             end
                             t_s1(acq, 'Metaroi') = berkeley_metaroi_s1(berkeley_near, 'MEAN');   
 
@@ -1555,7 +1573,7 @@ classdef AdniDemographics < handle
                             [sep,tau_near] = min(abs(acqdate - tau_s1.EXAMDATE));
                             if duration(sep) > duration(this.datetime_separation_tol)
                                 throw(MException('mladni:datetime_separation_tol_exceeded', ...
-                                    'tau_s1 datetime separation = %s years', years(sep)))
+                                    'tau_s1 datetime separation = %s', years(sep)))
                             end
                             t_s1(acq, 'TauExamDate') = tau_s1(tau_near, 'EXAMDATE');
                             t_s1(acq, 'META_TEMPORAL_SUVR') = tau_s1(tau_near, 'META_TEMPORAL_SUVR');
@@ -1575,7 +1593,7 @@ classdef AdniDemographics < handle
                             if duration(sep) > duration(this.datetime_separation_tol)
                                 N_skipped_ucsd_hippo = N_skipped_ucsd_hippo + 1;
                                 throw(MException('mladni:datetime_separation_tol_exceeded', ...
-                                    'ucsd_hippo_s1 datetime separation = %s years', years(sep)))
+                                    'ucsd_hippo_s1 datetime separation = %s', years(sep)))
                             end
                             t_s1(acq, 'UcsdExamDate') = ucsd_hippo_s1(ucsd_near, 'EXAMDATE');
                             t_s1(acq, 'UcsdLHippo') = ucsd_hippo_s1(ucsd_near, 'LHIPPOC');
@@ -1591,7 +1609,7 @@ classdef AdniDemographics < handle
                             if duration(sep) > duration(this.datetime_separation_tol)
                                 N_skipped_ucsf_hippo = N_skipped_ucsf_hippo + 1;
                                 throw(MException('mladni:datetime_separation_tol_exceeded', ...
-                                    'ucsf_hippo_s1 datetime separation = %s years', years(sep)))
+                                    'ucsf_hippo_s1 datetime separation = %s', years(sep)))
                             end
                             t_s1(acq, 'UcsfExamDate') = ucsf_hippo_s1(ucsf_near, 'EXAMDATE');
                             t_s1(acq, 'UcsfLHippo') = ucsf_hippo_s1(ucsf_near, 'LEFTHIPPO');
@@ -1603,12 +1621,7 @@ classdef AdniDemographics < handle
                         end
 
                         try
-                            [sep,apoe_near] = min(abs(acqdate - apoe_s1.APTESTDT));
-                            if duration(sep) > duration(this.datetime_separation_tol)
-                                N_skipped_apoe = N_skipped_apoe + 1;
-                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
-                                    'apoe_s1 datetime separation = %s years', years(sep)))
-                            end
+                            [~,apoe_near] = min(abs(acqdate - apoe_s1.APTESTDT));
                             t_s1(acq, 'ApTestDt') = apoe_s1(apoe_near, 'APTESTDT');
                             t_s1(acq, 'ApGen1') = apoe_s1(apoe_near, 'APGEN1');
                             t_s1(acq, 'ApGen2') = apoe_s1(apoe_near, 'APGEN2');
@@ -1628,32 +1641,33 @@ classdef AdniDemographics < handle
                         end
 
                         try
-                            % impute nans
-                            nats_ = isnat(cdr_s1.EXAMDATE);
-                            nats_u_ = isnat(cdr_s1.USERDATE);
-                            cdr_s1.EXAMDATE(nats_ & ~nats_u_) = cdr_s1.USERDATE(nats_ & ~nats_u_);
-                            % iterate
-                            nats_ = isnat(cdr_s1.EXAMDATE);
-                            nats_u_ = isnat(cdr_s1.USERDATE2);
-                            cdr_s1.EXAMDATE(nats_ & ~nats_u_) = cdr_s1.USERDATE2(nats_ & ~nats_u_);
-                            % iterate
-                            nats_ = isnat(cdr_s1.EXAMDATE);
-                            nats_date_ = isnat(cdr_s1.CDDATE);
-                            cdr_s1.EXAMDATE(nats_ & ~nats_date_) = cdr_s1.CDDATE(nats_ & ~nats_date_);
+                            % find rows of cdr_s1, sorted by nearest-neighbors by time
+                            cdr_s1 = addvars(cdr_s1, abs(days(acqdate - cdr_s1.EXAMDATE)), ...
+                                NewVariableNames="SeparationDays");
+                            cdr_s1 = sortrows(cdr_s1, "SeparationDays");
+                            cdr_near = 1;
+                            sep = cdr_s1.SeparationDays(1);
 
-                            [sep,cdr_near] = min(abs(acqdate - cdr_s1.EXAMDATE));
-                            if duration(sep) > duration(this.datetime_separation_tol)
+                            % ensure valid CDGLOBAL
+                            while isnan(cdr_s1.CDGLOBAL(cdr_near))
+                                cdr_near = cdr_near + 1;
+                                sep = cdr_s1.SeparationDays(cdr_near); % throws ME when nothing found
+                            end
+
+                            % ensure datetime tolerance
+                            if days(sep) > duration(this.datetime_separation_tol)
                                 N_skipped_cdr = N_skipped_cdr + 1;
                                 throw(MException('mladni:datetime_separation_tol_exceeded', ...
-                                    'cdr_s1 datetime separation = %s years', years(sep)))
+                                    'cdr_s1 datetime separation = %s', days(sep)))
                             end
-                            t_s1(acq, 'ORIGPROT') = cdr_s1(cdr_near, 'ORIGPROT');
-                            t_s1(acq, 'COLPROT') = cdr_s1(cdr_near, 'COLPROT');
+
+                            % remove SeparationDays so as not to collide with other acq. dates
+                            cdr_s1 = removevars(cdr_s1, "SeparationDays");
+
+                            t_s1(acq, 'Phase') = cdr_s1(cdr_near, 'Phase');
                             t_s1(acq, 'RID') = cdr_s1(cdr_near, 'RID');
                             t_s1(acq, 'SITEID') = cdr_s1(cdr_near, 'SITEID'); 
                             t_s1(acq, 'VISCODE') = cdr_s1{cdr_near, 'VISCODE'};
-                            t_s1{acq, 'USERDATE'} = cdr_s1{cdr_near, 'USERDATE'};
-                            t_s1{acq, 'USERDATE2'} = cdr_s1{cdr_near, 'USERDATE2'};
                             t_s1(acq, 'CDCARE') = cdr_s1(cdr_near, 'CDCARE');
                             t_s1(acq, 'CDCOMMUN') = cdr_s1(cdr_near, 'CDCOMMUN');
                             t_s1(acq, 'CDDATE') = cdr_s1(cdr_near, 'CDDATE');
@@ -1663,10 +1677,27 @@ classdef AdniDemographics < handle
                             t_s1(acq, 'CDORIENT') = cdr_s1(cdr_near, 'CDORIENT');
                             t_s1(acq, 'CDSOURCE') = cdr_s1(cdr_near, 'CDSOURCE');
                             t_s1(acq, 'CDVERSION') = cdr_s1(cdr_near, 'CDVERSION');
-                            t_s1(acq, 'SPID') = cdr_s1(cdr_near, 'SPID');
                             t_s1(acq, 'CDGLOBAL') = cdr_s1(cdr_near, 'CDGLOBAL');  
-                            t_s1{acq, 'CDEXAMDATE'} = cdr_s1{cdr_near, 'EXAMDATE'}; % ------- CDR EXAMDATE -------
+                            t_s1{acq, 'CDEXAMDATE'} = cdr_s1{cdr_near, 'EXAMDATE'}; 
+                            t_s1{acq, 'CDUSERDATE'} = cdr_s1{cdr_near, 'USERDATE'}; 
+                            t_s1{acq, 'CDUSERDATE2'} = cdr_s1{cdr_near, 'USERDATE2'}; 
                             t_s1(acq, 'CDRSB') = cdr_s1(cdr_near, 'CDRSB'); 
+                        catch ME
+                            N_skipped_cdr = N_skipped_cdr + 1;
+                            disp(ME.message)
+                        end
+
+                        try
+                            [sep,reg_near] = min(abs(acqdate - reg_s1.EXAMDATE));
+                            if duration(sep) > duration(this.datetime_separation_tol)
+                                N_skipped_reg = N_skipped_reg + 1;
+                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
+                                    'reg_s1 datetime separation = %s years', years(sep)))
+                            end
+                            t_s1(acq, 'RegistryExamDate') = reg_s1(reg_near, 'EXAMDATE');
+                            if istext(reg_s1(reg_near, 'RGOTHSPE'))
+                                t_s1(acq, 'RegistryOtherSpecify') = reg_s1(reg_near, 'RGOTHSPE');
+                            end
                         catch ME
                             if contains(ME.message, 'datetime separation')
                                 disp(ME.message)
@@ -1676,7 +1707,8 @@ classdef AdniDemographics < handle
                     
                     t(strcmp(t.Subject, sub{1}), :) = t_s1;
                 catch ME
-                    handwarning(ME)
+                    rethrow(ME)
+                    %handwarning(ME)
                 end
             end
 
@@ -1687,8 +1719,147 @@ classdef AdniDemographics < handle
             fprintf('%s: N_skipped_ucsd_hippo = %g\n', stackstr, N_skipped_ucsd_hippo)
             fprintf('%s: N_skipped_ucsf_hippo = %g\n', stackstr, N_skipped_ucsf_hippo)
             fprintf('%s: N_skipped_apoe = %g\n', stackstr, N_skipped_apoe)
-            fprintf('%s: N_skipped_cdr = %g\n', stackstr, N_skipped_cdr)
             fprintf('%s: N_skipped_amyloid = %g\n', stackstr, N_skipped_amyloid)
+            fprintf('%s: N_skipped_cdr = %g\n', stackstr, N_skipped_cdr)
+            fprintf('%s: N_skipped_reg = %g\n', stackstr, N_skipped_reg)
+        end
+        function T1 = find_row_nearest_neigh(this, T, target_datetime, opts)
+            %% Find row of submitted table containing data that is nearest to the specified target datetime. 
+            %  Search table rows using table's examdate variable.  If the measurement variable's value is not valid,
+            %  search for a valid variable value.  Ensure that found entities are consistent with the class' 
+            %  datetime tolerance. Throws exceptions with messages containing "find_row_nearest_neigh".
+
+            arguments
+                this mladni.AdniDemographics
+                T table % for single subject
+                target_datetime datetime % typically imaging acq. date
+                opts.examdate_name {mustBeTextScalar} = "EXAMDATE" % must be found in T
+                opts.measure_name {mustBeTextScalar} = "CDGLOBAL" % must be found in T
+            end
+            T_vars = Properties.VariableNames;
+            assert(any(contains(T_vars, opts.examdate_name)), ...
+                "%s: submitted tablew is missing %s", stackstr(), opts.examdate_name)
+            assert(any(contains(T_vars, opts.measure_name)), ...
+                "%s: submitted tablew is missing %s", stackstr(), opts.measure_name)
+
+            % find rows of T, sorted by nearest neighbors by time
+            T = addvars(T, abs(days(target_datetime - T.EXAMDATE)), ...
+                NewVariableNames="SepInDays");
+            T = sortrows(T, "SepInDays"); % ascending datetimes
+            idx_near = 1;
+            sep_days = T.SepInDays(1);
+
+            % ensure valid measurement, throwing ME when nothing found
+            try
+                switch class(T.(opts.measure_name))
+                    case "datetime"
+                        while isnat(T.(ops.measure_name)(idx_near))
+                            idx_near = idx_near + 1;
+                            sep_days = T.SepInDays(idx_near);
+                        end
+                    case "double"
+                        while isnan(T.(ops.measure_name)(idx_near))
+                            idx_near = idx_near + 1;
+                            sep_days = T.SepInDays(idx_near);
+                        end
+                    case "cell"
+                        while isempty(T.(ops.measure_name){idx_near})
+                            idx_near = idx_near + 1;
+                            sep_days = T.SepInDays(idx_near);
+                        end
+                    otherwise
+                        error("mladni:ValueError", ...
+                            "%s: measure_name type, %s, is not supported", stackstr(), class(T.(opts.measure_name)))
+                end
+            catch ME
+                if contains(ME.identifier, "badsubscript")
+                    error("mladni:ValueError", ...
+                        "%s: valid %s not found", stackstr(), opts.measure_name)
+                end
+            end
+
+            % ensure datetime tolerance
+            if days(sep_days) > duration(this.datetime_separation_tol)                
+                error("mladni:datetime_separation_tol_exceeded", ...
+                    "%s: %s had datetime separation ~ %s", stackstr(), opts.measure_name, days(sep_days))
+            end
+
+            % remove SepInDays to minimize side-effects
+            T1 = removevars(T, "SepInDays");
+        end
+        function ED = registry_EXAMDATE(this, t)
+            %% Access table_registry.EXAMDATE matching table t with vars RID, VISCODE|VISCODE2, Phase|COLPROT.
+            %  (cf. ADNI Google Group)
+            %
+            %  Args:
+            %    this mladni.AdniDemographics
+            %    t table
+            
+            arguments
+                this mladni.AdniDemographics
+                t table
+            end
+            varnames = t.Properties.VariableNames;
+            assert(any(contains(varnames, "RID")))
+            assert(any(contains(varnames, "VISCODE")))
+            assert(any(contains(varnames, "Phase") | contains(varnames, "COLPROT")))
+
+            % simplify vars
+            len = size(t,1);
+            rid = t.RID;
+            try
+                visc2 = t.VISCODE2;
+            catch
+                visc2 = [];
+            end
+            try
+                visc = t.VISCODE;
+            catch
+                visc = [];
+            end
+            phase = [];
+            if any(contains(varnames, "Phase"))
+                phase = t.Phase; 
+            end
+            if any(contains(varnames, "COLPROT"))
+                phase = t.COLPROT; 
+            end
+
+            % build returned ED
+            reg = this.table_registry(); % len ~ 30k
+            ED = NaT(len, 1); % typically < 10
+            for row = 1:len  
+
+                % assemble selection rules; check short-cut cases
+                select = true(size(reg,1), 1);
+                select = select & (rid(row) == reg.RID);
+                if ~isempty(visc2) && ~all(~select)
+                    select = select & strcmp(visc2{row}, reg.VISCODE2);
+                end
+                if ~isempty(visc) && ~all(~select)
+                    select = select & strcmp(visc{row}, reg.VISCODE);
+                end
+                if ~all(~select)
+                    select = select & strcmp(phase{row}, reg.Phase);
+                end
+                if all(~select)
+                    continue
+                end
+
+                % assign ED(row), scalar or best from sorted array
+                trial = reg.EXAMDATE(select);
+                if length(trial) == 1
+                    ED(row) = trial;
+                    continue
+                end
+                trial = sort(trial);
+                if abs(trial(end) - trial(1)) > this.datetime_separation_tol
+                    continue
+                else
+                    middle = floor((length(trial)+1)/2);
+                    ED(row) = trial(middle);
+                end
+            end
         end
     end
 
