@@ -199,7 +199,7 @@ classdef AdniMerge < handle
             % unique PTID ~ 1035, unique LONI_IMAGE ~ 21744
         end
         function g = get.neuropath_file(~)
-            g = fullfile(getenv("ADNI_HOME"), "studydata", "NEUROPATH_05_17_21.csv");
+            g = fullfile(getenv("ADNI_HOME"), "studydata", "NEUROPATH_02_06_23_10Jun2023.csv");
         end
         function g = get.pet_c3_file(~)
             g = fullfile(getenv("ADNI_HOME"), "studydata", "PETC3.csv");

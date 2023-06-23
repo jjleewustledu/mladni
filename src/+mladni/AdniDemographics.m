@@ -587,7 +587,7 @@ classdef AdniDemographics < handle
             %     ADNIMERGE*.csv, CDR*.csv, UCBERKELEYFDG*.csv, UCBERKELEYAV45*.csv, UCBERKELEYFBB*.csv, APOERES*.csv,
             %     which are needed for essential covariates age, sex, CDR, FDG references, AV45, FBB and ApoE.
             %   - For data from csv file ADNIMERGE*.csv, replace all EXAMDATES with values from REGISTRY*.csv,
-            %     using RID and VISCODE as selectors.  Appears unnecessary since ADNIMERGE_14May2023.csv.
+            %     using RID, VISCODE, VISCODE, and Phase as selectors.  Appears unnecessary since ADNIMERGE_14May2023.csv.
             %   - Select an FDG preprocessing directive, e.g., 'Coreg, Avg, Std Img and Vox Siz, Uniform Resolution'
             %   - For each subject, selected by RID:
             %       Use FDG scan acquisition date from this.table_fdg_proc1_file:AcqDate.  
@@ -744,11 +744,12 @@ classdef AdniDemographics < handle
         %  1660 baseline FDG scans with CASU
         %  subgroup total = 247 + 133 + 148 + 166 + 87 = 781
 
-        function     call(this)
+        function     call(this, opts)
             %% sequentially calls create_subgroups(), create_ic_means()
 
             arguments
                 this mladni.AdniDemographics
+                opts.view logical = false
             end
 
             f1 = @this.create_subgroups;
@@ -760,7 +761,7 @@ classdef AdniDemographics < handle
 
             for d = {'cross-sectional', 'longitudinal'}
                 f1(aglobs{1}, lblg{1}, study_design=d{1});
-                f2(lbl{1}, lblg{1}, study_design=d{1});
+                f2(lbl{1}, lblg{1}, study_design=d{1}, view=opts.view);
             end
         end
         function     create_ic_means(this, label, labelg, opts)
@@ -777,6 +778,7 @@ classdef AdniDemographics < handle
                 label {mustBeTextScalar} = 'sub-cn_ses-all_trc-FDG_pet_on_T1w_Warped_dlicv'
                 labelg {mustBeTextScalar} = 'fdg'
                 opts.study_design {mustBeTextScalar} = 'longitudinal' % cross-sectional
+                opts.view logical = false
             end
             labelg = strcat('AdniDemographics_create_subgroups_', labelg); % find mat saved by create_subgroups
             
@@ -794,7 +796,9 @@ classdef AdniDemographics < handle
                 % differences, view_qc()
                 icd.(sg{1}) = ic.(sg{1}) - ic.(this.subgroups{1});
                 icd.(sg{1}).fileprefix = strrep(label, this.subgroups{1}, strcat('D', sg{1}));
-                ic.(this.subgroups{1}).view_qc(icd.(sg{1}));
+                if opts.view
+                    ic.(this.subgroups{1}).view_qc(icd.(sg{1}));
+                end
                 ic.(this.subgroups{1}).save_qc(icd.(sg{1}));
             end
             popd(pwd0);
@@ -1144,6 +1148,8 @@ classdef AdniDemographics < handle
 
     methods (Access = protected)
         function t = buildTableFdg1(this)
+            %% Additional sources to consider:
+
             % Additional sources of FreeSurfer:
             % UCSFFSX.csv: 
             % UCSFFSX51.csv
@@ -1156,6 +1162,8 @@ classdef AdniDemographics < handle
             % UPENNBIOMK5.csv
             % UPENNBIOMK6.csv
 
+            %% init with this.table_fdg()
+            
             t = this.table_fdg(); % enumerates ADNI/bids/derivatives/sub-*/ses-*/*_trc-fdg_*.nii.gz
             t = t(contains(t.Description, this.description), :);
             t.AcqDate = datetime(t.AcqDate);
@@ -1254,18 +1262,6 @@ classdef AdniDemographics < handle
             t.SUMMARYSUVR_WHOLECEREBNORM = nan(sz);
             t.SUMMARYSUVR_COMPOSITE_REFNORM = nan(sz);
 
-            %% this.table_tau
-
-            t.TauExamDate = NaT(sz);
-            t.META_TEMPORAL_SUVR = nan(sz);
-            t.BRAAK1_SUVR = nan(sz);
-            t.BRAAK34_SUVR = nan(sz);
-            t.BRAAK56_SUVR = nan(sz);
-            t.META_TEMPORAL_VOLUME = nan(sz);
-            t.BRAAK1_VOLUME = nan(sz);
-            t.BRAAK34_VOLUME = nan(sz);
-            t.BRAAK56_VOLUME = nan(sz);
-
             %% this.table_{ucsdvol,ucsfsntvol}
 
             t.UcsdExamDate = NaT(sz);
@@ -1276,23 +1272,37 @@ classdef AdniDemographics < handle
             t.UcsfLHippo = nan(sz);
             t.UcsfRHippo = nan(sz);
 
+            %% this.table_tau
+
+            t.TauExamDate = NaT(sz);
+            t.META_TEMPORAL_SUVR = nan(sz); 
+            t.BRAAK1_SUVR = nan(sz);
+            t.BRAAK34_SUVR = nan(sz);
+            t.BRAAK56_SUVR = nan(sz);
+            t.META_TEMPORAL_VOLUME = nan(sz);
+            t.BRAAK1_VOLUME = nan(sz);
+            t.BRAAK34_VOLUME = nan(sz);
+            t.BRAAK56_VOLUME = nan(sz);
+
+            %% this.table_neuropath
+            
+            t.NpBraak = nan(sz);
+
             %% this.table_apoe
 
             t.ApTestDt = NaT(sz);
             t.ApGen1 = nan(sz);
             t.ApGen2 = nan(sz);
             t.ApoE2 = nan(sz);
-
-            %% this.table_neuropath
-            
-            t.NpBraak = nan(sz);
+            t.ApoE3 = nan(sz);
+            t.ApoE4 = nan(sz);
 
             %% this.table_cdr
 
-            t.Phase = cell(sz);
-            t.RID = nan(sz);
-            t.SITEID = nan(sz);
-            t.VISCODE = cell(sz);
+            t.CDPhase = cell(sz);
+            t.CDRID = nan(sz);
+            t.CDSITEID = nan(sz);
+            t.CDVISCODE = cell(sz);
             t.CDCARE = nan(sz);
             t.CDCOMMUN = nan(sz);
             t.CDDATE = NaT(sz);
@@ -1315,7 +1325,7 @@ classdef AdniDemographics < handle
 
             %% iterate this.table_fdg.Subject
 
-            %%
+            %% N_skipped_*
             % N of fdg baselines counted by unique RIDs in UCBERKELEYFDG_03_25_22.csv == 1624
             % N of fdg subject folders in ADNI/bids/derivatives == 1659
             % >> size(unique(this.subjects)) % ~ this.table_fdg.Subject ~ \d{3}_S_\d{4}
@@ -1329,16 +1339,15 @@ classdef AdniDemographics < handle
 
             N_skipped_T1w = 0;
             N_skipped_merge = 0;
-            N_skipped_berkeley_metaroi = 0;
-            N_skipped_berkeley_ponsvermis = 0;
-            N_skipped_ucsd_hippo = 0;
+            N_skipped_berkeley_fdg = 0;
             N_skipped_ucsf_hippo = 0;
+            N_skipped_ucsd_hippo = 0;
             N_skipped_apoe = 0;
             N_skipped_amyloid = 0;
             N_skipped_cdr = 0;
             N_skipped_reg = 0;
 
-            %%
+            %% iterate subjects
 
             for sub = asrow(this.subjects)
                 try
@@ -1355,50 +1364,81 @@ classdef AdniDemographics < handle
                     end
                     
                     try
-                        berkeley_fdg_s1 = this.table_ucberkeleyfdg(this.table_ucberkeleyfdg.RID == rid, ':');                        
-                        berkeley_metaroi_s1 = this.table_ucberkeleyfdg(this.table_ucberkeleyfdg.RID == rid, ':');
-                        berkeley_metaroi_s1 = berkeley_metaroi_s1(contains(berkeley_metaroi_s1.ROINAME, 'metaroi'), :);    
-                        berkeley_ponsvermis_s1 = this.table_ucberkeleyfdg(this.table_ucberkeleyfdg.RID == rid, ':');
-                        berkeley_ponsvermis_s1 = berkeley_ponsvermis_s1(contains(berkeley_ponsvermis_s1.ROINAME, 'pons-vermis'), :);
+                        t_berk = this.table_ucberkeleyfdg;
+                        select = t_berk.RID == rid;
+                        assert(islogical(select), stackstr)
+                        berkeley_fdg_s1 = t_berk(select, :);
+
+                        select_m = contains(berkeley_fdg_s1.ROINAME, 'metaroi');
+                        berkeley_metaroi_s1 = berkeley_fdg_s1(select_m, :);
+
+                        select_p = contains(berkeley_fdg_s1.ROINAME, 'pons-vermis');
+                        berkeley_ponsvermis_s1 = berkeley_fdg_s1(select_p, :);
                     catch
-                        % fprintf('%s: table_ucberkeleyfdg(%s) is missing\n', stackstr, sub{1});
-                        % continue
+                        %disp(ME)
+                        berkeley_fdg_s1 = [];
+                        berkeley_metaroi_s1 = [];
+                        berkeley_ponsvermis_s1 = [];
                     end
 
                     try
-                        t_amy = this.table_amyloid;
+                        t_amy = this.table_amyloid; % size(unique(t_amy.RID)) = 1690 
                         select = t_amy.RID == rid;
                         assert(islogical(select), stackstr)
-                        amyloid_s1 = t_amy(select, :); % Incipient BUG ?
+                        amyloid_s1 = t_amy(select, :); 
                     catch ME
-                        disp(ME)
+                        %disp(ME)
                         amyloid_s1 = [];
-                        % fprintf('%s: table_amyloid(%s) is missing\n', stackstr, sub{1}); % too frequent to fprint
-                        % continue
                     end
 
                     try
-                        tau_s1 = this.table_ucsfsntvol(this.table_ucsfsntvol.RID == rid, ':');
-                    catch 
+                        t_ucsf = this.table_ucsfsntvol;
+                        select = t_ucsf.RID == rid;
+                        assert(islogical(select), stackstr)
+                        ucsf_s1 = t_ucsf(select, :);
+                    catch ME
+                        %disp(ME)
+                        ucsf_s1 = [];
                     end
 
                     try
-                        ucsd_hippo_s1 = this.table_ucsdvol(this.table_ucsdvol.RID == rid, ':');
-                        ucsf_hippo_s1 = this.table_ucsfsntvol(this.table_ucsfsntvol.RID == rid, ':');
-                    catch 
+                        t_ucsd = this.table_ucsdvol;
+                        select = t_ucsd.RID == rid;
+                        assert(islogical(select), stackstr)
+                        ucsd_s1 = t_ucsd(select, :);
+                    catch ME
+                        %disp(ME)
+                        ucsd_s1 = [];
                     end
 
                     try
-                        apoe_s1 = this.table_apoe(this.table_apoe.RID == rid, ':');
-                    catch 
+                        t_tau = this.table_tau;
+                        select = t_tau.RID == rid;
+                        assert(islogical(select))
+                        tau_s1 = t_tau(select, :); 
+                    catch ME
+                        %disp(ME)
+                        tau_s1 = [];
                     end
 
                     try
                         t_np = this.table_neuropath;
                         select = t_np.RID == rid;
                         assert(islogical(select))
-                        neuropath_s1 = t_np(select, :); % Incipient BUG ?
-                    catch 
+                        neuropath_s1 = t_np(select, :); 
+                    catch ME
+                        %disp(ME)
+                        neuropath_s1 = [];
+                    end
+
+                    try
+                        t_apoe = this.table_apoe;
+                        select = (t_apoe.RID == rid) & ~isnan(t_apoe.APGEN1) & ~isnan(t_apoe.APGEN2);
+                        assert(islogical(select))
+                        apoe_s1 = t_apoe(select, :); 
+                    catch ME
+                        %disp(ME)
+                        apoe_s1 = [];
                     end
 
                     try
@@ -1414,13 +1454,12 @@ classdef AdniDemographics < handle
                         cdr_s1.EXAMDATE(nats_) = this.registry_EXAMDATE(cdr_s1(nats_,:));
                     catch ME
                         rethrow(ME)
-                        % fprintf('%s: table_cdr(%s) is missing\n', stackstr, sub{1});
-                        % continue
                     end
 
                     try
                         reg_s1 = this.table_registry(this.table_registry.RID == rid, ':');
-                    catch
+                    catch ME
+                        rethrow(ME)
                     end
 
                     %% iterate single subject's t_s1.AcqDate
@@ -1436,8 +1475,8 @@ classdef AdniDemographics < handle
                             
                             sep = this.filenames2sep(t_s1.FdgFilename{acq}, t_s1.T1wFilename{acq});
                             if duration(sep) > duration(this.datetime_separation_tol)
-                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
-                                    'FdgFilename, T1wFilename datetime separation = %s', years(sep)))
+                                error('mladni:datetime_separation_tol_exceeded', ...
+                                    'FdgFilename, T1wFilename datetime separation = %s', years(sep))
                             end
                         catch ME
                             N_skipped_T1w = N_skipped_T1w + 1;
@@ -1457,7 +1496,7 @@ classdef AdniDemographics < handle
                             t_s1(acq, 'MergePtid') = merge_s1(merge_near, 'PTID');
                             t_s1(acq, 'MergeVisCode') = merge_s1(merge_near, 'VISCODE');
                             t_s1(acq, 'MergeSite') = merge_s1(merge_near, 'SITE');
-                            t_s1(acq, 'MergeExamDate') = merge_s1(merge_near, 'EXAMDATE'); % ------- Merge EXAMDATE -------
+                            t_s1(acq, 'MergeExamDate') = merge_s1(merge_near, 'EXAMDATE'); 
                             t_s1(acq, 'MergeDxBl') = merge_s1(merge_near, 'DX_bl');
                             t_s1(acq, 'MergeAge') = merge_s1(merge_near, 'AGE');
                             t_s1(acq, 'MergePtGender') = merge_s1(merge_near, 'PTGENDER');
@@ -1529,221 +1568,211 @@ classdef AdniDemographics < handle
                         end
 
                         try
-                            [sep,berkeley_near] = min(abs(acqdate - berkeley_metaroi_s1.EXAMDATE));
-                            if duration(sep) > duration(this.datetime_separation_tol)
-                                N_skipped_berkeley_metaroi = N_skipped_berkeley_metaroi + 1;                                
-                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
-                                    'berkeley_metaroi_s1 datetime separation = %s', years(sep)))
-                            end
-                            t_s1(acq, 'Metaroi') = berkeley_metaroi_s1(berkeley_near, 'MEAN');   
+                            assert(~isempty(berkeley_fdg_s1), ...
+                                '%s: berkeley_fdg_s1 empty for sub %s acqdate %s', stackstr, sub{1}, acqdate)
 
-                            [sep,berkeley_near] = min(abs(acqdate - berkeley_ponsvermis_s1.EXAMDATE));
-                            if duration(sep) > duration(this.datetime_separation_tol)
-                                N_skipped_berkeley_ponsvermis = N_skipped_berkeley_ponsvermis + 1;
-                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
-                                    'berkeley_ponsvermis_s1 datetime separation = %s years', years(sep)))
-                            end
-                            t_s1(acq, 'PonsVermis') = berkeley_ponsvermis_s1(berkeley_near, 'MEAN');
+                            berkeley_fdg_s1_dt1 = this.find_row_nearest_neigh(berkeley_fdg_s1, acqdate, ...
+                                measure_name="EXAMDATE");
+                            berkeley_metaroi_s1_dt1 = this.find_row_nearest_neigh(berkeley_metaroi_s1, acqdate, ...
+                                measure_name="MEAN");
+                            berkeley_ponsvermis_s1_dt1 = this.find_row_nearest_neigh(berkeley_ponsvermis_s1, acqdate, ...
+                                measure_name="MEAN");
 
-                            t_s1(acq, 'BerkeleyFdgExamDate') = berkeley_fdg_s1(berkeley_near, 'EXAMDATE');
+                            t_s1(acq, 'BerkeleyFdgExamDate') = berkeley_fdg_s1_dt1(1, 'EXAMDATE');
+                            t_s1(acq, 'Metaroi') = berkeley_metaroi_s1_dt1(1, 'MEAN');
+                            t_s1(acq, 'PonsVermis') = berkeley_ponsvermis_s1_dt1(1, 'MEAN');
                         catch ME
-                            if contains(ME.message, 'datetime separation')
-                                disp(ME.message)
-                            end
+                            N_skipped_berkeley_fdg = N_skipped_berkeley_fdg + 1;
+                            this.disp_once(N_skipped_berkeley_fdg, ME.message)
                         end
 
                         try
                             assert(~isempty(amyloid_s1), ...
                                 '%s: amyloid_s1 empty for sub %s acqdate %s', stackstr, sub{1}, acqdate)
-                            [~,amyloid_near] = min(abs(acqdate - amyloid_s1.EXAMDATE));
-                            t_s1(acq, 'AmyloidExamDate') = amyloid_s1(amyloid_near, 'EXAMDATE');
-                            t_s1(acq, 'TRACER') = amyloid_s1(amyloid_near, 'TRACER');
-                            t_s1(acq, 'SUMMARYSUVR_WHOLECEREBNORM') = amyloid_s1(amyloid_near, 'SUMMARYSUVR_WHOLECEREBNORM');
-                            t_s1(acq, 'SUMMARYSUVR_COMPOSITE_REFNORM') = amyloid_s1(amyloid_near, 'SUMMARYSUVR_COMPOSITE_REFNORM');
+
+                            amyloid_s1_dt1 = this.find_row_nearest_neigh(amyloid_s1, acqdate, ...
+                                datetime_separation_tol=years(inf), ...
+                                measure_name="TRACER");
+
+                            t_s1(acq, 'AmyloidExamDate') = amyloid_s1_dt1(1, 'EXAMDATE');
+                            t_s1(acq, 'TRACER') = amyloid_s1_dt1(1, 'TRACER');
+                            t_s1(acq, 'SUMMARYSUVR_WHOLECEREBNORM') = amyloid_s1_dt1(1, 'SUMMARYSUVR_WHOLECEREBNORM');
+                            t_s1(acq, 'SUMMARYSUVR_COMPOSITE_REFNORM') = amyloid_s1_dt1(1, 'SUMMARYSUVR_COMPOSITE_REFNORM');
                             t_s1{acq, 'AmyloidStatusCS'} = this.AmyloidStatusCS(acqdate, amyloid_s1);
                             t_s1{acq, 'AmyloidStatusLong'} = this.AmyloidStatusLong(acqdate, amyloid_s1);
                         catch ME
-                            N_skipped_amyloid = N_skipped_amyloid + 1;
-                            if ~contains(ME.message, 'amyloid_s1 empty for sub')
-                                disp(ME.message)
-                            end
+                            N_skipped_amyloid = N_skipped_amyloid + 1; 
+                            this.disp_once(N_skipped_amyloid, ME.message)
                         end
 
                         try
-                            [sep,tau_near] = min(abs(acqdate - tau_s1.EXAMDATE));
-                            if duration(sep) > duration(this.datetime_separation_tol)
-                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
-                                    'tau_s1 datetime separation = %s', years(sep)))
-                            end
-                            t_s1(acq, 'TauExamDate') = tau_s1(tau_near, 'EXAMDATE');
-                            t_s1(acq, 'META_TEMPORAL_SUVR') = tau_s1(tau_near, 'META_TEMPORAL_SUVR');
-                            t_s1(acq, 'BRAAK1_SUVR') = tau_s1(tau_near, 'BRAAK1_SUVR');
-                            t_s1(acq, 'BRAAK34_SUVR') = tau_s1(tau_near, 'BRAAK34_SUVR');
-                            t_s1(acq, 'BRAAK56_SUVR') = tau_s1(tau_near, 'BRAAK56_SUVR');
-                            t_s1(acq, 'META_TEMPORAL_VOLUME') = tau_s1(tau_near, 'META_TEMPORAL_VOLUME');
-                            t_s1(acq, 'BRAAK1_VOLUME') = tau_s1(tau_near, 'BRAAK1_VOLUME');
-                            t_s1(acq, 'BRAAK34_VOLUME') = tau_s1(tau_near, 'BRAAK34_VOLUME');
-                            t_s1(acq, 'BRAAK56_VOLUME') = tau_s1(tau_near, 'BRAAK56_VOLUME');
-                        catch 
-                            % BRAAK staging is post-mortem, so tau_s1 is mostly empty
-                        end
+                            assert(~isempty(ucsf_s1), ...
+                                '%s: ucsf_s1 empty for sub %s acqdate %s', stackstr, sub{1}, acqdate)
 
-                        try
-                            [sep,ucsd_near] = min(abs(acqdate - ucsd_hippo_s1.EXAMDATE));
-                            if duration(sep) > duration(this.datetime_separation_tol)
-                                N_skipped_ucsd_hippo = N_skipped_ucsd_hippo + 1;
-                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
-                                    'ucsd_hippo_s1 datetime separation = %s', years(sep)))
-                            end
-                            t_s1(acq, 'UcsdExamDate') = ucsd_hippo_s1(ucsd_near, 'EXAMDATE');
-                            t_s1(acq, 'UcsdLHippo') = ucsd_hippo_s1(ucsd_near, 'LHIPPOC');
-                            t_s1(acq, 'UcsdRHippo') = ucsd_hippo_s1(ucsd_near, 'RHIPPOC');
+                            ucsf_s1_dt1 = this.find_row_nearest_neigh(ucsf_s1, acqdate, ...
+                                measure_name="LEFTHIPPO");
+
+                            t_s1(acq, 'UcsfExamDate') = ucsf_s1_dt1(1, 'EXAMDATE');
+                            t_s1(acq, 'UcsfLHippo') = ucsf_s1_dt1(1, 'LEFTHIPPO');
+                            t_s1(acq, 'UcsfRHippo') = ucsf_s1_dt1(1, 'RIGHTHIPPO');
                         catch ME
-                            %if contains(ME.message, 'datetime separation')
-                            %    disp(ME.message)
-                            %end
+                            N_skipped_ucsf_hippo = N_skipped_ucsf_hippo + 1;
+                            this.disp_once(N_skipped_ucsf_hippo, ME.message)
                         end
 
                         try
-                            [sep,ucsf_near] = min(abs(acqdate - ucsf_hippo_s1.EXAMDATE));
-                            if duration(sep) > duration(this.datetime_separation_tol)
-                                N_skipped_ucsf_hippo = N_skipped_ucsf_hippo + 1;
-                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
-                                    'ucsf_hippo_s1 datetime separation = %s', years(sep)))
-                            end
-                            t_s1(acq, 'UcsfExamDate') = ucsf_hippo_s1(ucsf_near, 'EXAMDATE');
-                            t_s1(acq, 'UcsfLHippo') = ucsf_hippo_s1(ucsf_near, 'LEFTHIPPO');
-                            t_s1(acq, 'UcsfRHippo') = ucsf_hippo_s1(ucsf_near, 'RIGHTHIPPO');
+                            assert(~isempty(ucsd_s1), ...
+                                '%s: ucsd_s1 empty for sub %s acqdate %s', stackstr, sub{1}, acqdate)
+
+                            ucsd_s1_dt1 = this.find_row_nearest_neigh(ucsd_s1, acqdate, ...
+                                measure_name="LHIPPOC");
+
+                            t_s1(acq, 'UcsdExamDate') = ucsd_s1_dt1(1, 'EXAMDATE');
+                            t_s1(acq, 'UcsdLHippo') = ucsd_s1_dt1(1, 'LHIPPOC');
+                            t_s1(acq, 'UcsdRHippo') = ucsd_s1_dt1(1, 'RHIPPOC');
                         catch ME
-                            %if contains(ME.message, 'datetime separation')
-                            %    disp(ME.message)
-                            %end
+                            N_skipped_ucsd_hippo = N_skipped_ucsd_hippo + 1;
+                            this.disp_once(N_skipped_ucsd_hippo, ME.message)
                         end
 
                         try
-                            [~,apoe_near] = min(abs(acqdate - apoe_s1.APTESTDT));
-                            t_s1(acq, 'ApTestDt') = apoe_s1(apoe_near, 'APTESTDT');
-                            t_s1(acq, 'ApGen1') = apoe_s1(apoe_near, 'APGEN1');
-                            t_s1(acq, 'ApGen2') = apoe_s1(apoe_near, 'APGEN2');
-                            ApoE2 = (apoe_s1{apoe_near, 'APGEN1'} == 2) + ...
-                                (apoe_s1{apoe_near, 'APGEN2'} == 2);
-                            t_s1(acq, 'ApoE2') = table(ApoE2);
-                        catch ME
-                            %if contains(ME.message, 'datetime separation')
-                            %    disp(ME.message)
-                            %end
+                            assert(~isempty(tau_s1), ...
+                                '%s: tau_s1 empty for sub %s acqdate %s', stackstr, sub{1}, acqdate)
+
+                            % no datetimes needed for post-mortem data
+                            t_s1(acq, 'TauExamDate') = tau_s1(1, 'EXAMDATE');
+                            t_s1(acq, 'META_TEMPORAL_SUVR') = tau_s1(1, 'META_TEMPORAL_SUVR');
+                            t_s1(acq, 'BRAAK1_SUVR') = tau_s1(1, 'BRAAK1_SUVR');
+                            t_s1(acq, 'BRAAK34_SUVR') = tau_s1(1, 'BRAAK34_SUVR');
+                            t_s1(acq, 'BRAAK56_SUVR') = tau_s1(1, 'BRAAK56_SUVR');
+                            t_s1(acq, 'META_TEMPORAL_VOLUME') = tau_s1(1, 'META_TEMPORAL_VOLUME');
+                            t_s1(acq, 'BRAAK1_VOLUME') = tau_s1(1, 'BRAAK1_VOLUME');
+                            t_s1(acq, 'BRAAK34_VOLUME') = tau_s1(1, 'BRAAK34_VOLUME');
+                            t_s1(acq, 'BRAAK56_VOLUME') = tau_s1(1, 'BRAAK56_VOLUME');
+                        catch
+                            % post-mortem data is mostly empty
                         end
 
                         try
+                            assert(~isempty(neuropath_s1), ...
+                                '%s: neuropath_s1 empty for sub %s acqdate %s', stackstr, sub{1}, acqdate)
+                            
+                            % no datetimes needed for post-mortem data
                             t_s1(acq, 'NpBraak') = neuropath_s1(1, 'NPBRAAK');
-                        catch 
-                            % BRAAK staging is post-mortem, so neuropath_s1 is mostly empty
+                        catch
+                            % post-mortem data is mostly empty
                         end
 
                         try
-                            % find rows of cdr_s1, sorted by nearest-neighbors by time
-                            cdr_s1 = addvars(cdr_s1, abs(days(acqdate - cdr_s1.EXAMDATE)), ...
-                                NewVariableNames="SeparationDays");
-                            cdr_s1 = sortrows(cdr_s1, "SeparationDays");
-                            cdr_near = 1;
-                            sep = cdr_s1.SeparationDays(1);
+                            % no datetimes needed for genetics
+                            assert(~isempty(apoe_s1))
+                            t_s1(acq, 'ApTestDt') = apoe_s1(1, 'APTESTDT');
+                            t_s1(acq, 'ApGen1') = apoe_s1(1, 'APGEN1');
+                            t_s1(acq, 'ApGen2') = apoe_s1(1, 'APGEN2');
 
-                            % ensure valid CDGLOBAL
-                            while isnan(cdr_s1.CDGLOBAL(cdr_near))
-                                cdr_near = cdr_near + 1;
-                                sep = cdr_s1.SeparationDays(cdr_near); % throws ME when nothing found
-                            end
+                            % convenience summaries; compare to MergeApoE4
+                            ApoE2 = (apoe_s1{1, 'APGEN1'} == 2) + (apoe_s1{1, 'APGEN2'} == 2);
+                            ApoE3 = (apoe_s1{1, 'APGEN1'} == 3) + (apoe_s1{1, 'APGEN2'} == 3);
+                            ApoE4 = (apoe_s1{1, 'APGEN1'} == 4) + (apoe_s1{1, 'APGEN2'} == 4);
+                            t_s1(acq, 'ApoE2') = table(ApoE2);
+                            t_s1(acq, 'ApoE3') = table(ApoE3);
+                            t_s1(acq, 'ApoE4') = table(ApoE4);
+                        catch ME
+                            N_skipped_apoe = N_skipped_apoe + 1;
+                            this.disp_once(N_skipped_apoe, ME.message)
+                        end
 
-                            % ensure datetime tolerance
-                            if days(sep) > duration(this.datetime_separation_tol)
-                                N_skipped_cdr = N_skipped_cdr + 1;
-                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
-                                    'cdr_s1 datetime separation = %s', days(sep)))
-                            end
+                        try
+                            cdr_s1_dt1 = this.find_row_nearest_neigh(cdr_s1, acqdate);
 
-                            % remove SeparationDays so as not to collide with other acq. dates
-                            cdr_s1 = removevars(cdr_s1, "SeparationDays");
-
-                            t_s1(acq, 'Phase') = cdr_s1(cdr_near, 'Phase');
-                            t_s1(acq, 'RID') = cdr_s1(cdr_near, 'RID');
-                            t_s1(acq, 'SITEID') = cdr_s1(cdr_near, 'SITEID'); 
-                            t_s1(acq, 'VISCODE') = cdr_s1{cdr_near, 'VISCODE'};
-                            t_s1(acq, 'CDCARE') = cdr_s1(cdr_near, 'CDCARE');
-                            t_s1(acq, 'CDCOMMUN') = cdr_s1(cdr_near, 'CDCOMMUN');
-                            t_s1(acq, 'CDDATE') = cdr_s1(cdr_near, 'CDDATE');
-                            t_s1(acq, 'CDHOME') = cdr_s1(cdr_near, 'CDHOME');
-                            t_s1(acq, 'CDJUDGE') = cdr_s1(cdr_near, 'CDJUDGE');
-                            t_s1(acq, 'CDMEMORY') = cdr_s1(cdr_near, 'CDMEMORY');
-                            t_s1(acq, 'CDORIENT') = cdr_s1(cdr_near, 'CDORIENT');
-                            t_s1(acq, 'CDSOURCE') = cdr_s1(cdr_near, 'CDSOURCE');
-                            t_s1(acq, 'CDVERSION') = cdr_s1(cdr_near, 'CDVERSION');
-                            t_s1(acq, 'CDGLOBAL') = cdr_s1(cdr_near, 'CDGLOBAL');  
-                            t_s1{acq, 'CDEXAMDATE'} = cdr_s1{cdr_near, 'EXAMDATE'}; 
-                            t_s1{acq, 'CDUSERDATE'} = cdr_s1{cdr_near, 'USERDATE'}; 
-                            t_s1{acq, 'CDUSERDATE2'} = cdr_s1{cdr_near, 'USERDATE2'}; 
-                            t_s1(acq, 'CDRSB') = cdr_s1(cdr_near, 'CDRSB'); 
+                            t_s1{acq, 'CDPhase'} = cdr_s1_dt1{1, 'Phase'}; % array <- scalar
+                            t_s1(acq, 'CDRID') = cdr_s1_dt1(1, 'RID');
+                            t_s1(acq, 'CDSITEID') = cdr_s1_dt1(1, 'SITEID'); 
+                            t_s1{acq, 'CDVISCODE'} = cdr_s1_dt1{1, 'VISCODE'};
+                            t_s1(acq, 'CDCARE') = cdr_s1_dt1(1, 'CDCARE');
+                            t_s1(acq, 'CDCOMMUN') = cdr_s1_dt1(1, 'CDCOMMUN');
+                            t_s1(acq, 'CDDATE') = cdr_s1_dt1(1, 'CDDATE');
+                            t_s1(acq, 'CDHOME') = cdr_s1_dt1(1, 'CDHOME');
+                            t_s1(acq, 'CDJUDGE') = cdr_s1_dt1(1, 'CDJUDGE');
+                            t_s1(acq, 'CDMEMORY') = cdr_s1_dt1(1, 'CDMEMORY');
+                            t_s1(acq, 'CDORIENT') = cdr_s1_dt1(1, 'CDORIENT');
+                            t_s1(acq, 'CDSOURCE') = cdr_s1_dt1(1, 'CDSOURCE');
+                            t_s1(acq, 'CDVERSION') = cdr_s1_dt1(1, 'CDVERSION');
+                            t_s1(acq, 'CDGLOBAL') = cdr_s1_dt1(1, 'CDGLOBAL');  
+                            t_s1(acq, 'CDEXAMDATE') = cdr_s1_dt1(1, 'EXAMDATE'); 
+                            t_s1(acq, 'CDUSERDATE') = cdr_s1_dt1(1, 'USERDATE'); 
+                            t_s1(acq, 'CDUSERDATE2') = cdr_s1_dt1(1, 'USERDATE2'); 
+                            t_s1(acq, 'CDRSB') = cdr_s1_dt1(1, 'CDRSB'); 
                         catch ME
                             N_skipped_cdr = N_skipped_cdr + 1;
                             disp(ME.message)
                         end
 
                         try
-                            [sep,reg_near] = min(abs(acqdate - reg_s1.EXAMDATE));
-                            if duration(sep) > duration(this.datetime_separation_tol)
-                                N_skipped_reg = N_skipped_reg + 1;
-                                throw(MException('mladni:datetime_separation_tol_exceeded', ...
-                                    'reg_s1 datetime separation = %s years', years(sep)))
-                            end
-                            t_s1(acq, 'RegistryExamDate') = reg_s1(reg_near, 'EXAMDATE');
-                            if istext(reg_s1(reg_near, 'RGOTHSPE'))
-                                t_s1(acq, 'RegistryOtherSpecify') = reg_s1(reg_near, 'RGOTHSPE');
+                            reg_s1_dt1 = this.find_row_nearest_neigh(reg_s1, acqdate, ...
+                                datetime_separation_tol=years(inf), measure_name="EXAMDATE");
+
+                            t_s1(acq, 'RegistryExamDate') = reg_s1_dt1(1, 'EXAMDATE');
+                            if istext(reg_s1_dt1(1, 'RGOTHSPE'))
+                                t_s1(acq, 'RegistryOtherSpecify') = reg_s1(1, 'RGOTHSPE');
                             end
                         catch ME
-                            if contains(ME.message, 'datetime separation')
-                                disp(ME.message)
-                            end
+                            N_skipped_reg = N_skipped_reg + 1;
+                            disp(ME.message)
                         end
                     end
                     
                     t(strcmp(t.Subject, sub{1}), :) = t_s1;
                 catch ME
                     rethrow(ME)
-                    %handwarning(ME)
                 end
             end
 
             fprintf('%s: N_skipped_T1w = %g\n', stackstr, N_skipped_T1w)
             fprintf('%s: N_skipped_merge = %g\n', stackstr, N_skipped_merge)
-            fprintf('%s: N_skipped_berkeley_metaroi = %g\n', stackstr, N_skipped_berkeley_metaroi)
-            fprintf('%s: N_skipped_berkeley_ponsvermis = %g\n', stackstr, N_skipped_berkeley_ponsvermis)
-            fprintf('%s: N_skipped_ucsd_hippo = %g\n', stackstr, N_skipped_ucsd_hippo)
-            fprintf('%s: N_skipped_ucsf_hippo = %g\n', stackstr, N_skipped_ucsf_hippo)
-            fprintf('%s: N_skipped_apoe = %g\n', stackstr, N_skipped_apoe)
+            fprintf('%s: N_skipped_berkeley_fdg = %g\n', stackstr, N_skipped_berkeley_fdg)
             fprintf('%s: N_skipped_amyloid = %g\n', stackstr, N_skipped_amyloid)
+            fprintf('%s: N_skipped_ucsf_hippo = %g\n', stackstr, N_skipped_ucsf_hippo)
+            fprintf('%s: N_skipped_ucsd_hippo = %g\n', stackstr, N_skipped_ucsd_hippo)
+            fprintf('%s: N_skipped_apoe = %g\n', stackstr, N_skipped_apoe)
             fprintf('%s: N_skipped_cdr = %g\n', stackstr, N_skipped_cdr)
             fprintf('%s: N_skipped_reg = %g\n', stackstr, N_skipped_reg)
+        end
+        function disp_once(~, N, message)
+            if N == 1
+                disp(message)
+                fprintf("%s:  hereafter suppressed\n", stackstr(3))
+            end
         end
         function T1 = find_row_nearest_neigh(this, T, target_datetime, opts)
             %% Find row of submitted table containing data that is nearest to the specified target datetime. 
             %  Search table rows using table's examdate variable.  If the measurement variable's value is not valid,
             %  search for a valid variable value.  Ensure that found entities are consistent with the class' 
             %  datetime tolerance. Throws exceptions with messages containing "find_row_nearest_neigh".
+            % 
+            %  Args:
+            %    T table % for single subject
+            %    target_datetime datetime % typically imaging acq. date
+            %    opts.datetime_separation_tol duration = this.datetime_separation_tol % may be usefully waived in some circumstances
+            %    opts.examdate_name {mustBeTextScalar} = "EXAMDATE" % must be found in T
+            %    opts.measure_name {mustBeTextScalar} = "CDGLOBAL" % must be found in T            
 
             arguments
                 this mladni.AdniDemographics
                 T table % for single subject
                 target_datetime datetime % typically imaging acq. date
+                opts.datetime_separation_tol duration = this.datetime_separation_tol % may be usefully waived in some circumstances
                 opts.examdate_name {mustBeTextScalar} = "EXAMDATE" % must be found in T
                 opts.measure_name {mustBeTextScalar} = "CDGLOBAL" % must be found in T
             end
-            T_vars = Properties.VariableNames;
+            T_vars = T.Properties.VariableNames;
             assert(any(contains(T_vars, opts.examdate_name)), ...
                 "%s: submitted tablew is missing %s", stackstr(), opts.examdate_name)
             assert(any(contains(T_vars, opts.measure_name)), ...
                 "%s: submitted tablew is missing %s", stackstr(), opts.measure_name)
 
             % find rows of T, sorted by nearest neighbors by time
-            T = addvars(T, abs(days(target_datetime - T.EXAMDATE)), ...
+            T = addvars(T, abs(days(target_datetime - T.(opts.examdate_name))), ...
                 NewVariableNames="SepInDays");
             T = sortrows(T, "SepInDays"); % ascending datetimes
             idx_near = 1;
@@ -1753,17 +1782,17 @@ classdef AdniDemographics < handle
             try
                 switch class(T.(opts.measure_name))
                     case "datetime"
-                        while isnat(T.(ops.measure_name)(idx_near))
+                        while isnat(T.(opts.measure_name)(idx_near))
                             idx_near = idx_near + 1;
                             sep_days = T.SepInDays(idx_near);
                         end
                     case "double"
-                        while isnan(T.(ops.measure_name)(idx_near))
+                        while isnan(T.(opts.measure_name)(idx_near))
                             idx_near = idx_near + 1;
                             sep_days = T.SepInDays(idx_near);
                         end
                     case "cell"
-                        while isempty(T.(ops.measure_name){idx_near})
+                        while isempty(T.(opts.measure_name){idx_near})
                             idx_near = idx_near + 1;
                             sep_days = T.SepInDays(idx_near);
                         end
@@ -1779,7 +1808,7 @@ classdef AdniDemographics < handle
             end
 
             % ensure datetime tolerance
-            if days(sep_days) > duration(this.datetime_separation_tol)                
+            if days(sep_days) > duration(opts.datetime_separation_tol)                
                 error("mladni:datetime_separation_tol_exceeded", ...
                     "%s: %s had datetime separation ~ %s", stackstr(), opts.measure_name, days(sep_days))
             end
@@ -1853,7 +1882,9 @@ classdef AdniDemographics < handle
                     continue
                 end
                 trial = sort(trial);
-                if abs(trial(end) - trial(1)) > this.datetime_separation_tol
+                if days(abs(trial(end) - trial(1))) > duration(this.datetime_separation_tol)
+                    warning("mladni:ValueWarning", ...
+                        "%s: separation of degenerate EXAMDATEs ~ %s", stackstr(), days(abs(trial(end) - trial(1))))
                     continue
                 else
                     middle = floor((length(trial)+1)/2);

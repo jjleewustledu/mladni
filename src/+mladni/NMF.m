@@ -632,7 +632,7 @@
         function evaluateRepeatedReproducibility(subgroup, N, K, saveGcf)
             arguments
                 subgroup {mustBeTextScalar} = 'cn'
-                N double {mustBeInteger} = 20 % # repetitions
+                N double {mustBeInteger} = 50 % # repetitions
                 K double {mustBeInteger} = 20 % # bases checked by VolBin/*
                 saveGcf logical = true
             end
@@ -640,9 +640,8 @@
             home = fullfile(getenv('ADNI_HOME'), 'NMF_FDG');
             subgroups = { ...
                 'cn', 'preclinical', ...
-                'cdr_0p5_aneg_emci', 'cdr_0p5_aneg_mci', 'cdr_0p5_aneg_lmci', ...
-                'cdr_0p5_apos_emci', 'cdr_0p5_apos_mci', 'cdr_0p5_apos_lmci', ...
-                'cdr_gt_0p5_aneg', 'cdr_gt_0p5_apos'};
+                'cdr_0p5_apos', ...
+                'cdr_ge_0p5_aneg', 'cdr_gt_0p5_apos'};
             assert(any(strcmp(subgroup, subgroups)));
             
             outputDir_ = fullfile(home, sprintf('baseline_%s', subgroup));
@@ -723,7 +722,7 @@
         function evaluateRepeatedReproducibility2(subgroup, N, K, saveGcf, opts)
             arguments
                 subgroup {mustBeTextScalar} = 'cn'
-                N double {mustBeInteger} = 20 % # repetitions
+                N double {mustBeInteger} = 50 % # repetitions
                 K double {mustBeInteger} = 20 % # bases checked by VolBin/*
                 saveGcf logical = true
                 opts.fracx double = 0.5
@@ -737,9 +736,8 @@
             home = fullfile(getenv('ADNI_HOME'), 'NMF_FDG');
             subgroups = { ...
                 'cn', 'preclinical', ...
-                'cdr_0p5_aneg_emci', 'cdr_0p5_aneg_mci', 'cdr_0p5_aneg_lmci', ...
-                'cdr_0p5_apos_emci', 'cdr_0p5_apos_mci', 'cdr_0p5_apos_lmci', ...
-                'cdr_gt_0p5_aneg', 'cdr_gt_0p5_apos'};
+                'cdr_0p5_apos', ...
+                'cdr_ge_0p5_aneg', 'cdr_gt_0p5_apos'};
             assert(any(strcmp(subgroup, subgroups)));
             
             outputDir_ = fullfile(home, sprintf('baseline_%s', subgroup));
@@ -1274,18 +1272,20 @@
             param.numBase = this.selectedNumBases;
             param.componentDir = componentDir;
 
-            if isfile(this.Xmat)
-                load(this.Xmat);
-            else
+            %if isfile(this.Xmat)
+            %    load(this.Xmat);
+            %else
                 data = this.loadData(this.inFiles,param,[]);
                 meanX = mean(data.X,2);
                 X = data.X(meanX>0,:); 
                 clear data;
                 save(this.Xmat, 'X', 'meanX');
-            end
+            %end
             resultsDir = fullfile(this.outputDir, 'results');
             ensuredir(resultsDir);
             this.calcRecError(X, this.outputDir, resultsDir, meanX>0);
+
+            return
 
             this.calculateComponentWeightedAverageNIFTI( ...
                 this.inFiles, this.outputDir, this.selectedNumBases, fullfile(componentDir, 'component_weighted_average.csv'));
@@ -1315,15 +1315,15 @@
             param.numBase = this.selectedNumBases;
 
             % cache file
-            if isfile(this.X2mat)
-                load(this.X2mat);
-            else
+            %if isfile(this.X2mat)
+            %    load(this.X2mat);
+            %else
                 data = this.loadData(this.inFiles,param,[]);
                 meanX = mean(data.X,2);
                 X = data.X(meanX>0,:); 
                 clear data;
                 save(this.X2mat, 'X', 'meanX');
-            end
+            %end
 
             componentDir = fullfile(this.outputDir, sprintf('NumBases%i', param.numBase), 'components');
             ensuredir(componentDir);

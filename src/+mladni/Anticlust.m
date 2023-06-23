@@ -32,11 +32,7 @@ classdef Anticlust < handle
                 'cn', 'preclinical', ...
                 'cdr_0p5_apos_emci', 'cdr_0p5_apos_lmci', 'cdr_0p5_apos_mci', 'cdr_gt_0p5_apos'}
         subgroups = { ...
-                'cdr_0p5_aneg_emci', 'cdr_0p5_aneg_lmci', ...
-                'cdr_0p5_apos_emci', 'cdr_0p5_apos_lmci', ...
-                'cdr_0p5_aneg', 'cdr_0p5_apos', 'cdr_0p5_anan'}
-                % 'cn', 'preclinical', ...
-                % 'cdr_gt_0p5_apos'}
+            'cn', 'preclinical', 'cdr_0p5_apos', 'cdr_gt_0p5_apos', 'cdr_ge_0p5_aneg'}
 
     end
 
@@ -95,43 +91,18 @@ classdef Anticlust < handle
             end
         end
         function prepare_folders_for_VolBin()
-            subgroups = mladni.Anticlust.subgroups;
-            %subgroups0 = mladni.Anticlust.subgroups0;
-            cd(fullfile(getenv('ADNI_HOME'), 'NMF_FDG'))
- 
-            for sg = subgroups
-                src_csv = fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', ...
-                    sprintf('table_%s.csv', sg{1}));
-                targ = sprintf('baseline_%s', sg{1});
-                ensuredir(targ);
-                
-                T = readtable(src_csv, ReadVariableNames=true, Delimiter=',');
-                idxs = ~cellfun(@isempty, T.Filename);
-                T = T(idxs,:);
-                mladni.Anticlust.table_Filename_strrep(T, fullfile(targ, 'nifti_files.csv'));
-            end
+            %% First run "anticlust_cn_repeat.R" created 20230526, modified 20230612
 
-            for sg = subgroups
-                for rep = 'AB'
-                    for idx = 1:20
-                        src_csv = fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', ...
-                            sprintf('table_%s_rep%s%i.csv', sg{1}, rep, idx));
-                        targ = sprintf('baseline_%s_rep%s%i', sg{1}, rep, idx);
-                        ensuredir(targ);
-                        
-                        T = readtable(src_csv, ReadVariableNames=false, Delimiter=',');
-                        try
-                            v = T.Properties.VariableNames{1};
-                        catch ME
-                            handwarning(ME)
-                            v = 'Var1';
-                        end
-                        idxs = ~cellfun(@isempty, T.(v));
-                        T = T(idxs,:);
-                        mladni.Anticlust.table_Filename_strrep(T, fullfile(targ, 'nifti_files.csv'));
-                    end
-                end                
+            pwd0 = pushd(fullfile(getenv("ADNI_HOME"), "bids", "derivatives"));
+            g = glob("table_cn_rep*.csv");
+            assert(length(g) == 100)
+            for g1 = g'
+                re = regexp(g1{1}, "table_cn_(?<rep>rep(A|B)\d+).csv", "names");
+                fold = fullfile(getenv("ADNI_HOME"), "NMF_FDG", sprintf("baseline_cn_%s", re.rep));
+                mkdir(fold);
+                movefile(g1{1}, fullfile(fold, "nifti_files.csv"));
             end
+            popd(pwd0);
         end
         function T = table_Filename_strrep(T, filename, str1, str2)
             %% TABLE_FILENAME_STRREP
