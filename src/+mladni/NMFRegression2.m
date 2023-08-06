@@ -1,5 +1,7 @@
 classdef NMFRegression2 < handle
-    %% Accomodating Aris' preferences for regressions from 2022/09/29.
+    %% DEPRECATED: prefer using NMFCovariates and $ADNI_HOME/NMF_FDG/patterns_of_neurodegeneration_*.Rmd
+    %
+    %  Accomodating Aris' preferences for regressions from 2022/09/29.
     %  GAMS implemented with R package mgcv RRID:SCR_001905 as described in
     %  Pehlivanova, M., Wolf, D.H., Sotiras, A., Kaczkurkin, A.N., Moore, T.M., Ciric, R., Cook, P.A., 
     %  Garza, A.G. de L., Rosen, A.F.G., Ruparel, K., Sharma, A., Shinohara, R.T., Roalf, D.R., Gur, R.C., 
@@ -25,7 +27,7 @@ classdef NMFRegression2 < handle
         function this = NMFRegression2()
             this.workdir = '/Volumes/PrecunealSSD/Singularity/ADNI/NMF_FDG/baseline4/NumBases28/components';
             cd(this.workdir);
-            ld = load('mladni_FDGDemographics_table_covariates.mat');
+            ld = load('mladni_NMFCovariates_table_covariates_cross-sectional.mat');
             this.table_covariates = ld.t;
             this.table_covariates = this.table_covariates(this.table_covariates.CDGLOBAL ~= -1, :);
             writetable(this.table_covariates, 'mladni_NMFRegression2_table_covariates.csv');

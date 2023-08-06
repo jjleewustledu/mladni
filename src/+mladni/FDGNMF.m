@@ -1,10 +1,20 @@
 classdef FDGNMF < handle & mladni.NMF
-    %% Contains simple utilities for creating & adjustinng filenames, including BIDS filenames.
+    %% 
     %  
     %  Created 23-Jun-2022 13:18:55 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
-    %  Developed on Matlab 9.10.0.1851785 (R2021a) Update 6 for MACI64.  Copyright 2022 John J. Lee.
+    %  Developed on Matlab 9.10.0.1851785 (R2021a) Update 6 for MACI64.  Copyright 2022 John J. Lee.    
     
+    methods
+        function this = FDGNMF(varargin)
+            this = this@mladni.NMF(varargin{:});            
+        end
+    end
+
     methods (Static)
+
+        %% DEPRECATED
+        %  Simple utilities for creating & adjustinng filenames, including BIDS filenames.
+
         function create_baseline_csv(fin, fout, varargin) 
             %% creates csvs of filenames for baseline* nmf datasets
 
@@ -114,16 +124,6 @@ classdef FDGNMF < handle & mladni.NMF
                 c = [c; fullfile(pth, fn)];
             end
             writetable(table(c), ipr.fout, 'WriteVariableNames', false);
-        end
-    end
-    
-    methods
-        function this = FDGNMF(varargin)
-            %% FDGNMF 
-            %  Args:
-            %      arg1 (its_class): Description of arg1.
-            
-            this = this@mladni.NMF(varargin{:});            
         end
     end
     

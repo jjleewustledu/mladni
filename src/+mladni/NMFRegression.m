@@ -58,6 +58,7 @@
         niiImgDir
         numBasesDir
         standardDir
+        study_design
         table1pp % for paper (table 1)++
         table_covariates
         table_covariates_mat
@@ -101,6 +102,9 @@
         end
         function g = get.standardDir(~)
             g = fullfile(getenv('FSLDIR'), 'data', 'standard');
+        end
+        function g = get.study_design(this)
+            g = this.study_design_;
         end
         function g = get.table1pp(this)
             if ~isempty(this.table1pp_)
@@ -158,8 +162,8 @@
             end
             % find .csv
             if isfile(this.component_weighted_average_csv)                
-                fdg = mladni.FDGDemographics();
-                this.table_covariates_ = fdg.table_covariates('component_weighted_average.csv');
+                nmf_cov = mladni.NMFCovariates();
+                this.table_covariates_ = nmf_cov.table_covariates(this.component_weighted_average_csv);
                 g = this.table_covariates_;
                 return
             end
@@ -167,7 +171,7 @@
                 'NMFRegression.get.table_covariates could not find dataframes')
         end
         function g = get.table_covariates_mat(this)
-            g = fullfile(this.componentDir, 'mladni_FDGDemographics_table_covariates.mat');
+            g = fullfile(this.componentDir, sprintf('NMFCovariates_table_covariates_%s.mat', this.study_design));
         end
         function g = get.table_features(this)
             t = this.table_selected;
@@ -796,6 +800,7 @@
             addParameter(ip, "selected_covariates", this.SELECTED_COVARIATES, @iscell);
             addParameter(ip, "response", "", @istext);
             addParameter(ip, "reuse_mdl", true, @islogical);
+            addParameter(ip, "study_design", "cross-sectional", @istext)
             parse(ip, varargin{:});
             ipr = ip.Results;
             this.componentDir = ipr.componentDir;
@@ -811,6 +816,7 @@
                 this.response = this.selected_covariates{end};
             end
             this.reuse_mdl = ipr.reuse_mdl;
+            this.study_design_ = ipr.study_design;
         end
     end
 
@@ -861,24 +867,24 @@
             end
 
             if isempty(amy_status)
-                ld = load('mladni_FDGDemographics_table_covariates.mat');
+                ld = load('NMFCovariates_table_covariates.mat');
                 t = ld.t;
                 amy_stat = '';
                 amy_stat_ = '';
             else
                 if isnan(amy_status)
-                    ld = load('mladni_FDGDemographics_table_covariates_amy_na.mat');
+                    ld = load('NMFCovariates_table_covariates_amy_na.mat');
                     t = ld.amy_na;
                     amy_stat = 'Amyloid n/a';
                     amy_stat_ = 'amy_na';
                 else
                     if logical(amy_status)
-                        ld = load('mladni_FDGDemographics_table_covariates_amy_true.mat');
+                        ld = load('NMFCovariates_table_covariates_amy_true.mat');
                         t = ld.amy_true;
                         amy_stat = 'Amyloid pos';
                         amy_stat_ = 'amy_true';
                     else
-                        ld = load('mladni_FDGDemographics_table_covariates_amy_false.mat');
+                        ld = load('NMFCovariates_table_covariates_amy_false.mat');
                         t = ld.amy_false;
                         amy_stat = 'Amyloid neg';
                         amy_stat_ = 'amy_false';
@@ -1111,6 +1117,7 @@
         mdl_bi_
         mdl_cv_
         mdl_uni_
+        study_design_
         table1pp_
         table_covariates_
         table_selected_

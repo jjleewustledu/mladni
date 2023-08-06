@@ -357,7 +357,7 @@ classdef AdniMerge < handle
             t_fbb = readtable(this.fbb_file);
             t_fbb.TRACER = repmat({'fbb'}, [size(t_fbb,1) 1]);
 
-            % reduce tables according to study design
+            % reduce tables according to study study_design
             switch this.study_design
                 case 'longitudinal'
                     t_av45.AmyloidStatus = double(t_av45{:, 'SUMMARYSUVR_COMPOSITE_REFNORM'} >= 0.78);
@@ -543,7 +543,7 @@ classdef AdniMerge < handle
             t_av1451 = this.table_ucberkeleyav1451;
             t = t_av1451(:, vars);
 
-            % adjust tables according to study design
+            % adjust tables according to study study_design
             switch this.study_design
                 case 'cross-sectional'
                     norm = t_av1451.INFERIOR_CEREBGM_SUVR;
@@ -602,20 +602,20 @@ classdef AdniMerge < handle
             v = this.merge_.Properties.VariableNames;
         end
 
-        function this = AdniMerge(home, design, opts)
+        function this = AdniMerge(home, study_design, opts)
             arguments
                 home {mustBeFolder} = pwd
-                design {mustBeTextScalar} = 'longitudinal'
+                study_design {mustBeTextScalar} = "longitudinal"
                 opts.reuse_cache logical = false
             end
             this.home = home;
-            this.study_design = design;
+            this.study_design = convertStringsToChars(study_design);
             this.reuse_cache = opts.reuse_cache;
             
             cd(this.home)
             this.merge_ = readtable(this.merge_file);
             dict_full_ = readtable(this.dict_file);
-            this.dict_ = table(dict_full_.FLDNAME, dict_full_.TEXT, 'VariableNames', {'field', 'description'});
+            this.dict_ = table(dict_full_.FLDNAME, dict_full_.TEXT, VariableNames=["field", "description"]);
             this.subjects_ = unique(this.merge_.RID);            
         end
     end

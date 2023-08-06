@@ -166,7 +166,7 @@ classdef Test_NMFRegression < matlab.unittest.TestCase
         end
         function test_regressionLearner(this)
             this.testObj_.regressionLearner();
-            this.verifyClass(this.testObj.table_covariates, 'table');p,
+            this.verifyClass(this.testObj.table_covariates, 'table');
         end
         function test_table_covariates(this)
             head(this.testObj.table_covariates)

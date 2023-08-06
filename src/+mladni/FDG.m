@@ -1734,9 +1734,9 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 return
             end
             if isempty(this.demog_)
-                this.demog_ = mladni.FDGDemographics();
+                this.demog_ = mladni.AdniDemographics();
             end
-            this.table_fdg1_ = this.demog_.adni_demographics.table_fdg1();
+            this.table_fdg1_ = this.demog_.table_fdg1();
             t = this.table_fdg1_;
         end
         function [s,r] = view(this)

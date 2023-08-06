@@ -1,102 +1,10 @@
  classdef NMF < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
-    %% baseline_cn ~ 16 bases
-    %  baseline_preclinical ~ 30 bases
-    %  baseline_cdr_0p5_apos_emci ~ 34 bases
-    %  baseline_cdr_0p5_apos_lmci ~ 32 bases
-    %  baseline_cdr_gt_0p5_apos ~ 38 bases
+    %% baseline_cn ~ 22 bases
     %  
     %  Created 23-Jun-2022 13:02:04 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.10.0.1851785 (R2021a) Update 6 for MACI64.  Copyright 2022 John J. Lee.
         
     methods (Static)
-        function propcluster()
-            %% PROPCLUSTER.
-            %  Currently, the script asks for 24Gb RAM, 4 CPUs and 24h of compute time. Asking for more CPUs will make 
-            %  the executable finish faster. The more resources one asks, the more time it will probably take for the 
-            %  job to start. If an executable needs more resources than the ones requested, it will fail. I am not sure 
-            %  about the exact requirements here as this depends both on the number of samples and the dimensionality of 
-            %  data. I am almost certain that the nmf computations will take more than 24h (especially for the higher 
-            %  number of components). However, I would be sKeptical about requesting more time as it seems that the 
-            %  queueing system heavily penalizes longer jobs (small number of max running jobs). Note that the code 
-            %  saves intermediate results and can restart from these intermediate points by simply running the same 
-            %  command and pointing to the same output directory.
-
-            c = parcluster;
-            c.AdditionalProperties.EmailAddress = '';
-            c.AdditionalProperties.EnableDebug = 1;
-            c.AdditionalProperties.GpusPerNode = 0;
-            c.AdditionalProperties.MemUsage = '128000'; 
-            c.AdditionalProperties.Node = '';
-            c.AdditionalProperties.Partition = '';
-            c.AdditionalProperties.WallTime = '24:00:00'; % 24 h
-            c.saveProfile
-            disp(c.AdditionalProperties)
-        end
-        function parcall()
-            groups = mladni.NMF.groups;
-            parfor gi = 1:length(groups)
-                try
-                    this = mladni.NMF( ...
-                        nmfDataset=sprintf('baseline_%s', groups{gi}));
-                    cd(this.outputDir);
-                    call(this);
-                    this.evaluateRepeatedReproducibility(groups{gi})
-                catch ME
-                    handwarning(ME)
-                end
-            end
-        end
-        function parcall2()
-            targetDatasetDir = fullfile(getenv('ADNI_HOME'), 'NMF_FDG', 'baseline_cn');
-            assert(isfolder(targetDatasetDir))
-
-            b = 2:2:40;
-            parfor bi = 1:length(b)
-                groups = mladni.NMF.groups;
-                for gi = 1:length(groups)
-                    try
-                        this = mladni.NMF( ...
-                            selectedNumBases=b(bi), ...
-                            nmfDataset=sprintf('baseline_%s', groups{gi}));
-                        cd(this.outputDir);
-                        call2(this, targetDatasetDir, 'on_cn');
-                    catch ME
-                        handwarning(ME)
-                    end
-                end
-            end
-
-            %% gather component files on local machine
-            % for b in baseline_*; do
-            % pushd $b
-            % for n in NumBases*; do
-            % pushd $n
-            % rsync -ra login3.chpc.wustl.edu:/scratch/jjlee/Singularity/ADNI/NMF_FDG/$b/$n/components .
-            % popd; done
-            % popd; done
-        end        
-        function getDebugLog(j,c)
-            try
-                c.getDebugLog(j)
-            catch
-                c.getDebugLog(j.Tasks(end))
-            end
-        end
-
-        function create()
-            dx = {'cn', 'preclinical', 'cdr_0p5', 'cdr_gt_0p5_apos'};
-            rep = {'repA', 'repB'};
-            parfor m = 2:length(dx)
-                for n = 1:2
-                    set = sprintf('baseline_%s_%s', dx{m}, rep{n});
-                    pth = fullfile(getenv('ADNI_HOME'), 'NMF_FDG', set);
-                    pwd0 = pushd(pth);
-                    this = mladni.NMF(nmfDataset=set);
-                    call(this)
-                    popd(pwd0);
-                end
-            end
-        end
         function create_montage(varargin)
             %  Args:
             %      path (folder): e.g., .,
@@ -216,8 +124,10 @@
             ifc.fileprefix = fp;
             ifc.filepath = ipr.filepath;
             ifc.save();            
-        end
+        end        
         function csv_out = filter_missing_images(varargin)
+            %% reads csv, ignores missing rows, adjusts SINGULARITY_HOME as needed, writes csv_out
+            
             ip = inputParser;
             addRequired(ip, 'csv', @isfile);
             addParameter(ip, 'csv_out', '', @istext)
@@ -244,7 +154,7 @@
                     line_ = strcat(ipr.singularity_home, ss{2});
                 end
                 if isfile(line_)
-                    lines1 = [lines1; lines{li}];
+                    lines1 = [lines1; line_];
                 else
                     fprintf('\tmissing %s\n', line_);
                     Nmissing = Nmissing + 1;
@@ -263,29 +173,7 @@
             this = mladni.NMF(nmfDataset='baseline_cn');
             cd(this.outputDir);            
             this.evaluateRepeatedReproducibility2('cn')
-        end        
-        function par_create_montage(gid)
-            arguments
-                gid {mustBeScalarOrEmpty} = 1
-            end
-
-            if gid
-                groups = mladni.NMF.groups;
-                parfor gi = 1:length(groups)
-                    this = mladni.NMF(nmfDataset=sprintf('baseline_%s', groups{gi}));
-                    cd(this.outputDir);
-                    this.create_montage(this.outputDir, noclobber=true);
-                end
-            else
-                groups = mladni.NMF.groups0;
-                parfor gi = 1:length(groups)
-                    this = mladni.NMF(nmfDataset=sprintf('baseline_%s', groups{gi}), ...
-                        workDir=fullfile(getenv("ADNI_HOME"), "NMF_FDG", "Previous"));
-                    cd(this.outputDir);
-                    this.create_montage(this.outputDir, noclobber=true);
-                end
-            end
-        end
+        end                
         function split_nifti_files(csv)
             [pth,fp,x] = myfileparts(csv);
             if isempty(pth)
@@ -316,6 +204,101 @@
             writetable(table(Var2), csv2, 'WriteVariableNames', false);
         end
         
+        %% CHPC functions
+
+        function propcluster()
+            %% PROPCLUSTER.
+            %  Currently, the script asks for 24Gb RAM, 4 CPUs and 24h of compute time. Asking for more CPUs will make 
+            %  the executable finish faster. The more resources one asks, the more time it will probably take for the 
+            %  job to start. If an executable needs more resources than the ones requested, it will fail. I am not sure 
+            %  about the exact requirements here as this depends both on the number of samples and the dimensionality of 
+            %  data. I am almost certain that the nmf computations will take more than 24h (especially for the higher 
+            %  number of components). However, I would be sKeptical about requesting more time as it seems that the 
+            %  queueing system heavily penalizes longer jobs (small number of max running jobs). Note that the code 
+            %  saves intermediate results and can restart from these intermediate points by simply running the same 
+            %  command and pointing to the same output directory.
+
+            c = parcluster;
+            c.AdditionalProperties.EmailAddress = '';
+            c.AdditionalProperties.EnableDebug = 1;
+            c.AdditionalProperties.GpusPerNode = 0;
+            c.AdditionalProperties.MemUsage = '128000'; 
+            c.AdditionalProperties.Node = '';
+            c.AdditionalProperties.Partition = '';
+            c.AdditionalProperties.WallTime = '24:00:00'; % 24 h
+            c.saveProfile
+            disp(c.AdditionalProperties)
+        end
+        function parcall()
+            groups = mladni.NMF.groups;
+            parfor gi = 1:length(groups)
+                try
+                    this = mladni.NMF( ...
+                        nmfDataset=sprintf('baseline_%s', groups{gi}));
+                    cd(this.outputDir);
+                    call(this);
+                    this.evaluateRepeatedReproducibility(groups{gi})
+                catch ME
+                    handwarning(ME)
+                end
+            end
+        end
+        function parcall2()
+            targetDatasetDir = fullfile(getenv('ADNI_HOME'), 'NMF_FDG', 'baseline_cn');
+            assert(isfolder(targetDatasetDir))
+
+            b = 2:2:40;
+            parfor bi = 1:length(b)
+                groups = mladni.NMF.groups;
+                for gi = 1:length(groups)
+                    try
+                        this = mladni.NMF( ...
+                            selectedNumBases=b(bi), ...
+                            nmfDataset=sprintf('baseline_%s', groups{gi}));
+                        cd(this.outputDir);
+                        call2(this, targetDatasetDir, 'on_cn');
+                    catch ME
+                        handwarning(ME)
+                    end
+                end
+            end
+
+            %% gather component files on local machine
+            % for b in baseline_*; do
+            % pushd $b
+            % for n in NumBases*; do
+            % pushd $n
+            % rsync -ra login3.chpc.wustl.edu:/scratch/jjlee/Singularity/ADNI/NMF_FDG/$b/$n/components .
+            % popd; done
+            % popd; done
+        end        
+        function par_create_montage(gid)
+            arguments
+                gid {mustBeScalarOrEmpty} = 1
+            end
+
+            if gid
+                groups = mladni.NMF.groups;
+                this = mladni.NMF(nmfDataset=sprintf('baseline_%s', groups{gid}));
+                cd(this.outputDir);
+                this.create_montage(this.outputDir, noclobber=true);
+            else
+                groups = mladni.NMF.groups;
+                parfor gi = 1:length(groups)
+                    this = mladni.NMF(nmfDataset=sprintf('baseline_%s', groups{gi}));
+                    cd(this.outputDir);
+                    this.create_montage(this.outputDir, noclobber=true);
+                end
+            end
+        end
+        function getDebugLog(j,c)
+            try
+                c.getDebugLog(j)
+            catch
+                c.getDebugLog(j.Tasks(end))
+            end
+        end
+
         %% Aris' inference
         
         function calculateComponentWeightedAverageNIFTI(dataList,resultsDir,numBases,outPath)
@@ -327,7 +310,7 @@
             %             the NumBases folder is placed)
             % numBases: determines the solution for which one wants to calculate
             %           subject coefficients
-            % outPath: CSV path to save output
+            % outPath: fq-filenamne for saving output
             
             import mlniftitools.*;
             resultsDir = convertStringsToChars(resultsDir);
@@ -392,7 +375,7 @@
             end
         end
         function calculateSelectedComponentWeightedAverageNIFTI(dataLists,resultsDir,numBases,outFile)
-            %% selects single folder NumBases\d, then accesses all /OPNMF/niiImg/Basis_*.nii to project files in dataList to Basis_*.nii                        
+            %% selects single folder NumBases\d, then accesses all /OPNMF/niiImg/Basis_*.nii to project files in dataList to Basis_*.nii
             % dataList: .csv file containing the images for which the coefficients need
             %           to be calculated. Full path for every image file is given in
             %           every line
@@ -400,7 +383,7 @@
             %             the NumBases folder is placed)
             % numBases: determines the solution for which one wants to calculate
             %           subject coefficients
-            % outPath: CSV path to save output
+            % outFile: CSV-file saving output
             
             import mlniftitools.*;
             resultsDir = convertStringsToChars(resultsDir);
@@ -408,7 +391,7 @@
         
             % works with only single folder NumBases\d found from reproducibility analysis
 
-            disp(numBases)
+            fprintf("%s: numBases->%g\n", stackstr(), numBases)
             dataPath=[resultsDir '/NumBases' num2str(numBases) '/OPNMF/niiImg/'];
             
             % loading estimated non-negative components
@@ -458,8 +441,10 @@
                 wA = zeros(count,numBases) ;
 
                 for i=1:count                    
-                    %print statement added by tom
-                    disp(sprintf('(%d/%d)', i, count)); %#ok<DSPS>                    
+                    %print statement suggested by tom
+                    if ~mod(i,10)
+                        disp(sprintf('%s: (%d/%d)', stackstr(), i, count)); %#ok<DSPS>
+                    end
                     nii = load_untouch_nii(datafullpath{i});
                     wA(i,:) = double(nii.img(:)')*nB;
                     fprintf(fid,frmtWrite,datafullpath{i},wA(i,:)');
@@ -781,7 +766,8 @@
                 basisLabel = repmat(sortedBasisNum', [1 N]);                
 
                 figure
-                boxchart(reshape(basisLabel, [N_ARI 1]), sortedBasisNames, reshape(ARI, [N_ARI 1]), 4);
+                ARI1 = reshape(ARI, [N_ARI 1]);
+                boxchart(reshape(basisLabel, [N_ARI 1]), sortedBasisNames, ARI1, 4);
                 xlabel('Number of components','fontsize',20)
                 ylabel({'Split-sample reproducibility' ;'(Adjusted Rand Index)'},'fontsize',20)
                 set(gca,'fontsize',20)
@@ -1147,7 +1133,7 @@
             
             if(param.isList==1)
                 disp(['List ' dataInput ]);
-                data = loadDataFromList(dataInput,param,subsetIdx) ; % data is a struct !
+                data = loadDataFromList(dataInput,param,subsetIdx) ; % returned data is a struct !
             else
                 % if data input is not given as list, then what we do depends on
                 % whether the code is used as a function or a standalone executable
@@ -1222,130 +1208,148 @@
     end
     
     properties
-        inFiles
+        cache_files
+        downSample
+        isList
+        mask
         mcrroot
         memInGB
         nmfDataset
         numBases
+        permute
+        repetitions
         selectedNumBases
+        smooth
         study_design
         volbin
-        Xmat
-        X2mat
     end
 
     properties (Constant)
-        groups0 = { ...
-            'cdr_0p5_apos_emci', 'cdr_0p5_apos_lmci'}
         groups = { ...
             'cn', 'preclinical', ...
             'cdr_0p5_apos', ...
             'cdr_gt_0p5_apos', ...
             'cdr_ge_0p5_aneg'}
-        repetitions = 20
     end
 
     properties (Dependent)
+        adniDemographics
+        componentDir
+        groupPrefix
+        inFiles
+        isCrossSectional
         outputDir
+        targetDatasetDir % baseline_cn that provides all NMF patterns
+        Xmat
+        X2mat
     end
 
     methods % GET
+        function g = get.adniDemographics(this)
+            if ~isempty(this.adniDemographics_)
+                g = this.adniDemographics_;
+                return
+            end
+            this.adniDemographics_ = mladni.AdniDemographics(study_design=this.study_design);
+            g = this.adniDemographics_;
+        end
+        function g = get.componentDir(this)
+            g = fullfile(this.outputDir, sprintf('NumBases%i', this.selectedNumBases), 'components');
+            ensuredir(g);
+        end
+        function g = get.groupPrefix(this)
+            switch convertCharsToStrings(this.study_design)
+                case "cross-sectional"
+                    g = "baseline_";
+                case "longitudinal"
+                    g = "all_";
+                otherwise
+                    error("mladni:ValueError", "%s: this.study_design->%s", stackstr(), this.study_design)
+            end            
+        end
+        function g = get.inFiles(this)
+            g = fullfile(this.outputDir, 'nifti_files.csv');
+            assert(isfile(g))
+        end
+        function g = get.isCrossSectional(this)
+            g = contains(this.study_design, 'cross', IgnoreCase=true) && ...
+                contains(this.study_design, 'sectional', IgnoreCase=true);
+        end
         function g = get.outputDir(this)
             g = fullfile(getenv('ADNI_HOME'), 'NMF_FDG', this.nmfDataset, '');
         end
+        function g = get.targetDatasetDir(this)
+            g = fullfile(getenv('ADNI_HOME'), 'NMF_FDG', 'baseline_cn');
+        end
+        function g = get.Xmat(this)
+            numBasesFolder = sprintf('NumBases%i', this.selectedNumBases);
+            g = fullfile(this.outputDir, numBasesFolder, 'X.mat');
+        end
+        function g = get.X2mat(this)
+            numBasesFolder = sprintf('NumBases%i', this.selectedNumBases);
+            g = fullfile(this.outputDir, numBasesFolder, 'X2.mat');  
+        end
     end
     
-    methods
+    methods   
         function call(this)
-            %% writes component_weighted_average.csv
-            %  calls calculateComponentWeightedAverageNIFTI() which assess all available NumBases*
-            %  calls FDGDemographics.table_covariates()
-
-            componentDir = fullfile(this.outputDir, sprintf('NumBases%i', this.selectedNumBases), 'components');
-            ensuredir(componentDir);
+            %% Writes imaging data to X.mat, 
+            %  then calls this.calcRecError(), which plots and saves *RecError.{fig,png}.
 
             param.isList = 1 ;
-            param.downSample = 1 ;
-            param.smooth = 0;
-            param.mask = [];
-            param.permute = 0;
-            param.numBase = this.selectedNumBases;
-            param.componentDir = componentDir;
-
-            %if isfile(this.Xmat)
-            %    load(this.Xmat);
-            %else
-                data = this.loadData(this.inFiles,param,[]);
-                meanX = mean(data.X,2);
-                X = data.X(meanX>0,:); 
-                clear data;
-                save(this.Xmat, 'X', 'meanX');
-            %end
-            resultsDir = fullfile(this.outputDir, 'results');
-            ensuredir(resultsDir);
-            this.calcRecError(X, this.outputDir, resultsDir, meanX>0);
-
-            return
-
-            this.calculateComponentWeightedAverageNIFTI( ...
-                this.inFiles, this.outputDir, this.selectedNumBases, fullfile(componentDir, 'component_weighted_average.csv'));
-
-            pwd0 = pushd(componentDir);
-            fdg = mladni.FDGDemographics();
-            fdg.table_covariates('component_weighted_average.csv');
-            popd(pwd0);
-        end
-        function call2(this, targetDatasetDir, tags)
-            %% writes component_weighted_average_study-design.csv
-            %  calls calculateSelectedComponentWeightedAverageNIFTI()
-            %  calls FDGDemographics.table_covariates()
-
-            arguments
-                this mladni.NMF
-                targetDatasetDir {mustBeFolder} = this.outputDir
-                tags {mustBeTextScalar} = this.study_design
-            end
-
-            param.isList = 1 ;
-            param.downSample = 1 ;
+            param.downSample = this.downSample;
             param.smooth = 0;
             param.mask = fullfile(getenv('ADNI_HOME'), 'VolBin/mask.nii.gz');
             assert(isfile(param.mask))
             param.permute = 0;
             param.numBase = this.selectedNumBases;
+            param.componentDir = this.componentDir;
+            
+            if isfile(this.Xmat) && this.cache_files
+                load(this.Xmat);
+            else
+                data = this.loadData(this.inFiles, param, []);
+                meanX = mean(data.X,2);
+                X = data.X(meanX>0,:); 
+                clear data;
+                save(this.Xmat, 'X', 'meanX');
+            end
+            resultsDir = fullfile(this.outputDir, 'results');
+            ensuredir(resultsDir);
+            this.calcRecError(X, this.outputDir, resultsDir, meanX>0);
+        end
+        function call2(this, tags)
+            %% Writes imaging data to X2.mat, 
+            %  then calls this.calculateSelectedComponentWeightedAverageNIFTI(), 
+            %  which writes component_weighted_average_study-study_design.csv.
 
-            % cache file
-            %if isfile(this.X2mat)
-            %    load(this.X2mat);
-            %else
-                data = this.loadData(this.inFiles,param,[]);
+            arguments
+                this mladni.NMF
+                tags {mustBeTextScalar} = this.study_design
+            end
+
+            param.isList = 1 ;
+            param.downSample = this.downSample;
+            param.smooth = 0;
+            param.mask = fullfile(getenv('ADNI_HOME'), 'VolBin/mask.nii.gz');
+            assert(isfile(param.mask))
+            param.permute = 0;
+            param.numBase = this.selectedNumBases;
+            param.componentDir = this.componentDir;
+
+            if isfile(this.X2mat) && this.cache_files
+                load(this.X2mat);
+            else
+                data = this.loadData(this.inFiles, param, []);
                 meanX = mean(data.X,2);
                 X = data.X(meanX>0,:); 
                 clear data;
                 save(this.X2mat, 'X', 'meanX');
-            %end
+            end
 
-            componentDir = fullfile(this.outputDir, sprintf('NumBases%i', param.numBase), 'components');
-            ensuredir(componentDir);
-            csvFilename = sprintf('component_weighted_average_%s.csv', tags);
+            weightedAverFilename = fullfile(this.componentDir, sprintf('component_weighted_average_%s.csv', tags));
             this.calculateSelectedComponentWeightedAverageNIFTI( ...
-                this.inFiles, targetDatasetDir, this.selectedNumBases, fullfile(componentDir, csvFilename));
-
-            pwd0 = pushd(componentDir);
-            fdgd = mladni.FDGDemographics();
-            fdgd.table_covariates(csvFilename, tags=tags);
-            popd(pwd0);
-        end
-        function inFiles2 = replace_inFiles(~, inFiles)
-            
-            tbl = readtable(inFiles, 'ReadVariableNames', false, 'Delimiter', ' ');
-            Var1 = tbl.Var1;
-            Var1 = strrep(Var1, '/home/aris_data/ADNI_FDG', getenv('ADNI_HOME'));
-            Var1 = strrep(Var1, '/scratch/jjlee/Singularity/ADNI', getenv('ADNI_HOME'));
-            
-            [pth,fp,x] = myfileparts(inFiles);
-            inFiles2 = fullfile(pth, strcat(fp, '2', x));
-            writetable(table(Var1), inFiles2, 'WriteVariableNames', false);
+                this.inFiles, this.targetDatasetDir, this.selectedNumBases, weightedAverFilename);
         end
         function run_extractBasesMT(this, numBases, outputDir)
             assert(isscalar(numBases));
@@ -1385,41 +1389,51 @@
         end
         
         function this = NMF(varargin)
-            %% NMF works in getenv('ADNI_HOME')/NMF_FDG
+            %% NMF works best with pwd ~ getenv('ADNI_HOME')/NMF_FDG
             %  Args:
+            %      downSample (double): >= 1
             %      memInGB (scalar):  slurm mem request per batch job.
-            %      nmfDataset (text): tag for dataset, used to specify workDir/nmfDataset/nifti_files.csv; 
+            %      nmfDataset (text): tag for dataset, used to specify ADNI/NMF_FDG/nmfDataset/nifti_files.csv; 
             %                         default is "test".
-            %      workDir (text): containing subfolder for dataset, then subfolders for variable NMF components.
             %      volbin (text): home for NMF standalone executable.
             
             ip = inputParser;
+            addParameter(ip, "cache_files", false, @islogical);
+            addParameter(ip, "downSample", 1, @(x) x >= 1);
+            addParameter(ip, "isList", true, @islogical);
+            addParameter(ip, "mask", fullfile(getenv("ADNI_HOME"), "VolBin", "mask.nii.gz"), @isfile);
             addParameter(ip, "memInGB", 4, @isscalar);
             addParameter(ip, "nmfDataset", "baseline_cn", @(x) istext(x));
             addParameter(ip, "numBases", 2:2:40, @isnumeric)
-            addParameter(ip, "selectedNumBases", 16, @isscalar);
+            addParameter(ip, "permute", false, @islogical);
+            addParameter(ip, "repetitions", 50, @isscalar);
+            addParameter(ip, "selectedNumBases", 22, @isscalar);
+            addParameter(ip, "smooth", false, @islogical);
             addParameter(ip, "study_design", "longitudinal", @istext)
-            addParameter(ip, "volbin", ...
-                fullfile(getenv("ADNI_HOME"), "VolBin"), @isfolder);
-            addParameter(ip, "workDir", ...
-                fullfile(getenv("ADNI_HOME"), "NMF_FDG"), @isfolder);
+            addParameter(ip, "volbin", fullfile(getenv("ADNI_HOME"), "VolBin"), @isfolder);
             parse(ip, varargin{:})
             ipr = ip.Results;
             
+            this.cache_files = ipr.cache_files;
+            this.downSample = ipr.downSample;
+            this.isList = ipr.isList;
+            this.mask = ipr.mask;
             this.memInGB = ipr.memInGB;
             this.nmfDataset = ipr.nmfDataset;
             assert(isfolder(this.outputDir));
             this.study_design = ipr.study_design;
-            this.inFiles = fullfile(this.outputDir, sprintf('nifti_files_%s.csv', this.study_design));
-            this.inFiles = this.replace_inFiles(this.inFiles);
-            this.inFiles = this.filter_missing_images(this.inFiles);
-            assert(isfile(this.inFiles));
+            this.permute = ipr.permute;
+            this.repetitions = ipr.repetitions;
             this.selectedNumBases = ipr.selectedNumBases;
-            this.volbin = ipr.volbin;
-            numBasesFolder = sprintf('NumBases%i', ipr.selectedNumBases);
-            this.Xmat = fullfile(this.outputDir, numBasesFolder, 'X.mat');
-            this.X2mat = fullfile(this.outputDir, numBasesFolder, 'X2.mat');            
+            this.smooth = ipr.smooth;
+            this.volbin = ipr.volbin; 
         end
+    end
+
+    %% PRIVATE
+
+    properties (Access = private)
+        adniDemographics_
     end
     
     %  Created with mlsystem.Newcl, inspired by Frank Gonzalez-Morphy's newfcn.

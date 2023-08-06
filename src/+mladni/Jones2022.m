@@ -15,6 +15,7 @@ classdef Jones2022 < handle
         relevant_file % mat file:  nii Filelist, merge/demographic variables, Components.  N = 781.
         responses_table2 % cell of var names
         responses_table2_2 % cell of var names, excluding NpBraak
+        study_design
         workdir
     end
 
@@ -41,7 +42,7 @@ classdef Jones2022 < handle
         end
         function g = get.relevant_file(~)
             g = fullfile(getenv('ADNI_HOME'), 'NMF_FDG', ...
-                'mladni_FDGDemographics_table_covariates_on_cn_relevant_baselines.mat');
+                sprintf('mladni_NMFCovariates_table_covariates_%s.mat', this.study_design));
         end
         function g = get.responses_table2(~)
             g = {'Metaroi', ...
@@ -69,13 +70,20 @@ classdef Jones2022 < handle
             g = this.labels_check_mvregress;
             g_ = g(~contains(g, 'Braak NFT'));
         end
+        function g = get.study_design(this)
+            g = this.study_design_;
+        end
         function g = get.workdir(~)
             g = fullfile(getenv('ADNI_HOME'), 'NMF_FDG');
         end
     end
 
     methods
-        function this = Jones2022(varargin)
+        function this = Jones2022(opts)
+            arguments
+                opts.study_design = 'cross-sectional';
+            end
+            this.study_design_ = opts.study_design;
         end
 
         %% adjust spatial-autocorrelations
@@ -101,16 +109,18 @@ classdef Jones2022 < handle
             writetable(T, sprintf('%s_T.csv', stackstr()));
         end
         function build_table_relevant(this)
-            %% builds "mladni_FDGDemographics_table_covariates_on-cn.mat" using all visible baseline_* folders
+            %% builds "mladni_NMFCovariates_table_covariates_<study_design>.mat" using all visible baseline_* folders
 
             pwd0 = pushd(fileparts(this.relevant_file));
             
             g = glob('baseline_*');
             g = g(~contains(g, 'cdr_ge'));
-            ld = load(fullfile(g{1}, 'NumBases16', 'components', 'mladni_FDGDemographics_table_covariates_on_cn.mat'));
+            ld = load(fullfile(g{1}, 'NumBases16', 'components', ...
+                sprintf('NMFCovariates_table_covariates_%s.mat', this.study_design)));
             t = ld.t;
             for i = 2:length(g)
-                ld = load(fullfile(g{i}, 'NumBases16', 'components', 'mladni_FDGDemographics_table_covariates_on_cn.mat'));
+                ld = load(fullfile(g{i}, 'NumBases16', 'components', ...
+                    sprintf('NMFCovariates_table_covariates_%s.mat', this.study_design)));
                 t = [t; ld.t];
             end
             save(this.relevant_file, 't');
@@ -271,10 +281,10 @@ classdef Jones2022 < handle
         function dat = mvregress(this, maxiter)
             %% Following Jones' Table 2.
             %  Regression approach:
-            %      - web(fullfile(docroot, 'stats/specify-the-response-and-design-matrices.html'))
-            %      - d dimensions (Jones table-2 col-1) do share design matrix
-            %      - when available, n observed subjects do share design matrix,
-            %        but design may be incomplete for some subjects
+            %      - web(fullfile(docroot, 'stats/specify-the-response-and-study_design-matrices.html'))
+            %      - d dimensions (Jones table-2 col-1) do share study_design matrix
+            %      - when available, n observed subjects do share study_design matrix,
+            %        but study_design may be incomplete for some subjects
             %  Multivariate GLM, Y = XB + E:
             %      - Y_{n x d}:  n subjects, d measured responses
             %      - X_{n x (p+1)}:  p predictors (NMF components), but sometime unavailable with up to
@@ -283,7 +293,7 @@ classdef Jones2022 < handle
             %      - B_{(p+1) x d}
             %      - E_{n x d}
             %
-            %  See also web(fullfile(docroot, 'stats/specify-the-response-and-design-matrices.html'))
+            %  See also web(fullfile(docroot, 'stats/specify-the-response-and-study_design-matrices.html'))
             %  See also web(fullfile(docroot, 'stats/multivariate-general-linear-model.html'))
 
             % dat = j.mvregress(8*800)
@@ -621,6 +631,7 @@ classdef Jones2022 < handle
     properties (Access = protected)
         mask_
         relevant_
+        study_design_
         table_
         table_built_stats_
         table_termlist_

@@ -192,7 +192,7 @@ classdef Anticlust < handle
         function this = Anticlust(varargin)
             %% ANTICLUST 
             %  Args:
-            %      original_csv (optional file): csv containing mladni.FDGDemographics.table_covariates; 
+            %      original_csv (optional file): csv containing mladni.NMFCovariates.table_covariates; 
             %                                    default := "anticlust.csv"
             
             ip = inputParser;
