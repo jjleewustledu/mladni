@@ -1,6 +1,5 @@
 classdef NMFRadar
-    %% line1
-    %  line2
+    %% Warning: For the log scale values, recommended axes limit is [1.000000e-04, 10] with an axes interval of 5. 
     %  
     %  Created 16-Feb-2023 22:57:16 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.12.0.2170939 (R2022a) Update 6 for MACI64.  Copyright 2023 John J. Lee.
@@ -14,7 +13,7 @@ classdef NMFRadar
             'cn', 'preclinical', ...
             'cdr_0p5_apos', ...
             'cdr_gt_0p5_apos', ...
-            'cdr_ge_0p5_aneg'}
+            'cdr_gt_0_aneg'}
         mergeDx = { ...
             'CDR=0,amy-' 'CDR=0,amy+' 'CDR=0.5,amy+' 'CDR>0.5,amy+' 'CDR>0,amy-'}
 
@@ -27,10 +26,14 @@ classdef NMFRadar
     end
 
     properties (Dependent)
+        figdir
         N_bases_target
     end
 
     methods % GET
+        function g = get.figdir(this)
+            g = fullfile(this.workdir, ['baseline_', this.groups0{1}], 'results');
+        end
         function g = get.N_bases_target(this)
             g = this.bases0(5);
         end
@@ -62,7 +65,7 @@ classdef NMFRadar
             figure
             s1 = plot_with_stderr(this, P, SE, AxesMin=amin, AxesMax=amax, ...
                 legend={'ApoE4'}, ti='Estimate \beta_{ApoE4}');
-            saveFigures(closeFigure=true, prefix='E beta_apoe4', ext='.svg')
+            saveFigures(this.figdir, closeFigure=true, prefix='E beta_apoe4');
     
             % PValue
             fprintf('NMFRadar.call_apoe4:\n')
@@ -77,7 +80,7 @@ classdef NMFRadar
             axes_scaling = repmat({'log'}, [22 1]);
             s2 = plot(this, P, AxesMin=amin, AxesMax=amax, ...
                 legend={'ApoE4'}, ti='FDR p-value \beta_{ApoE4}', AxesScaling=axes_scaling);
-            saveFigures(closeFigure=true, prefix='FDR p-value beta_apoe4', ext='.svg')
+            saveFigures(this.figdir, closeFigure=true, prefix='FDR p-value beta_apoe4');
         end
         function [s1,s2] = call_groups(this, opts)
             arguments
@@ -111,7 +114,7 @@ classdef NMFRadar
                     s1{ig} = plot_with_stderr(this, P, SE, AxesMin=amin, AxesMax=amax, ...
                         legend=this.groupLabels(ig), ...
                         ti="Estimate \beta_{" + this.groupLabels{ig} + "}");
-                    saveFigures(closeFigure=true, prefix=sprintf('E beta_%s', this.groups{ig}), ext='.svg')
+                    saveFigures(this.figdir, closeFigure=true, prefix=sprintf('E beta_%s', this.groups{ig}));
         
                     % PValue
                     fprintf('NMFRadar.call_groups:\n')
@@ -128,7 +131,7 @@ classdef NMFRadar
                         legend=this.groupLabels(ig), ...
                         ti="FDR p-value \beta_{" + this.groupLabels{ig} + "}", ...
                         AxesScaling=axes_scaling);
-                    saveFigures(closeFigure=true, prefix=sprintf('FDR p-value beta_%s', this.groups{ig}), ext='.svg')
+                    saveFigures(this.figdir, closeFigure=true, prefix=sprintf('FDR p-value beta_%s', this.groups{ig}));
                 catch ME
                     handwarning(ME)
                 end
@@ -159,7 +162,7 @@ classdef NMFRadar
             figure
             s1 = plot_with_stderr(this, P, SE, AxesMin=amin, AxesMax=amax, ...
                 legend={'male'}, ti='Estimate \beta_{sex}');
-            saveFigures(closeFigure=true, prefix='E beta_sex', ext='.svg')
+            saveFigures(this.figdir, closeFigure=true, prefix='E beta_sex');
 
             % PValue
             fprintf('NMFRadar.call_sex:\n')
@@ -171,7 +174,7 @@ classdef NMFRadar
             axes_scaling = repmat({'log'}, [22 1]);
             s2 = plot(this, P, AxesMin=amin, AxesMax=amax, ...
                 legend={'male'}, ti='FDR p-value \beta_{sex}', AxesScaling=axes_scaling);
-            saveFigures(closeFigure=true, prefix='FDR p-value beta_sex', ext='.svg')
+            saveFigures(this.figdir, closeFigure=true, prefix='FDR p-value beta_sex');
         end        
         function this = call_patt_weighted_fdg(this)
             c = 1;
@@ -180,31 +183,41 @@ classdef NMFRadar
                 sprintf('NumBases%i', this.N_bases_target), ...
                 'components', this.matfile0));
 
-            mu = mean(ld.t.Components, 1);
-            sigma = std(ld.t.Components, 1);
+            mu = nan(1, this.N_bases_target);
+            sigma = nan(1, this.N_bases_target);
+            for idx = 1:this.N_bases_target
+                comp = ld.t.(sprintf("Components_%i", idx));
+                mu(idx) = mean(comp, 1);
+                sigma(idx) = std(comp, 1);
+            end
             snr = mu./sigma;
             cov = sigma./mu;
 
             figure
             plot(this, sigma, ...
-                AxesMin = 0.03, AxesMax = 0.17, ...
+                AxesMin = dipmin(sigma), AxesMax = dipmax(sigma), ...
                 ti='S.D. Pattern-Weighted FDG')
+            saveFigures(this.figdir, closeFigure=true, prefix='patt_weighted_fdg_sigma');
 
             figure
             plot(this, mu, ...
-                AxesMin = 0.7, AxesMax = 1.4, ...
+                AxesMin = dipmin(mu), AxesMax = dipmax(mu), ...
                 ti='Mean Pattern-Weighted FDG')
+            saveFigures(this.figdir, closeFigure=true, prefix='patt_weighted_fdg_mu');
 
             figure
             plot(this, snr, ...
-                AxesMin = 4, AxesMax = 25, ...
+                AxesMin = dipmin(snr), AxesMax = dipmax(snr), ...
                 ti='\mu/\sigma Pattern-Weighted FDG')
+            saveFigures(this.figdir, closeFigure=true, prefix='patt_weighted_fdg_snr');
 
             figure
-            plot(this, cov, ...
-                AxesMin = 0.03, AxesMax = 0.16, ...
+            plot(this, cov, ...    
+                AxesMin = dipmin(cov), AxesMax = dipmax(cov), ...
                 ti='\sigma/\mu Pattern-Weighted FDG')
+            saveFigures(this.figdir, closeFigure=true, prefix='patt_weighted_fdg_cov');
         end
+        
         function s = plot(this, P, opts)
             %% spider_plot_class_examples.m Example 5: Excel-like radar charts.
 
@@ -250,8 +263,8 @@ classdef NMFRadar
             s.Color = [139, 0, 0; 240, 128, 128]/255;
             s.LineWidth = 2;
             s.Marker = 'none';
-            s.AxesFontSize = 13;
-            s.LabelFontSize = 14;
+            s.AxesFontSize = 11;
+            s.LabelFontSize = 12;
             s.AxesColor = [0.8, 0.8, 0.8];
             s.AxesLabelsEdge = 'none';
             s.AxesRadial = 'off';
@@ -262,7 +275,7 @@ classdef NMFRadar
             s.LegendLabels = opts.legend;
             s.LegendHandle.Location = 'northeastoutside';
             s.LegendHandle.FontSize = 13;
-            title(opts.ti, 'FontSize', 16);
+            title(opts.ti, 'FontSize', 14);
         end
         function s = plot_with_stderr(this, P, SE, opts)
             %% spider_plot_class_examples.m 
@@ -322,8 +335,8 @@ classdef NMFRadar
             %s.Color = [0, 0, 139; 128, 128, 240]/255;
             s.LineWidth = 2;
             s.Marker = 'none';
-            s.AxesFontSize = 13;
-            s.LabelFontSize = 14;
+            s.AxesFontSize = 11;
+            s.LabelFontSize = 12;
             s.AxesColor = [0.8, 0.8, 0.8];
             s.AxesLabelsEdge = 'none';
             s.AxesRadial = 'off';
@@ -334,7 +347,7 @@ classdef NMFRadar
             s.LegendLabels = opts.legend;
             s.LegendHandle.Location = 'northeastoutside';
             s.LegendHandle.FontSize = 13;
-            title(opts.ti, 'FontSize', 16);
+            title(opts.ti, 'FontSize', 14);
         end
         function h = plot_beta0_to_beta1(this)
             ld = load(this.matfile_cohort);
@@ -353,6 +366,7 @@ classdef NMFRadar
             labelpoints(CC.Estimate(1:22), CC.Estimate(45:66), labels, 'SE', 0.2, 1)
             labelpoints(CC.Estimate(1:22), CC.Estimate(89:110), labels, 'SE', 0.2, 1)
         end
+        
         function this = NMFRadar(varargin)
             this.workdir = fullfile(getenv('ADNI_HOME'), 'NMF_FDG');
         end
