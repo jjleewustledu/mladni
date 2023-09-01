@@ -1722,11 +1722,19 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             select = contains(t.Subject, this.Subject(this.fdg_on_t1w));
             select1 = contains(t.Description, this.DESC);
-            select2 = t.AcqDate == this.AcqDate(this.fdg_on_t1w);
+            select2 = abs(duration(t.AcqDate - this.AcqDate(this.fdg_on_t1w))) < years(1);
 
             s = t{select & select1 & select2, 'PonsVermis'};
             s = s(~isnan(s));
-            s = s(1);
+            assert(~isempty(s), stackstr())
+            if length(s) == 1
+                return
+            end
+
+            t1 = t(select & select1 & select2, :);
+            t1 = addvars(t1, abs(s.AcqDate - this.AcqDate(this.fdg_on_t1w)), NewVariableNames={'AcqSeparation'});
+            t1 = sortrows(t1, 'AcqSeparation');
+            s = t1{1, 'PonsVermis'};
         end
         function t    = table_fdg1(this)
             if ~isempty(this.table_fdg1_)
@@ -1760,7 +1768,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 opts.blur double {mustBeScalarOrEmpty} = 5
                 opts.fdg_proc {mustBeTextScalar} = mladni.FDG.PROC
                 opts.fdg_reference {mustBeTextScalar} = 'ponsvermis'
-                opts.force_resolve_to_brain logical = 'true'
+                opts.force_resolve_to_brain logical = true
             end
             
             this.atl_ = mlfourd.ImagingContext2(opts.atl);
@@ -1768,7 +1776,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             this.fdg_proc_ = opts.fdg_proc;
             this.fdg_reference_ = opts.fdg_reference;
 
-            if ~isempty(fdg)
+            if ~isempty(fdg) 
                 this.build_deriv_fdg(fdg)
                 this.build_deriv_t1w(this.fdg)
             end
