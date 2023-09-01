@@ -19,7 +19,7 @@
             addParameter(ip, 'noclobber', false, @islogical)
             parse(ip, varargin{:});
             ipr = ip.Results;
-            if strcmpi(basename(ipr.path), 'niiImg') % /path/to/niiImg
+            if strcmpi(mybasename(ipr.path), 'niiImg') % /path/to/niiImg
                 pwd0 = pushd(ipr.path);
                 atl = mlfourd.ImagingContext2( ...
                     fullfile(getenv('FSLDIR'), 'data', 'standard', 'MNI152_T1_1mm.nii.gz'));
@@ -53,9 +53,14 @@
             warning('mladni:NotImplementedWarning', 'NMF.create_montage: nothing to be done');
         end
         function create_mean_imaging(varargin)
+            %% creates mean, var, std
+            %  Args:
+            %       csv {mustBeFile}
+            %       outputDir {mustBeFolder}
+
             ip = inputParser;
             addRequired(ip, 'csv', @isfile);
-            addParameter(ip, 'filepath', pwd, @isfolder);
+            addParameter(ip, 'outputDir', pwd, @isfolder);
             parse(ip, varargin{:});
             ipr = ip.Results;            
             
@@ -75,7 +80,7 @@
             end
             ic = ic/length(csv);
             ic.fileprefix = fp;
-            ic.filepath = ipr.filepath;
+            ic.filepath = ipr.outputDir;
             ic.save();
             
             % create variance
@@ -83,7 +88,7 @@
             ic1.selectMatlabTool();
             ic1 = (ic1 - ic).^2;
             re1 = regexp(ic.fileprefix, '(?<descrip>\S+)_mean', 'names');
-            fp1 = sprintf('all_%s_variance', re1.descrip);
+            fp1 = sprintf('%s_variance', re1.descrip);
             for i = 2:length(csv)
                 try
                     ic1 = ic1 + (mlfourd.ImagingContext2(char(csv(i))) - ic).^2;
@@ -93,17 +98,30 @@
             end
             ic1 = ic1/(length(csv) - 1);
             ic1.fileprefix = fp1;
-            ic1.filepath = ipr.filepath;
+            ic1.filepath = ipr.outputDir;
             ic1.save();
+
+            % create std
+            ic2 = copy(ic1);
+            ic2 = sqrt(ic2);
+            ic2.fileprefix = strrep(ic1.fileprefix, "_variance", "_std");
+            ic2.save();
         end
         function create_median_imaging(varargin)
+            %% creates median, iqr
+            %  Args:
+            %       csv {mustBeFile}
+            %       outputDir {mustBeFolder}
+
             ip = inputParser;
             addRequired(ip, 'csv', @isfile);
-            addParameter(ip, 'filepath', pwd, @isfolder);
+            addParameter(ip, 'outputDir', pwd, @isfolder);
             parse(ip, varargin{:});
-            ipr = ip.Results;            
-            
+            ipr = ip.Results;                        
+
             csv = readlines(ipr.csv); % string vector
+
+            % create median
             ifc = mlfourd.ImagingFormatContext2(char(csv(1)));
             re = regexp(ifc.fileprefix, '(?<sub>sub-\d{3}S\d{4}_)(?<ses>ses-\d+_)(?<descrip>\S+)', 'names');
             fp = sprintf('all_%s_median', re.descrip);
@@ -122,8 +140,30 @@
             end
             ifc.img = median(ifc.img, 4, 'omitnan');
             ifc.fileprefix = fp;
-            ifc.filepath = ipr.filepath;
-            ifc.save();            
+            ifc.filepath = ipr.outputDir;
+            ifc.save();     
+
+            % create iqr
+            ifc = mlfourd.ImagingFormatContext2(char(csv(1)));
+            re = regexp(ifc.fileprefix, '(?<sub>sub-\d{3}S\d{4}_)(?<ses>ses-\d+_)(?<descrip>\S+)', 'names');
+            fp = sprintf('all_%s_iqr', re.descrip);
+            size3d = size(ifc.img);
+            for i = 2:length(csv)
+                try
+                    ifc1 = mlfourd.ImagingFormatContext2(char(csv(i)));
+                    if isempty(ifc1.img)
+                        ifc.img(:,:,:,i) = nan(size3d);
+                    else
+                        ifc.img(:,:,:,i) = ifc1.img;
+                    end
+                catch
+                    ifc.img(:,:,:,i) = nan(size3d);
+                end
+            end
+            ifc.img = iqr(ifc.img, 4); % safe for nans
+            ifc.fileprefix = fp;
+            ifc.filepath = ipr.outputDir;
+            ifc.save();   
         end        
         function csv_out = filter_missing_images(varargin)
             %% reads csv, ignores missing rows, adjusts SINGULARITY_HOME as needed, writes csv_out
@@ -175,6 +215,8 @@
             this.evaluateRepeatedReproducibility2('cn')
         end                
         function split_nifti_files(csv)
+            %% DEPRECATED; see mladni.Adni.anticlust_cn_repeat
+
             [pth,fp,x] = myfileparts(csv);
             if isempty(pth)
                 pth = pwd;
@@ -299,7 +341,7 @@
             end
         end
 
-        %% Aris' inference
+        %% Aris' inference, called from other method functions
         
         function calculateComponentWeightedAverageNIFTI(dataList,resultsDir,numBases,outPath)
             %% loops through NumBases*, then accesses all /OPNMF/niiImg/Basis_*.nii to project files in dataList to Basis_*.nii
@@ -562,7 +604,7 @@
             saveas(gcf,[outputDir 'gradientRecError.png'])
             
             % 3) Percentage of improvement over range of components used
-            figure;plot(sortedBasisNum,abs(RecError-RecError(1))./abs(RecError(1)-RecError(end)),'r','LineWidth',2)
+            figure;plot(sortedBasisNum,100*abs(RecError-RecError(1))./abs(RecError(1)-RecError(end)),'r','LineWidth',2)
             xlabel('Number of components','fontsize',12)
             ylabel('Percentage of improvement over range of components used','fontsize',12)
             xlim([sortedBasisNum(1) sortedBasisNum(end)])
@@ -626,7 +668,7 @@
             subgroups = { ...
                 'cn', 'preclinical', ...
                 'cdr_0p5_apos', ...
-                'cdr_ge_0p5_aneg', 'cdr_gt_0p5_apos'};
+                'cdr_gt_0_aneg', 'cdr_gt_0p5_apos'};
             assert(any(strcmp(subgroup, subgroups)));
             
             outputDir_ = fullfile(home, sprintf('baseline_%s', subgroup));
@@ -722,10 +764,10 @@
             subgroups = { ...
                 'cn', 'preclinical', ...
                 'cdr_0p5_apos', ...
-                'cdr_ge_0p5_aneg', 'cdr_gt_0p5_apos'};
+                'cdr_gt_0_aneg', 'cdr_gt_0p5_apos'};
             assert(any(strcmp(subgroup, subgroups)));
             
-            outputDir_ = fullfile(home, sprintf('baseline_%s', subgroup));
+            outputDir_ = fullfile(home, sprintf('baseline_%s', subgroup), 'results');
             ensuredir(outputDir_);
             ARI = nan(K, N);
             overlap = cell(K, N);
@@ -774,6 +816,7 @@
                 set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
                 saveas(gcf,[outputDir_ '/AdjustedRandIndexReproducibility_repeat2.fig'])
                 saveas(gcf,[outputDir_ '/AdjustedRandIndexReproducibility_repeat2.png'])
+                saveas(gcf,[outputDir_ '/AdjustedRandIndexReproducibility_repeat2.svg'])
 
                 figure
                 boxchart(reshape(basisLabel, [N_ARI 1]), sortedBasisNames, reshape(meanInner, [N_ARI 1]), 4);
@@ -783,6 +826,7 @@
                 set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
                 saveas(gcf,[outputDir_ '/MeanInnerProductReproducibility_repeat2.fig'])
                 saveas(gcf,[outputDir_ '/MeanInnerProductReproducibility_repeat2.png'])
+                saveas(gcf,[outputDir_ '/MeanInnerProductReproducibility_repeat2.svg'])
 
                 figure
                 boxchart(reshape(basisLabel, [N_ARI 1]), sortedBasisNames, reshape(medianInner, [N_ARI 1]), 4);
@@ -792,7 +836,20 @@
                 set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
                 saveas(gcf,[outputDir_ '/MedianInnerProductReproducibility_repeat2.fig'])
                 saveas(gcf,[outputDir_ '/MedianInnerProductReproducibility_repeat2.png'])
+                saveas(gcf,[outputDir_ '/MedianInnerProductReproducibility_repeat2.svg'])
 
+                ARI_snr = mean(ARI, 2)./std(ARI, 1, 2);
+                figure
+                plot(ascol(sortedBasisNum), ascol(ARI_snr), ...
+                    ':_', LineWidth=2, Color=[0.73,0.83,0.96], ...
+                    MarkerSize=25, MarkerEdgeColor=[0,0.45,0.74], MarkerFaceColor=[0,0.45,0.74])
+                xlabel('Number of components','fontsize',20)
+                ylabel({'Split-sample reproducibility';'(adjusted Rand index, mean/std)'},'fontsize',20)
+                set(gca,'fontsize',20)
+                set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
+                saveas(gcf,[outputDir_ '/MedianIqrARIReproducibility_repeat2.fig'])
+                saveas(gcf,[outputDir_ '/MedianIqrARIReproducibility_repeat2.png'])
+                saveas(gcf,[outputDir_ '/MedianIqrARIReproducibility_repeat2.svg'])
             end
         end
         function [meanInner,medianInner,ARI,overlap,sortedBasisNum] = evaluateReproducibility( ...
@@ -1229,7 +1286,7 @@
             'cn', 'preclinical', ...
             'cdr_0p5_apos', ...
             'cdr_gt_0p5_apos', ...
-            'cdr_ge_0p5_aneg'}
+            'cdr_gt_0_aneg'}
     end
 
     properties (Dependent)
@@ -1237,6 +1294,7 @@
         componentDir
         groupPrefix
         inFiles
+        inFiles2
         isCrossSectional
         outputDir
         targetDatasetDir % baseline_cn that provides all NMF patterns
@@ -1268,8 +1326,17 @@
             end            
         end
         function g = get.inFiles(this)
-            g = fullfile(this.outputDir, 'nifti_files.csv');
-            assert(isfile(g))
+            g = fullfile(this.outputDir, 'nifti_files_mounted.csv');
+            if ~isfile(g)
+                g0 = strrep(g, '_mounted.csv', '.csv');
+                t = readtable(g0, Format='%s', Delimiter=' ', ReadVariableNames=false);
+                t.Var1 = strrep(t.Var1, '/scratch/jjlee', '/home/usr/jjlee');
+                writetable(t, g, WriteVariableNames=false);
+            end
+        end
+        function g = get.inFiles2(this)
+            nmfc = mladni.NMFCovariates();
+            g = nmfc.inFiles;
         end
         function g = get.isCrossSectional(this)
             g = contains(this.study_design, 'cross', IgnoreCase=true) && ...
@@ -1291,7 +1358,100 @@
         end
     end
     
-    methods   
+    methods
+        function build_for_brainsmash(this)
+            %% Prepares intermediates needed for brainsmash inference described in 
+            %  test_neurodegeneration2.py/TestNeurodegeneration2.test_build_stats27.
+            %  Requires availability of AFNI.3dmaskdump.
+
+            workdir = fullfile(getenv('ADNI_HOME'), 'NMF_FDG', 'baseline_cn', ...
+                sprintf('NumBases%i', this.selectedNumBases), 'OPNMF', 'niiImg');
+            pwd1 = pushd(workdir);
+            parfor idx = 1:this.selectedNumBases
+                system(sprintf( ...
+                    '3dmaskdump -mask %s -o Basis_%i.txt -noijk Basis_%i.nii', ...
+                    fullfile(getenv('ADNI_HOME'), 'VolBin', 'mask.nii.gz'), ...
+                    idx, idx));
+            end
+            popd(pwd1)
+        end
+        function build_stats_imaging(this, opts)
+            %% This apex function calls create_{montage, mean_imaging, median_imaging}.
+
+            arguments
+                this mladni.NMF
+                opts.inputDir {mustBeFolder} = pwd     % e.g., NMF_FDG/baseline_cn, NMF_FDG/longitudinal_cdr_0.5_apos, ...
+                                                       % has nifti_files_mounted.csv visible to glob()
+                opts.outputDir {mustBeTextScalar} = "" 
+            end
+            assert(contains(opts.inputDir, "NMF"))
+            if isemptytext(opts.outputDir)
+                opts.outputDir = opts.inputDir;
+            end
+            import mladni.NMF.*
+            
+            % montage
+            if contains(opts.inputDir, "baseline")
+                globbed = glob(fullfile(opts.inputDir, sprintf("NumBases%i", this.selectedNumBases)));
+                if isempty(globbed)
+                    globbed = glob(fullfile(opts.inputDir, "*", sprintf("NumBases%i", this.selectedNumBases)));
+                end
+                assert(~isempty(globbed))
+                this.create_montage(globbed{1});
+            end
+
+            % mean, var, std, median, iqr
+            globbed = glob(fullfile(opts.inputDir, "nifti_files_mounted.csv"));
+            if isempty(globbed)
+                globbed = glob(fullfile(opts.inputDir, "*", "nifti_files_mounted.csv"));
+            end
+            assert(~isempty(globbed))
+            this.create_mean_imaging(globbed{1}, outputDir=opts.outputDir);
+            this.create_median_imaging(globbed{1}, outputDir=opts.outputDir);            
+        end
+        function build_surfaces(this)
+            pwd0 = pushd(fullfile(this.outputDir, sprintf('NumBases%i', this.selectedNumBases), 'OPNMF', 'niiImg'));
+            mlshimony.Workbench.vol2surf('Basis_*.nii')
+            popd(pwd0);
+        end
+        function T = build_table_variances(this, subgroups, opts)
+            arguments
+                this mladni.NMF
+                subgroups {mustBeText}
+                opts.workdir {mustBeFolder} = fullfile(getenv("ADNI_HOME"), "NMF_FDG")
+                opts.numbases double = 22
+            end
+            subgroups = convertCharsToStrings(subgroups);
+            niidir = fullfile(opts.workdir, "baseline_cn", "NumBases"+opts.numbases, "OPNMF", "niiImg");
+
+            % NMF patterns
+            for ib = 1:opts.numbases
+                basis_ics(ib) = mlfourd.ImagingContext2(fullfile(niidir, "Basis_"+ib+".nii")); 
+            end
+
+            % table of variances for patterns (rows) and subgroups (cols)
+            T = table();
+            for isg = 1:length(subgroups)
+                % T columns
+                var_fns = glob(fullfile(opts.workdir, subgroups(isg), "all_trc-FDG*pet_on_T1w_Warped_dlicv_variance.nii.gz"));
+                assert(~isempty(var_fns))
+                var_ic = mlfourd.ImagingContext2(var_fns{1});
+
+                var_vec = nan(opts.numbases, 1);
+                for ib = 1:opts.numbases
+                    % T rows
+                    var_vec(ib) = var_ic.volumeWeightedAveraged(basis_ics(ib)./dipsum(basis_ics(ib))); % weighted average
+                end
+
+                T = addvars(T, ascol(var_vec), NewVariableNames=subgroups(isg));
+            end
+
+            writetable(T, fullfile(opts.workdir, stackstr()+".csv"));
+            save(fullfile(opts.workdir, stackstr()+".mat"), "T");
+            heatmap(table2array(T))
+            ylabel("NMF Patterns")
+            xlabel("Diagnostic Groups")
+        end
         function call(this)
             %% Writes imaging data to X.mat, 
             %  then calls this.calcRecError(), which plots and saves *RecError.{fig,png}.
@@ -1340,7 +1500,7 @@
             if isfile(this.X2mat) && this.cache_files
                 load(this.X2mat);
             else
-                data = this.loadData(this.inFiles, param, []);
+                data = this.loadData(this.inFiles2, param, []);
                 meanX = mean(data.X,2);
                 X = data.X(meanX>0,:); 
                 clear data;
@@ -1349,7 +1509,7 @@
 
             weightedAverFilename = fullfile(this.componentDir, sprintf('component_weighted_average_%s.csv', tags));
             this.calculateSelectedComponentWeightedAverageNIFTI( ...
-                this.inFiles, this.targetDatasetDir, this.selectedNumBases, weightedAverFilename);
+                this.inFiles2, this.targetDatasetDir, this.selectedNumBases, weightedAverFilename);
         end
         function run_extractBasesMT(this, numBases, outputDir)
             assert(isscalar(numBases));
