@@ -580,6 +580,45 @@ classdef Jones2022 < handle
             %s.XJitterWidth = 0.25;
             hold off
         end
+        function [h,mu,sigma,q,notch] = al_goodplot(cat, catnames, metric)
+            %% https://www.mathworks.com/matlabcentral/fileexchange/91790-al_goodplot-boxblot-violin-plot?s_tid=srchtitle_site_search_3_violin
+            %  cat {mustBeNumeric}:  e.g., [2 4 6 8 ...]
+            %  catnames {mustBeText}:  e.g., {'2' '4' '6' '8' ...}
+            %  metric double:  cols have categories, rows have repetitions
+            arguments
+                cat {mustBeNumeric}
+                catnames {mustBeText}
+                metric double
+            end
+
+            % scrub cat if needed
+            try
+                if any(isnan(cat))
+                    cat = cat(~isnan(cat));
+                    metric = metric(:, ~isnan(cat));
+                    assert(all(numel(cat) == size(metric,2))) % cols have categories, rows have repetitions
+                end
+            catch ME
+                handwarning(ME)
+            end
+
+            % al_goodplot; see example.m in downloaded zip or Mathworks File Exchange
+            % https://www.mathworks.com/matlabcentral/fileexchange/91790-al_goodplot-boxblot-violin-plot?s_tid=srchtitle_site_search_3_violin
+            h = cell(size(cat));
+            mu = nan(size(cat));
+            sigma = nan(size(cat));
+            q = cell(size(cat));
+            notch = cell(size(cat));
+            colors = parula(length(cat));
+            parzen = std(metric,0,"all")/1000;
+            for cati = 1:length(cat)
+                [h{cati},mu(cati),sigma(cati),q{cati},notch{cati}] = ...
+                    al_goodplot(metric(:,cati), cat(cati), 0.5, colors(cati,:), 'bilateral', [], parzen, 0.25); 
+            end
+            xticks(cat);
+            xticklabels(asrow(catnames));
+            set(findobj(get(h{1}{1}, 'parent'), 'type', 'text'), 'fontsize', 18);
+        end
         function h = heatmap(mat, clbls, rlbls, opts)
             arguments
                 mat double

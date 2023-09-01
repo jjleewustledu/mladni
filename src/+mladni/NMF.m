@@ -4,6 +4,10 @@
     %  Created 23-Jun-2022 13:02:04 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.10.0.1851785 (R2021a) Update 6 for MACI64.  Copyright 2022 John J. Lee.
         
+    properties (Constant)
+        MAX_NUM_BASES = 40
+    end
+
     methods (Static)
         function create_montage(varargin)
             %  Args:
@@ -272,6 +276,7 @@
             disp(c.AdditionalProperties)
         end
         function parcall()
+            %% DEPRECATED legacy method
             groups = mladni.NMF.groups;
             parfor gi = 1:length(groups)
                 try
@@ -286,10 +291,11 @@
             end
         end
         function parcall2()
+            %% DEPRECATED legacy method
             targetDatasetDir = fullfile(getenv('ADNI_HOME'), 'NMF_FDG', 'baseline_cn');
             assert(isfolder(targetDatasetDir))
 
-            b = 2:2:40;
+            b = 2:2:mladni.NMF.MAX_NUM_BASES;
             parfor bi = 1:length(b)
                 groups = mladni.NMF.groups;
                 for gi = 1:length(groups)
@@ -544,7 +550,7 @@
                 end
             end            
         end
-        function RecError = calcRecError(X, resultDir, outputDir, selectVoxels)
+        function RecError = calcRecError(X, resultDir, resultsDir, selectVoxels)
             
             % Function that calculates the reconstruction error given data matrix X and the non-negative matrix 
             % factorization results saved in the resultDir directory. The function additionally saves figures that plot
@@ -557,11 +563,15 @@
             % file (ResultsExtractBases.mat) that contains the matrices W and H that were estimated by the non negative 
             % matrix factorization
 
-            resultDir = convertStringsToChars(resultDir);
-            outputDir = convertStringsToChars(outputDir);
+            % selectVoxels is a logical vector of size N_voxels x 1, for N_voxels in the imaging field of view
+
+            resultDir = convertStringsToChars(resultDir); %% JJL
+            resultsDir = convertStringsToChars(resultsDir); %% JJL    
+            assert(islogical(selectVoxels))
+            assert(size(X,1) == sum(selectVoxels, "all"), stackstr()) %% JJL's BUG CHECK
             
             listing = dir(resultDir);
-            listing=listing(3:end) ;
+            listing=listing(3:end);
             hh =cellfun(@(x) ( (strfind(x,'NumBases')==1)  ),{listing(:).name},'UniformOutput',false) ;
             listing=listing(cellfun(@(x) (~isempty(x)&&(x==1)),hh));
             numDifBases=numel(listing);
@@ -579,40 +589,33 @@
                 disp(b/numDifBases)
                 load([resultDir '/NumBases' num2str(sortedBasisNum(b)) '/OPNMF/ResultsExtractBases.mat']) %#ok<LOAD>
                 Est = B*C ;
-                Est = Est(selectVoxels,:);
+                assert(size(Est,1) == size(selectVoxels,1), stackstr()) %% JJL's BUG CHECK
+                Est = Est(selectVoxels,:); %% JJL
                 RecError(b) = norm(X-Est,'fro') ;
                 clear B C
             end
             
             % make figures
             % 1) reconstruction error
-            figure;plot(sortedBasisNum,RecError,'r','LineWidth',2)
-            xlabel('Number of components','fontsize',12)
-            ylabel('Reconstruction error','fontsize',12)
-            xlim([sortedBasisNum(1) sortedBasisNum(end)])
-            set(gca,'fontsize',12)
-            saveas(gcf,[outputDir 'RecError.fig'])
-            saveas(gcf,[outputDir 'RecError.png'])
+            mladni.NMF.plotForPub(sortedBasisNum, RecError, ...
+                xlab="Number of patterns", ...
+                ylab="Reconstruction error", ...
+                fileprefix=fullfile(resultsDir, "RecError"));
             
             % 2) gradient of reconstruction error
-            figure;plot(sortedBasisNum(2:end),diff(RecError),'r','LineWidth',2)
-            xlabel('Number of components','fontsize',12)
-            ylabel('Gradient of reconstruction error','fontsize',12)
-            xlim([sortedBasisNum(1) sortedBasisNum(end)])
-            set(gca,'fontsize',12)
-            saveas(gcf,[outputDir 'gradientRecError.fig'])
-            saveas(gcf,[outputDir 'gradientRecError.png'])
+            mladni.NMF.plotForPub(sortedBasisNum(2:end), diff(RecError), ...
+                xlab="Number of patterns", ...
+                ylab="Gradient of reconstruction error", ...
+                fileprefix=fullfile(resultsDir, "gradientRecError"));
             
             % 3) Percentage of improvement over range of components used
-            figure;plot(sortedBasisNum,100*abs(RecError-RecError(1))./abs(RecError(1)-RecError(end)),'r','LineWidth',2)
-            xlabel('Number of components','fontsize',12)
-            ylabel('Percentage of improvement over range of components used','fontsize',12)
-            xlim([sortedBasisNum(1) sortedBasisNum(end)])
-            set(gca,'fontsize',12)
-            saveas(gcf,[outputDir 'percentageImprovementRecError.fig'])
-            saveas(gcf,[outputDir 'percentageImprovementRecError.png'])
+            improvement = 100*abs(RecError-RecError(1))./abs(RecError(1)-RecError(end));
+            mladni.NMF.plotForPub(sortedBasisNum, improvement, ...
+                xlab="Number of patterns", ...
+                ylab="Percent improvement with cumulative patterns", ...
+                fileprefix=fullfile(resultsDir, "percentageImprovementRecError"));
             
-            close all
+            %close all
         end        
         function r = clustering_adjustedRand_fast(u,v)
             % clustering quality measures assumptions : 
@@ -758,7 +761,7 @@
                 opts.Npy double = 1440
             end
 
-            import mladni.Jones2022.boxchart
+            import mladni.Jones2022.al_goodplot
 
             home = fullfile(getenv('ADNI_HOME'), 'NMF_FDG');
             subgroups = { ...
@@ -803,53 +806,43 @@
                 sortedBasisNames = cellfun(@num2str, num2cell(2:2:2*K), UniformOutput=false);
 
                 meanInner=cell2mat(cellfun(@(x) mean(x),overlap,'UniformOutput', false));
-                medianInner=cell2mat(cellfun(@(x) median(x),overlap,'UniformOutput', false));
-                N_ARI = numel(ARI);                
-                basisLabel = repmat(sortedBasisNum', [1 N]);                
+                medianInner=cell2mat(cellfun(@(x) median(x),overlap,'UniformOutput', false));           
 
                 figure
-                ARI1 = reshape(ARI, [N_ARI 1]);
-                boxchart(reshape(basisLabel, [N_ARI 1]), sortedBasisNames, ARI1, 4);
-                xlabel('Number of components','fontsize',20)
+                al_goodplot(sortedBasisNum, sortedBasisNames, ARI');
+                xlabel('Number of patterns','fontsize',20)
                 ylabel({'Split-sample reproducibility' ;'(Adjusted Rand Index)'},'fontsize',20)
                 set(gca,'fontsize',20)
                 set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
-                saveas(gcf,[outputDir_ '/AdjustedRandIndexReproducibility_repeat2.fig'])
-                saveas(gcf,[outputDir_ '/AdjustedRandIndexReproducibility_repeat2.png'])
-                saveas(gcf,[outputDir_ '/AdjustedRandIndexReproducibility_repeat2.svg'])
+                saveas(gcf, fullfile(outputDir_, 'AdjustedRandIndexReproducibility_repeat2.fig'))
+                saveas(gcf, fullfile(outputDir_, 'AdjustedRandIndexReproducibility_repeat2.png'))
+                saveas(gcf, fullfile(outputDir_, 'AdjustedRandIndexReproducibility_repeat2.svg'))
 
                 figure
-                boxchart(reshape(basisLabel, [N_ARI 1]), sortedBasisNames, reshape(meanInner, [N_ARI 1]), 4);
-                xlabel('Number of components','fontsize',20)
+                al_goodplot(sortedBasisNum, sortedBasisNames, meanInner');
+                xlabel('Number of patterns','fontsize',20)
                 ylabel({'Split-sample reproducibility';'(mean inner product)'},'fontsize',20)
                 set(gca,'fontsize',20)
                 set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
-                saveas(gcf,[outputDir_ '/MeanInnerProductReproducibility_repeat2.fig'])
-                saveas(gcf,[outputDir_ '/MeanInnerProductReproducibility_repeat2.png'])
-                saveas(gcf,[outputDir_ '/MeanInnerProductReproducibility_repeat2.svg'])
+                saveas(gcf, fullfile(outputDir_, 'MeanInnerProductReproducibility_repeat2.fig'))
+                saveas(gcf, fullfile(outputDir_, 'MeanInnerProductReproducibility_repeat2.png'))
+                saveas(gcf, fullfile(outputDir_, 'MeanInnerProductReproducibility_repeat2.svg'))
 
                 figure
-                boxchart(reshape(basisLabel, [N_ARI 1]), sortedBasisNames, reshape(medianInner, [N_ARI 1]), 4);
-                xlabel('Number of components','fontsize',20)
+                al_goodplot(sortedBasisNum, sortedBasisNames, medianInner');
+                xlabel('Number of patterns','fontsize',20)
                 ylabel({'Split-sample reproducibility';'(median inner product)'},'fontsize',20)
                 set(gca,'fontsize',20)
                 set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
-                saveas(gcf,[outputDir_ '/MedianInnerProductReproducibility_repeat2.fig'])
-                saveas(gcf,[outputDir_ '/MedianInnerProductReproducibility_repeat2.png'])
-                saveas(gcf,[outputDir_ '/MedianInnerProductReproducibility_repeat2.svg'])
+                saveas(gcf, fullfile(outputDir_, 'MedianInnerProductReproducibility_repeat2.fig'))
+                saveas(gcf, fullfile(outputDir_, 'MedianInnerProductReproducibility_repeat2.png'))
+                saveas(gcf, fullfile(outputDir_, 'MedianInnerProductReproducibility_repeat2.svg'))
 
                 ARI_snr = mean(ARI, 2)./std(ARI, 1, 2);
-                figure
-                plot(ascol(sortedBasisNum), ascol(ARI_snr), ...
-                    ':_', LineWidth=2, Color=[0.73,0.83,0.96], ...
-                    MarkerSize=25, MarkerEdgeColor=[0,0.45,0.74], MarkerFaceColor=[0,0.45,0.74])
-                xlabel('Number of components','fontsize',20)
-                ylabel({'Split-sample reproducibility';'(adjusted Rand index, mean/std)'},'fontsize',20)
-                set(gca,'fontsize',20)
-                set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
-                saveas(gcf,[outputDir_ '/MedianIqrARIReproducibility_repeat2.fig'])
-                saveas(gcf,[outputDir_ '/MedianIqrARIReproducibility_repeat2.png'])
-                saveas(gcf,[outputDir_ '/MedianIqrARIReproducibility_repeat2.svg'])
+                mladni.NMF.plotForPub(sortedBasisNum, ARI_snr, ...
+                    xlab="Number of patterns", ...
+                    ylab=["Split-sample reproducibility"; "(adjusted Rand index, mean/std)"], ...
+                    fileprefix=fullfile(outputDir_, "MedianIqrARIReproducibility_repeat2"));
             end
         end
         function [meanInner,medianInner,ARI,overlap,sortedBasisNum] = evaluateReproducibility( ...
@@ -1262,6 +1255,45 @@
                 end
             end
         end
+        function h = plotForPub(x, y, opts)
+            %% PLOTFORPUB provides a consistent plotting style for publications, also saving {.fig,.png,.svg}.
+            %  For plot h, h.Position := [1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy]
+            %  Args:
+            %  x double
+            %  y double
+            %  opts.xlab {mustBeText} = ""
+            %  opts.ylab {mustBeText} = ""
+            %  opts.fileprefix {mustBeTextScalar} = stackstr(3)
+            % opts.fracx double = 0.5
+            % opts.Npx double = 3400
+            % opts.fracy double = 0.5
+            % opts.Npy double = 1440
+
+            arguments
+                x double
+                y double
+                opts.xlab {mustBeText} = ""
+                opts.ylab {mustBeText} = ""
+                opts.fileprefix {mustBeTextScalar} = stackstr(3)
+                opts.fracx double = 0.5
+                opts.Npx double = 3400
+                opts.fracy double = 0.5
+                opts.Npy double = 1440
+            end
+
+            h = figure;
+            plot(ascol(x), ascol(y), ...
+                ':*', LineWidth=2, Color=[0.73,0.83,0.96], ...
+                MarkerSize=20, MarkerEdgeColor=[0,0,0], MarkerFaceColor=[0,0,0]);
+            xlim([x(1), x(end)]);
+            xlabel(opts.xlab,'fontsize',20);
+            ylabel(opts.ylab,'fontsize',20);
+            set(gca,'fontsize',20);
+            set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy]);
+            saveas(gcf, opts.fileprefix+".fig");
+            saveas(gcf, opts.fileprefix+".png");
+            saveas(gcf, opts.fileprefix+".svg");
+        end
     end
     
     properties
@@ -1476,7 +1508,17 @@
             end
             resultsDir = fullfile(this.outputDir, 'results');
             ensuredir(resultsDir);
-            this.calcRecError(X, this.outputDir, resultsDir, meanX>0);
+
+            % BUG FIX:  selectVoxels must be logical, and
+            %           numel(selectVoxels) == numel(mask_for_imaging), and
+            %           size(selectVoxels) == [N_voxels 1], and
+            %           size(X,1) == sum(selectVoxels)
+            assert(isfile(param.mask))
+            mask_ic = mlfourd.ImagingContext2(param.mask);
+            selectVoxels = logical(mask_ic);
+            selectVoxels = selectVoxels(:);
+            assert(size(X,1) == sum(selectVoxels), stackstr())
+            this.calcRecError(X, this.outputDir, resultsDir, selectVoxels);
         end
         function call2(this, tags)
             %% Writes imaging data to X2.mat, 
@@ -1526,7 +1568,7 @@
             if ~isempty(ipr.numBases)
                 this.numBases = ipr.numBases;
             else
-                for n = 2:2:40
+                for n = 2:2:mladni.NMF.MAX_NUM_BASES
                     if ~isfile(fullfile(this.outputDir, sprintf('NumBases%i', n), 'OPNMF', 'niiImg', ...
                             sprintf('Basis_%i.nii', n)))
                         try
@@ -1564,10 +1606,10 @@
             addParameter(ip, "mask", fullfile(getenv("ADNI_HOME"), "VolBin", "mask.nii.gz"), @isfile);
             addParameter(ip, "memInGB", 4, @isscalar);
             addParameter(ip, "nmfDataset", "baseline_cn", @(x) istext(x));
-            addParameter(ip, "numBases", 2:2:40, @isnumeric)
+            addParameter(ip, "numBases", 2:2:mladni.NMF.MAX_NUM_BASES, @isnumeric)
             addParameter(ip, "permute", false, @islogical);
             addParameter(ip, "repetitions", 50, @isscalar);
-            addParameter(ip, "selectedNumBases", 22, @isscalar);
+            addParameter(ip, "selectedNumBases", 18, @isscalar);
             addParameter(ip, "smooth", false, @islogical);
             addParameter(ip, "study_design", "longitudinal", @istext)
             addParameter(ip, "volbin", fullfile(getenv("ADNI_HOME"), "VolBin"), @isfolder);

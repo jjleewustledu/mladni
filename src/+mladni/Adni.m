@@ -64,18 +64,18 @@ classdef Adni < handle
 %            this.nmf.diagnose_reproducibility() % boxplots
 
             % create surfaces
-%            this.nmf.build_surfaces()
+            this.nmf.build_surfaces()
 
             % radar plots
-%            call_patt_weighted_fdg(this.nmfr);
-%            call_groups(this.nmfr);
-%            call_sex(this.nmfr);
-%            call_apoe4(this.nmfr);
+            call_patt_weighted_fdg(this.nmfr);
+            call_groups(this.nmfr);
+            call_sex(this.nmfr);
+            call_apoe4(this.nmfr);
 
             % calculate component-weighted averages
-%            call2(this.nmf)
-%            this.nmfc.table_covariates();
-%            this.nmfc.table_covariates_1stscan();
+            call2(this.nmf)
+            this.nmfc.table_covariates();
+            this.nmfc.table_covariates_1stscan();
 
             % check completeness
             fdg5 = this.ad.table_fdg5;
