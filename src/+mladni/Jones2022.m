@@ -6,6 +6,10 @@ classdef Jones2022 < handle
     %  Created 04-Mar-2023 11:44:49 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.12.0.2170939 (R2022a) Update 6 for MACI64.  Copyright 2023 John J. Lee.
     
+    properties (Constant)
+        N_PATTERNS = mladni.NMF.N_PATTERNS
+    end
+
     properties (Dependent)
         jones2022dir
         labels_check_mvregress % labels for plots
@@ -37,8 +41,8 @@ classdef Jones2022 < handle
         function     set.mask(this, s)
             this.mask_ = mlfourd.ImagingContext2(s);
         end        
-        function g = get.nbases(~)
-            g = 16;
+        function g = get.nbases(this)
+            g = this.N_PATTERNS;
         end
         function g = get.relevant_file(~)
             g = fullfile(getenv('ADNI_HOME'), 'NMF_FDG', ...
@@ -323,7 +327,7 @@ classdef Jones2022 < handle
             Y = Y{:,:};
             [n,d] = size(Y); % ~ 781 x 14
 
-            X = zscore(ld.t.Components); % n x p ~ 781 x 16
+            X = zscore(ld.t.Components); % n x p ~ 781 x N_PATTERNS
             p = size(X, 2);
             assert(size(X, 2) == p)
             Xmat = [ones(n,1) X];
@@ -479,7 +483,7 @@ classdef Jones2022 < handle
         function [mdls,T2] = fitlm(this)
             T = this.table_relevant();
             T = this.adjust_table_relevant(T);
-            T1 = splitvars(T(:, 'Components')); % just the 16 Components
+            T1 = splitvars(T(:, 'Components')); % just the N_PATTERNS Components
             for col = 1:size(T1,2)
                 T1{:,col} = zscore(T1{:,col});
             end
@@ -518,7 +522,7 @@ classdef Jones2022 < handle
                 AIC(r) = mdls{r}.ModelCriterion.AIC;
                 BIC(r) = mdls{r}.ModelCriterion.BIC;
                 F(r) = mdls{r}.ModelFitVsNullModel.Fstat;
-                adjPval(r) = mdls{r}.ModelFitVsNullModel.Pvalue/16;
+                adjPval(r) = mdls{r}.ModelFitVsNullModel.Pvalue/this.N_PATTERNS;
                 coeffs(r, :) = asrow(mdls{r}.Coefficients.Estimate);
             end
 
@@ -535,13 +539,13 @@ classdef Jones2022 < handle
 
             patt_path = '/Volumes/PrecunealSSD/Singularity/ADNI/NMF_FDG/baseline_cn/NumBases16/OPNMF/niiImg';
             eb_path = '/Volumes/PrecunealSSD/Singularity/ADNI/Jones_2022/Eigenbrains';
-            mat = nan(10, 16);
+            mat = nan(10, this.N_PATTERNS);
 
             for irow = 1:10
 
                 eb = mlfourd.ImagingContext2(fullfile(eb_path, sprintf('MNI152_EB_%02i', irow)));    
 
-                for icol = 1:16        
+                for icol = 1:this.N_PATTERNS        
 
                     patt = mlfourd.ImagingContext2(fullfile(patt_path, sprintf('Basis_%i.nii', icol))); 
                     div = eb.kldiv(patt, this.mask);    
@@ -613,7 +617,7 @@ classdef Jones2022 < handle
             parzen = std(metric,0,"all")/1000;
             for cati = 1:length(cat)
                 [h{cati},mu(cati),sigma(cati),q{cati},notch{cati}] = ...
-                    al_goodplot(metric(:,cati), cat(cati), 0.5, colors(cati,:), 'bilateral', [], parzen, 0.25); 
+                    al_goodplot(metric(:,cati), cat(cati), 0.618, colors(cati,:), 'bilateral', [], parzen, 0.309); 
             end
             xticks(cat);
             xticklabels(asrow(catnames));

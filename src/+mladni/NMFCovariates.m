@@ -1,11 +1,13 @@
 classdef NMFCovariates < handle
     %% Supports ADNI demographic data and other meta-data approximately at granularity of single scan objects.
+    %  Prepares data for regressions more stringently than preparations for NMF
     %  
     %  Created 18-May-2022 20:19:23 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.10.0.1851785 (R2021a) Update 6 for MACI64.  Copyright 2022 John J. Lee.
     
     properties (Constant)
-        EXCLUSIONS = "" % "sub-022S0096_ses-20060228101016_trc-FDG_proc-CASU-ponsvermis_orient-rpi_pet_on_T1w_Warped_dlicv.nii.gz"
+        EXCLUSIONS = mladni.AdniDemographics.EXCLUSIONS
+        N_PATTERNS = mladni.NMF.N_PATTERNS
     end
 
     properties (Dependent)
@@ -34,7 +36,7 @@ classdef NMFCovariates < handle
         function g = get.inFiles(this)
             g = fullfile(this.componentDir, sprintf("%s_%s.csv", stackstr(), this.study_design));
             if ~isfile(g)
-                t = table(this.table_fdg4.Filelist);
+                t = table(this.table_fdg5.Filelist);
                 writetable(t, g, WriteVariableNames=false)
             end
         end
@@ -65,7 +67,7 @@ classdef NMFCovariates < handle
     
             arguments
                 opts.table_covariates = []
-                opts.selectedNumBases {mustBeScalarOrEmpty} = 22
+                opts.selectedNumBases {mustBeScalarOrEmpty} = mladni.NMF.N_PATTERNS
                 opts.study_design = "longitudinal"
             end
             this.selectedNumBases_ = opts.selectedNumBases;
@@ -290,40 +292,45 @@ classdef NMFCovariates < handle
             t = addvars(t, new_var, NewVariableNames=opts.NewVariableNames);
         end
         function t = apply_table_qc(this, t)
-            vns = t.Properties.VariableNames;
-            
-            % start with 3478 rows
+            %% qc that is more stringent than that for NMF, needed for regressions
 
+            debug_file = fullfile(this.componentDir, stackstr()+this.datestr()+".mat");
+            save(debug_file, 't');
+
+            % start with 3478 rows
+            
+            vns = t.Properties.VariableNames;
             if any(contains(vns, 'CDGLOBAL'))
                 t = t(t.CDGLOBAL ~= -1, :);
-            end % 
+            end % 3458 rows remaining
             if any(contains(vns, 'Cohort'))
                 t = t(t.Cohort ~= 'unknown', :);
-            end % 
+            end % 1961 rows remaining
 
             if any(contains(vns, 'Components_1'))
-                t = t(~any(isnan(t.Components_1),2), :);
-            end % 
+                t = t(~isnan(t.Components_1), :);
+            end % 1961 rows remaining
             if any(contains(vns, 'Age'))
                 t = t(~isnan(t.Age), :);
-            end % 
+            end % 1961 rows remaining       
+
+%             if any(contains(vns, 'Dlicv'))
+%                 t = t(t.Dlicv > 1e6, :);
+%             end % 1958 rows remaining
+%             if any(contains(vns, 'PVE1'))
+%                 t = t(t.PVE1 > 0.3e6, :);
+%             end % 1958 rows remaining
+%             if any(contains(vns, 'RegErr'))
+%                 t = t(t.RegErr < 2.5, :); % see also mladni.FDG()
+%             end % 1941 rows remaining
+
             if any(contains(vns, 'ApoE4'))
                 t = t(~isnan(t.ApoE4), :);
-            end % 
-            
-%             if any(contains(vns, 'Dlicv'))
-%                 t = t(t.Dlicv > 0.5e6, :);
-%             end % 3464 rows
-%             if any(contains(vns, 'PVE1'))
-%                 t = t(t.PVE1 > 0.5e6/3, :);
-%             end % 3464 rows
-%             if any(contains(vns, 'RegErr'))
-%                 t = t(t.RegErr < 5, :); % see also mladni.FDG()
-%             end % 3435 rows
+            end %
 
             if ~isemptytext(this.EXCLUSIONS)
                 for fidx = 1:length(this.EXCLUSIONS)
-                    select = ~contains(t.Filelist, this.EXCLUSIONS(fidx));
+                    select = ~contains(t.Filelist, this.EXCLUSIONS{fidx});
                     t = t(select, :);
                 end
             end
@@ -353,7 +360,7 @@ classdef NMFCovariates < handle
             end
 
             % from ADNIDemographics ~ 3478 rows
-            t = table_fdg4(this); 
+            t = table_fdg5(this); 
 
             % Cohort ~ categorical
             Cohort = repmat({'unknown'}, size(t,1), 1);
@@ -389,7 +396,7 @@ classdef NMFCovariates < handle
             % sort rows by Subject, then AcqDate
             t = sortrows(t, ["Subject", "AcqDate"]);
 
-            % AcqDuration ~ floating-point years since first scan
+            % AcqDuration ~ floating-point years since first scan, after removing faulty scans
             t = this.AddAcqDuration(t);
 
             % store cache, & save/write table
@@ -421,16 +428,16 @@ classdef NMFCovariates < handle
             c = c(:, idx);
             t.Components = c;
         end
-        function t = table_fdg4(this)
-            if ~isempty(this.table_fdg4_)
-                t = this.table_fdg4_;
+        function t = table_fdg5(this)
+            if ~isempty(this.table_fdg5_)
+                t = this.table_fdg5_;
                 return
             end
-            this.table_fdg4_ = this.adni_demo_.table_fdg4();
-            t = this.table_fdg4_;
+            this.table_fdg5_ = this.adni_demo_.table_fdg5();
+            t = this.table_fdg5_;
         end
         function t = table_filelist(this)
-            t = table(this.table_fdg4.Filelist);
+            t = table(this.table_fdg5.Filelist);
             t.Properties.VariableNames = {'Filelist'};
         end
         function t = table_dlicv(this)
@@ -438,7 +445,7 @@ classdef NMFCovariates < handle
             %  Returns:
             %      t: table with variables Filelist and DLICV.
 
-            Filelist = this.table_fdg4.Filelist;
+            Filelist = this.table_fdg5.Filelist;
             Dlicv = nan(size(Filelist));
             for fidx = 1:length(Filelist)
                 item = Filelist{fidx};
@@ -469,7 +476,7 @@ classdef NMFCovariates < handle
             %  Returns:
             %      t: table with variables Filelist and ImageDataID.
 
-            Filelist = this.table_fdg4.Filelist;
+            Filelist = this.table_fdg5.Filelist;
             ImageDataID = cell(size(Filelist));
             for fidx = 1:length(Filelist)
                 ImageDataID{fidx} = 'unknown';
@@ -527,7 +534,7 @@ classdef NMFCovariates < handle
             %  Returns:
             %      t: table with variables Filelist and PVE1, grey matter.
 
-            Filelist = this.table_fdg4.Filelist;
+            Filelist = this.table_fdg5.Filelist;
             PVE1 = nan(size(Filelist));
             for fidx = 1:length(Filelist)
                 item = Filelist{fidx};
@@ -556,7 +563,7 @@ classdef NMFCovariates < handle
             t = table(Filelist, PVE1);
         end
         function t = table_regerr(this)
-            Filelist = this.table_fdg4.Filelist;
+            Filelist = this.table_fdg5.Filelist;
             RegErr = nan(size(Filelist));
             for fidx = 1:length(Filelist)
                 item = Filelist{fidx};
@@ -626,7 +633,7 @@ classdef NMFCovariates < handle
         %% tables of diagnostic subgroups
 
         function t = table_all(this, cs, T_name)
-            %% N -> 3415 longitudinal, 1529 cross-sectional.
+            %% N -> 1890 longitudinal, 1165 cross-sectional.
 
             arguments
                 this mladni.NMFCovariates
@@ -642,7 +649,7 @@ classdef NMFCovariates < handle
             end
         end
         function t = table_cn(this, cs, T_name, bl_1st)
-            %% N -> 474 longitudinal, 264 cross-sectional.
+            %% N -> 474 longitudinal, 269 cross-sectional.
             
             arguments
                 this mladni.NMFCovariates
@@ -665,7 +672,7 @@ classdef NMFCovariates < handle
             end
         end
         function t = table_preclinical(this, cs, T_name, bl_1st)
-            %% N -> 174 longitudinal, 137 cross-sectional.
+            %% N -> 158 longitudinal, 130 cross-sectional.
 
             arguments
                 this mladni.NMFCovariates
@@ -688,7 +695,7 @@ classdef NMFCovariates < handle
             end
         end        
         function t = table_cdr_0p5_apos(this, cs, T_name, bl_1st)
-            %% N -> 564 longitudinal, 455 cross-sectional.
+            %% N -> 533 longitudinal, 426 cross-sectional.
 
             arguments
                 this mladni.NMFCovariates
@@ -711,7 +718,7 @@ classdef NMFCovariates < handle
             end
         end
         function t = table_cdr_gt_0p5_apos(this, cs, T_name, bl_1st)
-            %% N -> 174 longitudinal, 150 cross-sectional.
+            %% N -> 170 longitudinal, 145 cross-sectional.
 
             arguments
                 this mladni.NMFCovariates
@@ -734,7 +741,7 @@ classdef NMFCovariates < handle
             end            
         end
         function t = table_cdr_gt_0_aneg(this, cs, T_name, bl_1st)
-            %% N -> 557 longitudinal, 334 cross-sectional.
+            %% N -> 555 longitudinal, 327 cross-sectional.
 
             arguments
                 this mladni.NMFCovariates
@@ -908,6 +915,9 @@ classdef NMFCovariates < handle
             end
             pve1s = ascol(pve1s);
         end
+        function str = datestr()
+            str = string(datetime("now", Format="yyyyMMddhhmmss"));
+        end
         function icvs = find_icv(obj)
             if iscell(obj)
                 icv_ = cellfun(@(x) mladni.NMFCovariates.find_icv(x), obj, 'UniformOutput', false);
@@ -955,7 +965,7 @@ classdef NMFCovariates < handle
         study_design_
         table_cohorts_
         table_covariates_cache_
-        table_fdg4_
+        table_fdg5_
     end
     
     %  Created with mlsystem.Newcl, inspired by Frank Gonzalez-Morphy's newfcn.

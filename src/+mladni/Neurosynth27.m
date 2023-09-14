@@ -14,7 +14,7 @@ classdef Neurosynth27 < handle
     methods
         function this = Neurosynth27(nbases)
             arguments
-                nbases double {mustBeScalarOrEmpty} = 16
+                nbases double {mustBeScalarOrEmpty} = mladni.NMF.N_PATTERNS
             end
             this.nbases = nbases;
             this.neurosynthdir = fullfile(getenv('ADNI_HOME'), 'neurosynth.org', 'v4-topics-50');

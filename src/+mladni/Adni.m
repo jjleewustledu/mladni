@@ -6,7 +6,7 @@ classdef Adni < handle
     %  Developed on Matlab 9.12.0.2170939 (R2022a) Update 6 for MACI64.  Copyright 2023 John J. Lee.
     
     properties (Constant)
-        selectedNumBases = 22
+        selectedNumBases = mladni.NMF.N_PATTERNS
     end
 
     properties
@@ -63,19 +63,10 @@ classdef Adni < handle
             % estimate reproducibility
 %            this.nmf.diagnose_reproducibility() % boxplots
 
-            % create surfaces
-            this.nmf.build_surfaces()
-
-            % radar plots
-            call_patt_weighted_fdg(this.nmfr);
-            call_groups(this.nmfr);
-            call_sex(this.nmfr);
-            call_apoe4(this.nmfr);
-
             % calculate component-weighted averages
-            call2(this.nmf)
-            this.nmfc.table_covariates();
-            this.nmfc.table_covariates_1stscan();
+%            call2(this.nmf)
+%            this.nmfc.table_covariates();
+%            this.nmfc.table_covariates_1stscan();
 
             % check completeness
             fdg5 = this.ad.table_fdg5;
@@ -94,6 +85,15 @@ classdef Adni < handle
                 end
             end
             this.nmf.build_table_variances(subgroups);  
+
+            % radar plots
+            call_patt_weighted_fdg(this.nmfr);
+            call_groups(this.nmfr);
+            call_sex(this.nmfr);
+            call_apoe4(this.nmfr);
+
+            % create surfaces
+%            this.nmf.build_surfaces()
 
             % GAM(M4) regressions with RStudio
 

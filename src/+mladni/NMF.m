@@ -6,6 +6,7 @@
         
     properties (Constant)
         MAX_NUM_BASES = 40
+        N_PATTERNS = 24
     end
 
     methods (Static)
@@ -612,7 +613,7 @@
             improvement = 100*abs(RecError-RecError(1))./abs(RecError(1)-RecError(end));
             mladni.NMF.plotForPub(sortedBasisNum, improvement, ...
                 xlab="Number of patterns", ...
-                ylab="Percent improvement with cumulative patterns", ...
+                ylab="% improvement with cumulative patterns", ...
                 fileprefix=fullfile(resultsDir, "percentageImprovementRecError"));
             
             %close all
@@ -786,13 +787,15 @@
                         for ik = 1:K
                             try
                                 overlap{ik,rep} = o_{ik};
-                            catch
+                            catch %#ok<CTCH>
                             end
                         end
                     catch ME
                         handwarning(ME)
                     end
                 end
+                ARI = mladni.NMF.removeColsWithNans(ARI);
+                overlap = mladni.NMF.removeColsWithNans(overlap);
                 save(fullfile(outputDir_, 'evaluateRepeatedReproducibility2.mat'), ...
                     'ARI', 'overlap');
             else
@@ -838,10 +841,10 @@
                 saveas(gcf, fullfile(outputDir_, 'MedianInnerProductReproducibility_repeat2.png'))
                 saveas(gcf, fullfile(outputDir_, 'MedianInnerProductReproducibility_repeat2.svg'))
 
-                ARI_snr = mean(ARI, 2)./std(ARI, 1, 2);
+                ARI_snr = median(ARI', 1)./iqr(ARI', 1); %#ok<UDIM>
                 mladni.NMF.plotForPub(sortedBasisNum, ARI_snr, ...
                     xlab="Number of patterns", ...
-                    ylab=["Split-sample reproducibility"; "(adjusted Rand index, mean/std)"], ...
+                    ylab=["Split-sample reproducibility"; "(adjusted Rand index, median/iqr)"], ...
                     fileprefix=fullfile(outputDir_, "MedianIqrARIReproducibility_repeat2"));
             end
         end
@@ -1274,7 +1277,7 @@
                 y double
                 opts.xlab {mustBeText} = ""
                 opts.ylab {mustBeText} = ""
-                opts.fileprefix {mustBeTextScalar} = stackstr(3)
+                opts.fileprefix {mustBeTextScalar} = ""
                 opts.fracx double = 0.5
                 opts.Npx double = 3400
                 opts.fracy double = 0.5
@@ -1283,16 +1286,26 @@
 
             h = figure;
             plot(ascol(x), ascol(y), ...
-                ':*', LineWidth=2, Color=[0.73,0.83,0.96], ...
-                MarkerSize=20, MarkerEdgeColor=[0,0,0], MarkerFaceColor=[0,0,0]);
-            xlim([x(1), x(end)]);
+                ':_', LineWidth=3, Color=[0.73,0.83,0.96], ...
+                MarkerSize=25, MarkerEdgeColor=[0,0,0], MarkerFaceColor=[0,0,0]);
+            %xlim([x(1), x(end)]);
             xlabel(opts.xlab,'fontsize',20);
             ylabel(opts.ylab,'fontsize',20);
             set(gca,'fontsize',20);
             set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy]);
-            saveas(gcf, opts.fileprefix+".fig");
-            saveas(gcf, opts.fileprefix+".png");
-            saveas(gcf, opts.fileprefix+".svg");
+            if ~isemptytext(opts.fileprefix)
+                saveas(gcf, opts.fileprefix+".fig");
+                saveas(gcf, opts.fileprefix+".png");
+                saveas(gcf, opts.fileprefix+".svg");
+            end
+        end
+        function X = removeColsWithNans(X)
+            if iscell(X)
+                X = X(:, all(~isnan(cell2mat(X))));
+                return
+            end                        
+            % remove reps (columns) that have any nan elements
+            X = X(:, all(~isnan(X)));
         end
     end
     
@@ -1451,7 +1464,7 @@
                 this mladni.NMF
                 subgroups {mustBeText}
                 opts.workdir {mustBeFolder} = fullfile(getenv("ADNI_HOME"), "NMF_FDG")
-                opts.numbases double = 22
+                opts.numbases double = this.N_PATTERNS
             end
             subgroups = convertCharsToStrings(subgroups);
             niidir = fullfile(opts.workdir, "baseline_cn", "NumBases"+opts.numbases, "OPNMF", "niiImg");
@@ -1480,9 +1493,10 @@
 
             writetable(T, fullfile(opts.workdir, stackstr()+".csv"));
             save(fullfile(opts.workdir, stackstr()+".mat"), "T");
-            heatmap(table2array(T))
-            ylabel("NMF Patterns")
-            xlabel("Diagnostic Groups")
+            h = heatmap(table2array(T));
+            ylabel("NMF Patterns");
+            xlabel("Diagnostic Groups");
+            saveFigure2(h, stackstr());
         end
         function call(this)
             %% Writes imaging data to X.mat, 
@@ -1609,7 +1623,7 @@
             addParameter(ip, "numBases", 2:2:mladni.NMF.MAX_NUM_BASES, @isnumeric)
             addParameter(ip, "permute", false, @islogical);
             addParameter(ip, "repetitions", 50, @isscalar);
-            addParameter(ip, "selectedNumBases", 18, @isscalar);
+            addParameter(ip, "selectedNumBases", 24, @isscalar);
             addParameter(ip, "smooth", false, @islogical);
             addParameter(ip, "study_design", "longitudinal", @istext)
             addParameter(ip, "volbin", fullfile(getenv("ADNI_HOME"), "VolBin"), @isfolder);

@@ -5,6 +5,10 @@ classdef Test_NMF < matlab.unittest.TestCase
     %  Created 08-Jul-2023 13:03:54 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/test/+mladni_unittest.
     %  Developed on Matlab 9.12.0.2170939 (R2022a) Update 6 for MACI64.  Copyright 2023 John J. Lee.
     
+    properties (Constant)
+        N_PATTERNS = mladni.NMF.N_PATTERNS
+    end
+
     properties
         study_design = "cross-sectional"
         testObj
@@ -23,16 +27,16 @@ classdef Test_NMF < matlab.unittest.TestCase
             % mladni.AdniDemographics.table_covariates must be well-formed with pattern-averaged FDG SUVR metrics
 
             nmfcov_long = mladni.NMFCovariates(study_design="longitudinal");
-            Tc_long = nmfcov_long.table_covariates % visual inspect
+            Tc_long = nmfcov_long.table_covariates %#ok<NOPRT> % visual inspect
             figure; plot(Tc_long.Components)
             this.verifyEqual(size(Tc_long), [3415, 135+4]) % Dlicv, PVE1, RegErr, Components
-            this.verifyEqual(size(Tc_long.Components), [3415, 22])
+            this.verifyEqual(size(Tc_long.Components), [3415, this.N_PATTERNS])
 
             nmfcov_cs = mladni.NMFCovariates(study_design="cross-sectional");
-            Tc_cs = nmfcov_cs.table_covariates % visual inspect
+            Tc_cs = nmfcov_cs.table_covariates %#ok<NOPRT> % visual inspect
             figure; plot(Tc_cs.Components)
             this.verifyEqual(size(Tc_cs), [3415, 135+4]) % Dlicv, PVE1, RegErr, Components
-            this.verifyEqual(size(Tc_cs.Components), [3415, 22])
+            this.verifyEqual(size(Tc_cs.Components), [3415, this.N_PATTERNS])
         end
         function test_table_dlicv(this)
             nmfcov = mladni.NMFCovariates(study_design="longitudinal");

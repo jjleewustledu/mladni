@@ -29,186 +29,13 @@ classdef AdniDemographics < handle
     %
     %  Created 14-Dec-2021 13:51:20 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.11.0.1809720 (R2021b) Update 1 for MACI64.  Copyright 2021 John J. Lee.
-    
-    methods (Static)
-        function t = create_table_of_filenames(varargin)
-            import mladni.AdniDemographics.glob_fdg_proc
-            import mladni.AdniDemographics.glob_fdg_raw
-            import mladni.AdniDemographics.glob_mpr
 
-            ip = inputParser;
-            ip.KeepUnmatched = true;
-            addRequired(ip, 'subjectsDir', @isfolder)
-            addParameter(ip, 'modality', '', @istext)
-            addParameter(ip, 'table_filename', '', @istext)
-            parse(ip, varargin{:})
-            ipr = ip.Results;
-            if isempty(ipr.table_filename)
-                ipr.table_filename = fullfile(ipr.subjectsDir, strcat(lower(ipr.modality), '_filenames.csv'));
-            end
-            
-            switch lower(ipr.modality)
-                case 'fdgproc'
-                    c = glob_fdg_proc(ipr.subjectsDir);
-                case 'fdgraw'
-                    c = glob_fdg_raw(ipr.subjectsDir);
-                case 't1'
-                    c = glob_mpr(ipr.subjectsDir);
-                otherwise
-                    error('mladni:ValueError', 'AdniDemographics.create_table.ipr.modality->%s', ipr.modality)
-            end
-            t = cell2table(c, 'VariableNames', {'Filename'});
-            writetable(t, ipr.table_filename);
-        end
-        function ic = fqfns2mean(fqfns, fileprefix)
-            arguments
-                fqfns cell
-                fileprefix {mustBeTextScalar} = stackstr(2)
-            end
-
-            Nerr = 0;
-            fqfns = fqfns(cellfun(@(x) isfile(x), fqfns));
-            N = length(fqfns);
-            ic = mlfourd.ImagingContext2(fqfns{1}) ./ N;
-            for f = 2:N
-                try
-                ic = ic + mlfourd.ImagingContext2(fqfns{f}) ./ N;
-                ic.fileprefix = fileprefix;
-                catch 
-                    Nerr = Nerr + 1;
-                end
-            end
-            ic = ic ./ (N - Nerr);
-            ic.fileprefix = strcat(ic.fileprefix, '_mean');
-            ic.filepath = pwd;
-
-            fprintf('%s: Nerr->%g\n', stackstr(), Nerr)
-        end
-        function list_acqdate = fqfns2AcqDate(list_fqfns)
-            assert(iscell(list_fqfns), stackstr)
-            list_acqdate = cell(size(list_fqfns));
-            for idx = 1:length(list_fqfns)
-                re = regexp(list_fqfns{idx}, '\S+sub-(?<sub>\d{3}S\d{4})_ses-(?<acqdate>\d{14})\S+', 'names');
-                list_acqdate{idx} = datetime(re.acqdate, InputFormat='yyyyMMddHHmmss');
-            end
-        end
-        function list_sub = fqfns2Subject(list_fqfns)
-            assert(iscell(list_fqfns), stackstr)
-            list_sub = cell(size(list_fqfns));
-            for idx = 1:length(list_fqfns)
-                re = regexp(list_fqfns{idx}, '\S+sub-(?<sub>\d{3}S\d{4})_ses-\S+', 'names');
-                list_sub{idx} = strrep(re.sub, 'S', '_S_');
-            end
-        end
-        function g = glob_fdg_raw(varargin)
-            ip = inputParser;
-            ip.KeepUnmatched = true;
-            addRequired(ip, 'subjectsDir', @isfolder)
-            parse(ip, varargin{:})
-            ipr = ip.Results;
-
-            g = glob(fullfile(ipr.subjectsDir, '*_S_*', '*Raw*', '*', 'I*', ''));
-            for ig = 1:length(g)
-                hdrs = glob(fullfile(g{ig}, '*.i.hdr'));
-                g{ig} = hdrs{1};
-            end
-            g = ascol(g);
-        end
-        function g = glob_fdg_proc(varargin)
-            ip = inputParser;
-            ip.KeepUnmatched = true;
-            addRequired(ip, 'subjectsDir', @isfolder)
-            parse(ip, varargin{:})
-            ipr = ip.Results;
-
-            g = glob(fullfile(ipr.subjectsDir, '*_S_*', 'Co*', '*', 'I*', ''));
-            for ig = 1:length(g)
-                dcms = glob(fullfile(g{ig}, '*.dcm'));
-                g{ig} = dcms{1};
-            end
-            g = ascol(g);
-        end
-        function g = glob_mpr(varargin)
-            ip = inputParser;
-            ip.KeepUnmatched = true;
-            addRequired(ip, 'subjectsDir', @isfolder)
-            parse(ip, varargin{:})
-            ipr = ip.Results;
-
-            g = glob(fullfile(ipr.subjectsDir, '*_S_*', '*', '*', 'I*', ''));
-            for ig = 1:length(g)
-                niis = glob(fullfile(g{ig}, '*.nii*'));
-                if ~isempty(niis)
-                    g{ig} = niis{1};
-                end
-                dcms = glob(fullfile(g{ig}, '*.dcm'));
-                if ~isempty(dcms)
-                    g{ig} = dcms{1};
-                end
-            end
-            g = ascol(g);
-        end
-        function g = table2fqfns(T, opts)
-            % e.g., opts.globbing ->
-            %       sub-*_ses-*_trc-FDG_proc-CASU*_orient-rpi_pet_on_T1w_Warped_dlicv.nii.gz
-            %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_Warped.nii.gz
-            %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_pve_0_Warped.nii.gz
-            %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_pve_1_Warped.nii.gz
-            %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_pve_2_Warped.nii.gz
-            %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_detJ.nii.gz
-            %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_dlicv_detJ_Warped.nii.gz
-
-            %       sub-*_ses-*_trc-FDG_proc-CASU_orient-rpi_pet.nii.gz
-            %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w.nii.gz
-
-            arguments
-                T table = []
-                opts.globbing {mustBeTextScalar} = 'sub-*_ses-*_trc-FDG_proc-CASU_orient-rpi_pet_on_T1w.nii.gz';
-            end
-            opts.globbing = convertStringsToChars(opts.globbing);
-            if isempty(T)
-                ad = mladni.AdniDemographics;
-                T = ad.table_fdg1();
-            end
-
-            g = {};
-            for row = 1:size(T,1)
-                try
-                    sub_re = regexp(T{row, 'Subject'}{1}, '(?<pre>\d{3})_S_(?<rid>\d{4})', 'names');
-                    sub = sprintf('sub-%sS%s', sub_re.pre, sub_re.rid);
-                    ses_dt = T{row, 'AcqDate'};
-                    ses_dt.Format = 'yyyyMMdd';
-                    ses = strcat('ses-', char(ses_dt));
-                    g_ = glob(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', sub, ses, 'pet', opts.globbing));
-                    if isempty(g_)
-                        g_ = {''};
-                    end
-                    g = [g; g_]; %#ok<AGROW> 
-                catch ME
-                    g = [g; {''}];
-                    handwarning(ME)
-                end
-            end
-        end
-        function t = table_paren(varargin)
-            t = mladni.AdniMerge.table_paren(varargin{:});
-        end
-        function t = table_excluding_table(t1, t2)
-            %% from t1, exclude all rows with Subject & AcqDate found anywhere in t2
-
-            assert(any(contains(t1.Properties.VariableNames, 'Subject')), stackstr)
-            assert(any(contains(t1.Properties.VariableNames, 'AcqDate')), stackstr)
-            assert(any(contains(t2.Properties.VariableNames, 'Subject')), stackstr)
-            assert(any(contains(t2.Properties.VariableNames, 'AcqDate')), stackstr)
-
-            select = false(size(t1,1), 1);
-            for row2 = 1:size(t2, 1)
-                selectSubject = contains(t1.Subject, t2.Subject{row2});
-                selectAcqDate = t1.AcqDate == t2.AcqDate(row2);
-                select = select | (selectSubject & selectAcqDate);
-            end
-            t = t1(~select, :);
-        end
+    properties (Constant)
+        EXCLUSIONS = {'I315216', 'I371791', 'I85877'} 
+        EXCLUSION_PATHS = { ...
+            '/home/usr/jjlee/Singularity/ADNI/bids/derivatives/sub-094S4649/ses-20120606', ...
+            '/home/usr/jjlee/Singularity/ADNI/bids/derivatives/sub-127S5132/ses-20130507', ...
+            '/home/usr/jjlee/Singularity/ADNI/bids/derivatives/sub-003S1059/ses-20071211'}
     end
 
     properties
@@ -243,7 +70,7 @@ classdef AdniDemographics < handle
                 'preclinical', ...
                 'cdr_0p5_apos', ...
                 'cdr_gt_0p5_apos', ...
-                'cdr_ge_0p5_aneg'}
+                'cdr_gt_0_aneg'}
         viscode2_months = [0 6 12 18 24 36 48 54 60 66 72 78 84 90 96 108 120 126 132 138 144 150];
     end
 
@@ -252,6 +79,7 @@ classdef AdniDemographics < handle
         description_acro
         fdg1_file
         fdg4_file
+        fdg5_file
         fdg_orig_file
         fdg_proc1_file
         fdg_proc2_file
@@ -286,6 +114,10 @@ classdef AdniDemographics < handle
         function g = get.fdg4_file(this)
             g = fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', ...
                 sprintf('AdniDemographics_table_fdg4_%s.mat', this.study_design));
+        end
+        function g = get.fdg5_file(this)
+            g = fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', ...
+                sprintf('AdniDemographics_table_fdg5_%s.mat', this.study_design));
         end
         function g = get.fdg_orig_file(~)
             %% unique Subject ~ 1662
@@ -688,6 +520,36 @@ classdef AdniDemographics < handle
             save(this.fdg4_file, "table_fdg4");
             t = this.table_paren(this.fdg4_, varargin{:}); 
         end
+        function t = table_fdg5(this, varargin)
+            %%  this.table_fdg4(~site011, ~visible_migreg, :)
+            %   prepended with fqfn of registered fdg NIfTI and json.
+
+            if ~isempty(this.fdg5_)
+                fprintf("%s: using cached in memory\n", stackstr)
+                t = this.table_paren(this.fdg5_, varargin{:});
+                return
+            end
+
+            % cached on filesystem
+            if isfile(this.fdg5_file) && this.reuse_cache
+                fprintf("%s: using cached on filesystem\n", stackstr)
+                ld = load(this.fdg5_file);
+                this.fdg5_ = ld.table_fdg5;
+                t = this.table_paren(this.fdg5_, varargin{:});     
+                return
+            end
+
+            % build caches
+            fprintf("%s: building cache\n", stackstr)
+            fdg4 = this.table_fdg4();
+            this.fdg5_ = fdg4(~contains(fdg4.Subject, '011_S_'), :);
+            for excl = asrow(this.EXCLUSIONS)
+                this.fdg5_ = this.fdg5_(~contains(this.fdg5_.ImageDataID, excl{1}), :);
+            end
+            table_fdg5 = this.fdg5_;
+            save(this.fdg5_file, "table_fdg5");
+            t = this.table_paren(this.fdg5_, varargin{:}); 
+        end
         function t = table_firstscan(this, t_in, varargin)
             %% do not use lazy init with table_fdg()
 
@@ -782,27 +644,31 @@ classdef AdniDemographics < handle
         %  1660 baseline FDG scans with CASU
         %  subgroup total = 247 + 133 + 148 + 166 + 87 = 781
 
-        function     call(this, opts)
+        function     call(this)
+            %% prepare for running NMF
+
+            assert(~isempty(this.table_fdg5));
+            t = this.table_cn(true, 'table_fdg5');
+            Filelist = strrep(t.Filelist, '/home/usr', '/scratch');
+            u = table(Filelist);
+            fqfn = fullfile(this.workdir, 'baseline_cn', 'nifti_files.csv');
+            ensuredir(myfileparts(fqfn));
+            writetable(u, fqfn, WriteVariableNames=false);
+        end
+        function     call2(this, opts)
             %% sequentially calls create_subgroups(), create_ic_means()
 
             arguments
                 this mladni.AdniDemographics
                 opts.view logical = false
             end
-
-            f1 = @this.create_subgroups;
-            f2 = @this.create_ic_means;
-
             aglobs = this.AGLOBS;
-            lblg = this.LABELS_G;
             lbl = this.LABELS;
 
-            for d = {'cross-sectional', 'longitudinal'}
-                f1(aglobs{1}, lblg{1}, study_design=d{1});
-                f2(lbl{1}, lblg{1}, study_design=d{1}, view=opts.view);
-            end
+            this.create_subgroups(aglobs{1});
+            this.create_ic_means(lbl{1}, view=opts.view);
         end
-        function     create_ic_means(this, label, labelg, opts)
+        function     create_ic_means(this, label, opts)
             %% 
             %  Args:
             %     label {mustBeTextScalar} = 'sub-cn_ses-all_T1w_dlicv_detJ_Warped'
@@ -814,35 +680,41 @@ classdef AdniDemographics < handle
             arguments
                 this mladni.AdniDemographics
                 label {mustBeTextScalar} = 'sub-cn_ses-all_trc-FDG_pet_on_T1w_Warped_dlicv'
-                labelg {mustBeTextScalar} = 'fdg'
-                opts.study_design {mustBeTextScalar} = 'longitudinal' % cross-sectional
+                opts.study_design {mustBeTextScalar} = this.study_design
                 opts.view logical = false
             end
-            labelg = strcat('AdniDemographics_create_subgroups_', labelg); % find mat saved by create_subgroups
-            
+
             pwd0 = pushd(this.workdir);
-            load(sprintf('%s_%s_fqfns.mat', labelg, opts.study_design)) %#ok<*LOAD> 
             
             for sg = this.subgroups
-                % save diagnostic subgroups
-                ic.(sg{1}) = this.fqfns2mean(fqfns.(sg{1}));
-                ic.(sg{1}).fileprefix = strrep(label, this.subgroups{1}, sg{1});
-                ic.(sg{1}).save();   
-            end
+                sgdir = this.subgroupdir(opts.study_design, sg{1});
+                
+                pwd1 = pushd(sgdir);
 
-            for sg = this.subgroups(2:end)
+                % save diagnostic subgroups
+                T = readtable("nifti_files_mounted.csv", ReadVariableNames=false, Delimiter=" ");
+                ic.(sg{1}) = this.fqfns2mean(T.Var1);
+                ic.(sg{1}).fileprefix = strrep(label, this.subgroups{1}, sg{1});
+                ic.(sg{1}).save();
+
                 % differences, view_qc()
+                if strcmp(sg{1}, this.subgroups{1})
+                    popd(pwd1);
+                    continue
+                end
                 icd.(sg{1}) = ic.(sg{1}) - ic.(this.subgroups{1});
-                icd.(sg{1}).fileprefix = strrep(label, this.subgroups{1}, strcat('D', sg{1}));
+                icd.(sg{1}).fileprefix = strrep(label, this.subgroups{1}, strcat("D", sg{1}));
+                icd.(sg{1}).save();
                 if opts.view
                     ic.(this.subgroups{1}).view_qc(icd.(sg{1}));
                 end
                 ic.(this.subgroups{1}).save_qc(icd.(sg{1}));
+                popd(pwd1);
             end
             popd(pwd0);
         end 
-        function     create_subgroups(this, aglob, labelg, opts)
-            %% 
+        function     create_subgroups(this, aglob, opts)
+            %% write csv tables of subgroups that may be usefulf for RStudio
             %  Args:
             %     aglob {mustBeTextScalar} = 'sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_dlicv_detJ_Warped.nii.gz'
             %     aglob {mustBeTextScalar} = 'sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_detJ.nii.gz'
@@ -858,38 +730,50 @@ classdef AdniDemographics < handle
             arguments
                 this mladni.AdniDemographics
                 aglob {mustBeTextScalar} = 'sub-*_ses-*_trc-FDG_proc-CASU-ponsvermis_orient-rpi_pet_on_T1w_Warped_dlicv.nii.gz'
-                labelg {mustBeTextScalar} = 'fdg'
-                opts.study_design {mustBeTextScalar} = 'longitudinal' % cross-sectional
+                opts.study_design {mustBeTextScalar} = this.study_design
             end
             
             pwd0 = pushd(this.workdir);
-            %to_remove = mybasename(this.fqfns_scans_gt_1y);
             cs = strcmp(opts.study_design, 'cross-sectional');
 
             for sg = this.subgroups
-                table_ = strcat('table_', sg{1});
-                TT.(sg{1}) = this.(table_)(cs); % call this.table_*()
-                fqfns.(sg{1}) = this.table2fqfns(TT.(sg{1}), globbing=aglob); % call this.table2fqfns()
-                
-                Filename = fqfns.(sg{1}); % rename for addvars()
-                TT.(sg{1}) = addvars(TT.(sg{1}), Filename, 'Before', 1, 'NewVariableNames', {'Filename'});
+                sgdir = this.subgroupdir(opts.study_design, sg{1});
+                ensuredir(sgdir)
+
+                pwd1 = pushd(sgdir);
+                table_ = strcat("table_", sg{1}); % table function handle to call
+                TT.(sg{1}) = this.(table_)(cs); 
+                %fqfns.(sg{1}) = this.table2fqfns(TT.(sg{1}), globbing=aglob);                 
+                %Filename = fqfns.(sg{1}); % rename for addvars()
+                %TT.(sg{1}) = addvars(TT.(sg{1}), Filename, Before=1, NewVariableNames={'Filename'});
                 %select = cellfun(@(x) ~isempty(x), Filename);
                 %disp(TT.(sg{1}))
 
-                writetable(TT.(sg{1}), sprintf('table_%s_%s.csv', sg{1}, opts.study_design), WriteVariableNames=true)
+                writetable(TT.(sg{1}), sprintf("table_%s_%s.csv", opts.study_design, sg{1}), WriteVariableNames=true)
+                writetable(table(TT.(sg{1}).Filelist), "nifti_files_mounted.csv", WriteVariableNames=false)
+                popd(pwd1)
             end
 
-            save(sprintf('AdniDemographics_create_subgroups_%s_%s_fqfns.mat', labelg, opts.study_design), 'fqfns')
-            save(sprintf('AdniDemographics_create_subgroups_%s_%s_TT.mat', labelg, opts.study_design), 'TT')
+            save(sprintf("%s_TT.mat", stackstr()), "TT");
             popd(pwd0);
         end
+        function d = subgroupdir(this, study_design, subgr)
+            arguments
+                this mladni.AdniDemographics
+                study_design {mustBeTextScalar} = this.study_design
+                subgr {mustBeTextScalar} = this.subgroups{1}
+            end
+
+            d = fullfile(this.workdir, sprintf("%s_%s", study_design, subgr));
+        end
         function t = table_all(this, cs, T_name)
-            %% ...; N = 1544 with late baseline; N = 3478 longitudinal by table_fdg4.
+            %% N = 3478 longitudinal by table_fdg4; N = 3377 longitudinal by table_fdg5.
+            %  N = 1512 cross-sectional by table_fdg5.
 
             arguments
                 this mladni.AdniDemographics
                 cs = false % cross-sectional
-                T_name = 'table_fdg4'
+                T_name = 'table_fdg5'
             end
 
             fdg__ = this.(T_name);
@@ -900,12 +784,13 @@ classdef AdniDemographics < handle
             end
         end
         function t = table_cn(this, cs, T_name, bl_1st)
-            %% N = 247 in nifti_files.csv; N = 262 with late baseline; N = 492->479 longitudinal by table_fdg4.
+            %% N = 496 longitudinal by table_fdg4; N = 474 longitudinal by table_fdg5.
+            %  N = 269 cross-sectional by table_fdg5.
             
             arguments
                 this mladni.AdniDemographics
                 cs logical = false % cross-sectional
-                T_name {mustBeTextScalar} = 'table_fdg4'
+                T_name {mustBeTextScalar} = 'table_fdg5'
                 bl_1st logical = false
             end
 
@@ -923,12 +808,13 @@ classdef AdniDemographics < handle
             end
         end
         function t = table_preclinical(this, cs, T_name, bl_1st)
-            %% N = 133 in nifti_files.csv; N = 140 with late baseline; N = 164->177 longitudinal by table_fdg4.
+            %% N = 162 longitudinal by table_fdg4; N = 158 longitudinal by table_fdg5.
+            %  N = 130 cross-sectional by table_fdg5.
 
             arguments
                 this mladni.AdniDemographics
                 cs = false % cross-sectional
-                T_name = 'table_fdg4'
+                T_name = 'table_fdg5'
                 bl_1st = false
             end
 
@@ -946,12 +832,13 @@ classdef AdniDemographics < handle
             end
         end        
         function t = table_cdr_0p5_apos(this, cs, T_name, bl_1st)
-            %% N = 385 in nifti_files.csv; N = 460 with late baseline; N = 566->575 longitudinal by table_fdg4.
+            %% N = 559 longitudinal by table_fdg4; N = 545 longitudinal by table_fdg5.
+            %  N = 438 cross-sectional by table_fdg5.
 
             arguments
                 this mladni.AdniDemographics
                 cs = false % cross-sectional
-                T_name = 'table_fdg4'
+                T_name = 'table_fdg5'
                 bl_1st = false
             end
 
@@ -969,12 +856,13 @@ classdef AdniDemographics < handle
             end
         end
         function t = table_cdr_gt_0p5_apos(this, cs, T_name, bl_1st)
-            %% N = 87 in nifti_files.csv; N = 149 with late baseline; N = 173->173 longitudinal by table_fdg4.
+            %% N = 176 longitudinal by table_fdg4; N = 172 longitudinal by table_fdg5.
+            %  N = 147 cross-sectional by table_fdg5.
 
             arguments
                 this mladni.AdniDemographics
                 cs = false % cross-sectional
-                T_name = 'table_fdg4'
+                T_name = 'table_fdg5'
                 bl_1st = false
             end
 
@@ -992,12 +880,13 @@ classdef AdniDemographics < handle
             end            
         end
         function t = table_cdr_gt_0_aneg(this, cs, T_name, bl_1st)
-            %% N = 247; N = 333 with late baseline; N = 564->557 longitudinal by table_fdg4.
+            %% N = 568 longitudinal by table_fdg4; N = 568 longitudinal by table_fdg5.
+            %  N = 340 cross-sectional by table_fdg5.
 
             arguments
                 this mladni.AdniDemographics
                 cs = false % cross-sectional
-                T_name = 'table_fdg4'
+                T_name = 'table_fdg5'
                 bl_1st = false
             end
 
@@ -1169,6 +1058,186 @@ classdef AdniDemographics < handle
         end
     end
 
+    methods (Static)
+        function t = create_table_of_filenames(varargin)
+            import mladni.AdniDemographics.*
+
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addRequired(ip, 'subjectsDir', @isfolder)
+            addParameter(ip, 'modality', '', @istext)
+            addParameter(ip, 'table_filename', '', @istext)
+            parse(ip, varargin{:})
+            ipr = ip.Results;
+            if isempty(ipr.table_filename)
+                ipr.table_filename = fullfile(ipr.subjectsDir, strcat(lower(ipr.modality), '_filenames.csv'));
+            end
+            
+            switch lower(ipr.modality)
+                case 'fdgproc'
+                    c = glob_fdg_proc(ipr.subjectsDir);
+                case 'fdgraw'
+                    c = glob_fdg_raw(ipr.subjectsDir);
+                case 't1'
+                    c = glob_mpr(ipr.subjectsDir);
+                otherwise
+                    error('mladni:ValueError', 'AdniDemographics.create_table.ipr.modality->%s', ipr.modality)
+            end
+            t = cell2table(c, 'VariableNames', {'Filename'});
+            writetable(t, ipr.table_filename);
+        end
+        function ic = fqfns2mean(fqfns, fileprefix)
+            arguments
+                fqfns cell
+                fileprefix {mustBeTextScalar} = stackstr(2)
+            end
+
+            Nerr = 0;
+            %fqfns = fqfns(cellfun(@(x) isfile(x), fqfns));
+            N = length(fqfns);
+            ic = mlfourd.ImagingContext2(fqfns{1}) ./ N;
+            for f = 2:N
+                try
+                ic = ic + mlfourd.ImagingContext2(fqfns{f}) ./ N;
+                ic.fileprefix = fileprefix;
+                catch 
+                    Nerr = Nerr + 1;
+                end
+            end
+            ic = ic .* (N/(N - Nerr));
+            ic.fileprefix = strcat(ic.fileprefix, '_mean');
+            ic.filepath = pwd;
+
+            fprintf('%s: Nerr->%g\n', stackstr(), Nerr)
+        end
+        function list_acqdate = fqfns2AcqDate(list_fqfns)
+            assert(iscell(list_fqfns), stackstr)
+            list_acqdate = cell(size(list_fqfns));
+            for idx = 1:length(list_fqfns)
+                re = regexp(list_fqfns{idx}, '\S+sub-(?<sub>\d{3}S\d{4})_ses-(?<acqdate>\d{14})\S+', 'names');
+                list_acqdate{idx} = datetime(re.acqdate, InputFormat='yyyyMMddHHmmss');
+            end
+        end
+        function list_sub = fqfns2Subject(list_fqfns)
+            assert(iscell(list_fqfns), stackstr)
+            list_sub = cell(size(list_fqfns));
+            for idx = 1:length(list_fqfns)
+                re = regexp(list_fqfns{idx}, '\S+sub-(?<sub>\d{3}S\d{4})_ses-\S+', 'names');
+                list_sub{idx} = strrep(re.sub, 'S', '_S_');
+            end
+        end
+        function g = glob_fdg_raw(varargin)
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addRequired(ip, 'subjectsDir', @isfolder)
+            parse(ip, varargin{:})
+            ipr = ip.Results;
+
+            g = glob(fullfile(ipr.subjectsDir, '*_S_*', '*Raw*', '*', 'I*', ''));
+            for ig = 1:length(g)
+                hdrs = glob(fullfile(g{ig}, '*.i.hdr'));
+                g{ig} = hdrs{1};
+            end
+            g = ascol(g);
+        end
+        function g = glob_fdg_proc(varargin)
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addRequired(ip, 'subjectsDir', @isfolder)
+            parse(ip, varargin{:})
+            ipr = ip.Results;
+
+            g = glob(fullfile(ipr.subjectsDir, '*_S_*', 'Co*', '*', 'I*', ''));
+            for ig = 1:length(g)
+                dcms = glob(fullfile(g{ig}, '*.dcm'));
+                g{ig} = dcms{1};
+            end
+            g = ascol(g);
+        end
+        function g = glob_mpr(varargin)
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addRequired(ip, 'subjectsDir', @isfolder)
+            parse(ip, varargin{:})
+            ipr = ip.Results;
+
+            g = glob(fullfile(ipr.subjectsDir, '*_S_*', '*', '*', 'I*', ''));
+            for ig = 1:length(g)
+                niis = glob(fullfile(g{ig}, '*.nii*'));
+                if ~isempty(niis)
+                    g{ig} = niis{1};
+                end
+                dcms = glob(fullfile(g{ig}, '*.dcm'));
+                if ~isempty(dcms)
+                    g{ig} = dcms{1};
+                end
+            end
+            g = ascol(g);
+        end
+        function g = table2fqfns(T, opts)
+            %% is DEPRECATED
+            % e.g., opts.globbing ->
+            %       sub-*_ses-*_trc-FDG_proc-CASU*_orient-rpi_pet_on_T1w_Warped_dlicv.nii.gz
+            %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_Warped.nii.gz
+            %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_pve_0_Warped.nii.gz
+            %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_pve_1_Warped.nii.gz
+            %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_pve_2_Warped.nii.gz
+            %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_detJ.nii.gz
+            %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_dlicv_detJ_Warped.nii.gz
+
+            %       sub-*_ses-*_trc-FDG_proc-CASU_orient-rpi_pet.nii.gz
+            %       sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w.nii.gz
+
+            arguments
+                T table = []
+                opts.globbing {mustBeTextScalar} = 'sub-*_ses-*_trc-FDG_proc-CASU_orient-rpi_pet_on_T1w.nii.gz';
+            end
+            opts.globbing = convertStringsToChars(opts.globbing);
+            if isempty(T)
+                ad = mladni.AdniDemographics;
+                T = ad.table_fdg1();
+            end
+
+            g = {};
+            for row = 1:size(T,1)
+                try
+                    sub_re = regexp(T{row, 'Subject'}{1}, '(?<pre>\d{3})_S_(?<rid>\d{4})', 'names');
+                    sub = sprintf('sub-%sS%s', sub_re.pre, sub_re.rid);
+                    ses_dt = T{row, 'AcqDate'};
+                    ses_dt.Format = 'yyyyMMdd';
+                    ses = strcat('ses-', char(ses_dt));
+                    g_ = glob(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', sub, ses, 'pet', opts.globbing));
+                    if isempty(g_)
+                        g_ = {''};
+                    end
+                    g = [g; g_]; %#ok<AGROW> 
+                catch ME
+                    g = [g; {''}];
+                    handwarning(ME)
+                end
+            end
+        end
+        function t = table_paren(varargin)
+            t = mladni.AdniMerge.table_paren(varargin{:});
+        end
+        function t = table_excluding_table(t1, t2)
+            %% from t1, exclude all rows with Subject & AcqDate found anywhere in t2
+
+            assert(any(contains(t1.Properties.VariableNames, 'Subject')), stackstr)
+            assert(any(contains(t1.Properties.VariableNames, 'AcqDate')), stackstr)
+            assert(any(contains(t2.Properties.VariableNames, 'Subject')), stackstr)
+            assert(any(contains(t2.Properties.VariableNames, 'AcqDate')), stackstr)
+
+            select = false(size(t1,1), 1);
+            for row2 = 1:size(t2, 1)
+                selectSubject = contains(t1.Subject, t2.Subject{row2});
+                selectAcqDate = t1.AcqDate == t2.AcqDate(row2);
+                select = select | (selectSubject & selectAcqDate);
+            end
+            t = t1(~select, :);
+        end
+    end
+
     %% PROTECTED
 
     properties (Access = protected)
@@ -1179,6 +1248,7 @@ classdef AdniDemographics < handle
         fdg2_
         fdg3_
         fdg4_
+        fdg5_
         firstscan_
         fqfns_scans_gt_1y_
         lastscan_

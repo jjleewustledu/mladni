@@ -1,9 +1,18 @@
 classdef NMFRadar
     %% Warning: For the log scale values, recommended axes limit is [1.000000e-04, 10] with an axes interval of 5. 
+    %  For managing natural ordering of labels, filename, etc., see also
+    %  https://blogs.mathworks.com/pick/2014/12/05/natural-order-sorting/
+    %  https://www.mathworks.com/matlabcentral/fileexchange/34464-customizable-natural-order-sort?s_tid=prof_contriblnk
+    %  https://www.mathworks.com/matlabcentral/fileexchange/47433-natural-order-row-sort?s_tid=prof_contriblnk
+    %  https://www.mathworks.com/matlabcentral/fileexchange/47434-natural-order-filename-sort?s_tid=prof_contriblnk
     %  
     %  Created 16-Feb-2023 22:57:16 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.12.0.2170939 (R2022a) Update 6 for MACI64.  Copyright 2023 John J. Lee.
     
+    properties (Constant)
+        N_PATTERNS = mladni.NMF.N_PATTERNS
+    end
+
     properties
         groups = { ...
             'CDR=0,amy-' 'CDR=0,amy+' 'CDR=0.5,amy+' 'CDR>0.5,amy+' 'CDR>0,amy-'} % DEPRECATED
@@ -16,9 +25,7 @@ classdef NMFRadar
             'cdr_gt_0_aneg'}
         mergeDx = { ...
             'CDR=0,amy-' 'CDR=0,amy+' 'CDR=0.5,amy+' 'CDR>0.5,amy+' 'CDR>0,amy-'}
-
-        bases0 = [14 16 18 20 22 24]; % best ARIs for split-sample reproducibility
-        label_permute = [1 2 13 16 17 18 19 20 21 22 3 4 5 6 7 8 9 10 11 12 14 15] % ParamCoeff indices are 0, 1, 10, 11, 12, ...
+        
         matfile0 = 'NMFCovariates_table_covariates_1stscan_longitudinal.mat'
         matfile_cohort = 'CohortCoefficients_20230721.mat' % output from R:patterns_of_neurodegeneration*.Rmd
         matfile_param = 'ParametricCoefficients_20230721.mat' % output from R:patterns_of_neurodegeneration*.Rmd
@@ -27,6 +34,7 @@ classdef NMFRadar
 
     properties (Dependent)
         figdir
+        label_permute
         N_bases_target
     end
 
@@ -34,8 +42,18 @@ classdef NMFRadar
         function g = get.figdir(this)
             g = fullfile(this.workdir, ['baseline_', this.groups0{1}], 'results');
         end
+        function g = get.label_permute(this)
+            switch this.N_PATTERNS
+                case 16
+                    g = [1 2 13 16 17 18 19 20 21 22 3 4 5 6 7 8 9 10 11 12 14 15]; % ParamCoeff indices are 0, 1, 10, 11, 12, ...
+                case 22
+                case 24
+                otherwise
+                    error("mladni:ValueError", "%s: N_PATTERNS->%i", stackstr(), mladni.NMF.N_PATTERNS);
+            end
+        end
         function g = get.N_bases_target(this)
-            g = this.bases0(5);
+            g = this.N_PATTERNS;
         end
     end
 
@@ -77,7 +95,7 @@ classdef NMFRadar
                 return
             end
             figure
-            axes_scaling = repmat({'log'}, [22 1]);
+            axes_scaling = repmat({'log'}, [this.N_PATTERNS 1]);
             s2 = plot(this, P, AxesMin=amin, AxesMax=amax, ...
                 legend={'ApoE4'}, ti='FDR p-value \beta_{ApoE4}', AxesScaling=axes_scaling);
             saveFigures(this.figdir, closeFigure=true, prefix='FDR p-value beta_apoe4');
@@ -126,7 +144,7 @@ classdef NMFRadar
                         continue
                     end
                     figure
-                    axes_scaling = repmat({'log'}, [22 1]);
+                    axes_scaling = repmat({'log'}, [this.N_PATTERNS 1]);
                     s2{ig} = plot(this, P, AxesMin=amin, AxesMax=amax, ...
                         legend=this.groupLabels(ig), ...
                         ti="FDR p-value \beta_{" + this.groupLabels{ig} + "}", ...
@@ -171,7 +189,7 @@ classdef NMFRadar
             amin = min(P, [], 'all');
             amax = max(P, [], 'all');
             figure
-            axes_scaling = repmat({'log'}, [22 1]);
+            axes_scaling = repmat({'log'}, [this.N_PATTERNS; 1]);
             s2 = plot(this, P, AxesMin=amin, AxesMax=amax, ...
                 legend={'male'}, ti='FDR p-value \beta_{sex}', AxesScaling=axes_scaling);
             saveFigures(this.figdir, closeFigure=true, prefix='FDR p-value beta_sex');
@@ -352,19 +370,25 @@ classdef NMFRadar
         function h = plot_beta0_to_beta1(this)
             ld = load(this.matfile_cohort);
             CC = ld.CohortCoefficients20230721;
+            NP = this.N_PATTERNS;
             h = figure;
             hold on
             
-            plot(CC.Estimate(1:22), CC.Estimate(23:44), LineStyle="none", Marker="o", MarkerSize=15)
-            plot(CC.Estimate(1:22), CC.Estimate(43:66), LineStyle="none", Marker="s", MarkerSize=15)
-            plot(CC.Estimate(1:22), CC.Estimate(45:66), LineStyle="none", Marker="s", MarkerSize=15)
-            plot(CC.Estimate(1:22), CC.Estimate(89:110), LineStyle="none", Marker="*", MarkerSize=15)
+            plot(CC.Estimate(1:NP), CC.Estimate(23:44), LineStyle="none", Marker="o", MarkerSize=15)
+            plot(CC.Estimate(1:NP), CC.Estimate(43:66), LineStyle="none", Marker="s", MarkerSize=15)
+            plot(CC.Estimate(1:NP), CC.Estimate(45:66), LineStyle="none", Marker="s", MarkerSize=15)
+            plot(CC.Estimate(1:NP), CC.Estimate(89:110), LineStyle="none", Marker="*", MarkerSize=15)
 
-            indices = {1 2 11 12 13 14 15 16 17 18 19 20 3 21 22 4 5 6 7 8 9 10};
+            switch mladni.NMF.N_PATTERNS
+                case 16
+                    indices = {1 2 11 12 13 14 15 16 17 18 19 20 3 21 22 4 5 6 7 8 9 10};
+                otherwise
+                    error("mladni:ValueError", "%s: N_PATTERNS->%i", stackstr(), mladni.NMF.N_PATTERNS);
+            end
             labels = cellfun(@(x) sprintf('P%i', x), indices, UniformOutput=false);
-            labelpoints(CC.Estimate(1:22), CC.Estimate(23:44), labels, 'SE', 0.2, 1)
-            labelpoints(CC.Estimate(1:22), CC.Estimate(45:66), labels, 'SE', 0.2, 1)
-            labelpoints(CC.Estimate(1:22), CC.Estimate(89:110), labels, 'SE', 0.2, 1)
+            labelpoints(CC.Estimate(1:NP), CC.Estimate(23:44), labels, 'SE', 0.2, 1)
+            labelpoints(CC.Estimate(1:NP), CC.Estimate(45:66), labels, 'SE', 0.2, 1)
+            labelpoints(CC.Estimate(1:NP), CC.Estimate(89:110), labels, 'SE', 0.2, 1)
         end
         
         function this = NMFRadar(varargin)

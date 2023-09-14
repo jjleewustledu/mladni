@@ -33,6 +33,7 @@
             'MergeEcogSPDivattBl' 'MergeEcogSPTotalBl' ...
             'Phase' 'SITEID' ...
             'Components'}
+        N_PATTERNS = mladni.NMF.N_PATTERNS
     end
 
     properties
@@ -581,7 +582,7 @@
                 colorbar("eastoutside")
                 ax1.YDir = "normal";
                 
-                ax2 = nexttile(22,[1,4]);
+                ax2 = nexttile(this.N_PATTERNS,[1,4]);
                 dX = diff(ptX(1:2));
                 edgeX = [ptX-dX/2;ptX(end)+dX];
                 histogram(Age,edgeX);

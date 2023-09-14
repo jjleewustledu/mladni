@@ -1,5 +1,6 @@
 classdef Anticlust < handle
-    %% ANTICLUST
+    %% ANTICLUST is DEPRECATED.  See mladni.Adni.anticlust_cn_repeat().
+    %
     %     R snippets based on Petra's snippets:
     %     =====================================
     %     install.packages("anticlust")
@@ -27,12 +28,9 @@ classdef Anticlust < handle
         workpath
     end
 
-    properties (Constant)
-        subgroups0 = { ...
-                'cn', 'preclinical', ...
-                'cdr_0p5_apos_emci', 'cdr_0p5_apos_lmci', 'cdr_0p5_apos_mci', 'cdr_gt_0p5_apos'}
+    properties (Constant)        
         subgroups = { ...
-            'cn', 'preclinical', 'cdr_0p5_apos', 'cdr_gt_0p5_apos', 'cdr_ge_0p5_aneg'}
+            'cn', 'preclinical', 'cdr_0p5_apos', 'cdr_gt_0p5_apos', 'cdr_gt_0_aneg'}
 
     end
 
@@ -51,80 +49,42 @@ classdef Anticlust < handle
     end
 
     methods (Static)
-        function T = addvars_Filename(T0)
-            if ~istable(T0) && isfile(T0)
-                if contains(T0, '.csv')
-                    T0 = readtable(T0);
-                else
-                    ld = load(T0);
-                    T0 = ld.(mybasename(T0));
-                end
-            end
-            assert(any(contains(T0.Properties.VariableNames, 'Subject')))
-
-            Filename = [];
-            for r = 1:size(T0, 1)
-                try
-                    re = regexp(T0.Subject{r}, '(?<pre>\d{3})_S_(?<post>\d{4})', 'names');
-                    sub = sprintf('sub-%sS%s', re.pre, re.post);
-                    globbing = glob(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', sub, 'ses-*')); 
-                    ses = basename(globbing{1});
-                    globbing = glob(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', sub, ses, 'pet', 'sub-*S*_ses-*_trc-FDG_proc-CASU*_orient-rpi_pet_on_T1w_Warped_dlicv.nii.gz'));
-                    % with or without ponsvermis renorm
-                    Filename = [Filename; string(globbing{1})]; %#ok<AGROW> 
-                catch 
-                    fprintf('defective files for %s\n', T0.Subject{r})
-                    Filename = [Filename; "file not found"]; %#ok<AGROW> 
-                end
-            end
-            assert(length(Filename) == size(T0,1))
-            T = addvars(T0, Filename, 'Before', 1);
-            T(strcmp(T.Filename, "file not found"),:) = [];
-        end
-        function create_nifti_files_csv()
-            cd(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives'))
-            labels = {'cn', 'preclinical', 'cdr_0p5_aneg', 'cdr_0p5_apos', 'cdr_0p5_anan', 'cdr_gt_0p5_apos'};
-            for idx = 1:length(labels)
-                csv = sprintf('table_%s.csv', labels{idx});
-                this = mladni.Anticlust(csv, label=labels{idx});
-                this.writetable();
-            end
-        end
         function prepare_folders_for_VolBin()
             %% First run "anticlust_cn_repeat.R" created 20230526, modified 20230612
 
-            pwd0 = pushd(fullfile(getenv("ADNI_HOME"), "bids", "derivatives"));
+            pwd0 = pushd(fullfile(getenv("ADNI_HOME"), "NMF_FDG"));
             g = glob("table_cn_rep*.csv");
             assert(length(g) == 100)
-            for g1 = g'
+            for g1 = asrow(g)
                 re = regexp(g1{1}, "table_cn_(?<rep>rep(A|B)\d+).csv", "names");
                 fold = fullfile(getenv("ADNI_HOME"), "NMF_FDG", sprintf("baseline_cn_%s", re.rep));
-                mkdir(fold);
+                ensuredir(fold);
                 movefile(g1{1}, fullfile(fold, "nifti_files.csv"));
             end
             popd(pwd0);
         end
-        function T = table_Filename_strrep(T, filename, str1, str2)
-            %% TABLE_FILENAME_STRREP
+        function T = table_Filename_strrep(T, csv_filename, str1, str2)
+            %% TABLE_FILENAME_STRREP needs nonempty T or csv_filename.
+            %  T.Filename must be a file (.nii.gz, .json, ...).
             %  Args:
             %     T = []
-            %     filename {mustBeTextScalar} = ''
-            %     str1 {mustBeTextScalar} = '/home/usr/jjlee/mnt/CHPC_scratch'
+            %     csv_filename {mustBeTextScalar} = ''
+            %     str1 {mustBeTextScalar} = '/home/usr/jjlee'
             %     str2 {mustBeTextScalar} = '/scratch/jjlee'
             %  Returns:
             %     T
 
             arguments
                 T = []
-                filename {mustBeTextScalar} = ''
-                str1 {mustBeTextScalar} = '/home/usr/jjlee/mnt/CHPC_scratch'
+                csv_filename {mustBeTextScalar} = ''
+                str1 {mustBeTextScalar} = '/home/usr/jjlee'
                 str2 {mustBeTextScalar} = '/scratch/jjlee'
             end
 
-            if isempty(T) && isfile(filename)
-                T = readtable(filename, ReadVariableNames=false, Delimiter=',');
+            if isempty(T) && isfile(csv_filename)
+                T = readtable(csv_filename, ReadVariableNames=false, Delimiter=',');
             end
-            if isempty(T) && ~isfile(filename)
+            if isempty(T) && ~isfile(csv_filename)
                 return
             end
 
@@ -132,14 +92,17 @@ classdef Anticlust < handle
             if ~contains(T.Properties.VariableNames, 'Filename')
                 T.Properties.VariableNames{1} = 'Filename';
             end
+            assert(isfile(T.Filename{1}))
             Filename = strrep(T.Filename, str1, str2);
-            if ~isempty(filename)
-                writetable(table(Filename), filename, 'WriteVariableNames', false)
+            if ~isempty(csv_filename)
+                writetable(table(Filename), csv_filename, 'WriteVariableNames', false)
             end            
         end
     end
 
     methods
+        function call(this)
+        end
         function nums = num_each_category(~, var, cats)
             assert(iscell(var));
             assert(iscell(cats));
@@ -178,10 +141,10 @@ classdef Anticlust < handle
             ensuredir(fileparts(ipr.repA_fn));
             ensuredir(fileparts(ipr.repB_fn));
 
-            repA_flist  = strrep(this.repA.Filename, "/mnt/CHPC_scratch", "/scratch/jjlee");
-            repA_flist2 = strrep(this.repA.Filename, "/mnt/CHPC_scratch", "/home/usr/jjlee/mnt/CHPC_scratch");
-            repB_flist  = strrep(this.repB.Filename, "/mnt/CHPC_scratch", "/scratch/jjlee");
-            repB_flist2 = strrep(this.repA.Filename, "/mnt/CHPC_scratch", "/home/usr/jjlee/mnt/CHPC_scratch");
+            repA_flist  = strrep(this.repA.Filename, "~/mnt/CHPC_scratch", "/scratch/jjlee");
+            repA_flist2 = strrep(this.repA.Filename, "~/mnt/CHPC_scratch", "/home/usr/jjlee/mnt/CHPC_scratch");
+            repB_flist  = strrep(this.repB.Filename, "~/mnt/CHPC_scratch", "/scratch/jjlee");
+            repB_flist2 = strrep(this.repA.Filename, "~/mnt/CHPC_scratch", "/home/usr/jjlee/mnt/CHPC_scratch");
 
             writetable(table(repA_flist),  ipr.repA_fn,  'WriteVariableNames', false);
             writetable(table(repA_flist2), ipr.repA_fn2, 'WriteVariableNames', false);
