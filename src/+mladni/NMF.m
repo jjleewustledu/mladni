@@ -1493,10 +1493,10 @@
 
             writetable(T, fullfile(opts.workdir, stackstr()+".csv"));
             save(fullfile(opts.workdir, stackstr()+".mat"), "T");
-            h = heatmap(table2array(T));
+            heatmap(table2array(T));
             ylabel("NMF Patterns");
             xlabel("Diagnostic Groups");
-            saveFigure2(h, stackstr());
+            saveFigure2(gcf, stackstr());
         end
         function call(this)
             %% Writes imaging data to X.mat, 

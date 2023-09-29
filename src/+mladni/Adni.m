@@ -69,8 +69,8 @@ classdef Adni < handle
 %            this.nmfc.table_covariates_1stscan();
 
             % check completeness
-            fdg5 = this.ad.table_fdg5;
-            assert(sum(@isempty, fdg5.Filelist) == 0, stackstr())
+%            fdg5 = this.ad.table_fdg5;
+%            assert(sum(cellfun(@isempty, fdg5.Filelist)) == 0, stackstr())
 
             % create images of means, var, std, median, iqr of baseline_cn, longitudinal_*
             subgroups = [ ...
@@ -79,12 +79,12 @@ classdef Adni < handle
                 "longitudinal_cdr_gt_0_aneg"];         
             for isg = 1:length(subgroups)
                 try
-                    this.nmf.build_stats_imaging(inputDir=fullfile(this.workdir, subgroups(isg)));                    
+%                    this.nmf.build_stats_imaging(inputDir=fullfile(this.workdir, subgroups(isg)));                    
                 catch ME
                     handwarning(ME)
                 end
             end
-            this.nmf.build_table_variances(subgroups);  
+%            this.nmf.build_table_variances(subgroups);  
 
             % radar plots
             call_patt_weighted_fdg(this.nmfr);
