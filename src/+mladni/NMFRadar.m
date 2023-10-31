@@ -14,6 +14,13 @@ classdef NMFRadar
     end
 
     properties
+        AxesLabels = ...
+                {'ADNI P1', 'ADNI P2', 'ADNI P3', 'ADNI P4', ...
+                'ADNI P5', 'ADNI P6', 'ADNI P7', 'ADNI P8', ...
+                'ADNI P9', 'ADNI P10', 'ADNI P11', 'ADNI P12', ...
+                'ADNI P13', 'ADNI P14', 'ADNI P15', 'ADNI P16', ...
+                'ADNI P17', 'ADNI P18', 'ADNI P19', 'ADNI P20', ...
+                'ADNI P21', 'ADNI P22', 'ADNI P23', 'ADNI P24'}
         groups = { ...
             'CDR=0,amy-' 'CDR=0,amy+' 'CDR=0.5,amy+' 'CDR>0.5,amy+' 'CDR>0,amy-'} % DEPRECATED
         groupLabels = {...
@@ -27,8 +34,14 @@ classdef NMFRadar
             'CDR=0,amy-' 'CDR=0,amy+' 'CDR=0.5,amy+' 'CDR>0.5,amy+' 'CDR>0,amy-'}
         
         matfile0 = 'NMFCovariates_table_covariates_1stscan_longitudinal.mat'
-        matfile_cohort = 'CohortCoefficients_20230721.mat' % output from R:patterns_of_neurodegeneration*.Rmd
-        matfile_param = 'ParametricCoefficients_20230721.mat' % output from R:patterns_of_neurodegeneration*.Rmd
+        matfile_cohort = 'CohortCoefficients_20230928.mat' 
+        % Output from R: Singularity/ADNI/NMF_FDG/patterns_of_neurodegeneration_20230921.Rmd
+        % b2 <- gam(list(
+        % y0~s(age,k=20,by=interaction(sex))+sex+apoe4+cohort, y1~s(age,k=20,by=interaction(sex))+sex+apoe4+cohort, y2~s(age,k=20,by=interaction(sex))+sex+apoe4+cohort, ...
+        % family=mvn(d=24), data=soto)
+        % b2
+        % summary(b2)  
+
         workdir
     end
 
@@ -40,14 +53,16 @@ classdef NMFRadar
 
     methods % GET
         function g = get.figdir(this)
-            g = fullfile(this.workdir, ['baseline_', this.groups0{1}], 'results');
+            g = fullfile(this.workdir, 'baseline_cn', 'results');
         end
         function g = get.label_permute(this)
             switch this.N_PATTERNS
                 case 16
-                    g = [1 2 13 16 17 18 19 20 21 22 3 4 5 6 7 8 9 10 11 12 14 15]; % ParamCoeff indices are 0, 1, 10, 11, 12, ...
+                    g = [1 2 13 16 3 4 5 6 7 8 9 10 11 12 14 15]; % ParamCoeff indices are 0, 1, 10, 11, 12, ...                    
                 case 22
+                    g = [1 2 13 16 17 18 19 20 21 22 3 4 5 6 7 8 9 10 11 12 14 15]; % ParamCoeff indices are 0, 1, 10, 11, 12, ...
                 case 24
+                    g = [1 2 13 16 17 18 19 20 21 22 23 24 3 4 5 6 7 8 9 10 11 12 14 15]; % ParamCoeff indices are 0, 1, 10, 11, 12, ...
                 otherwise
                     error("mladni:ValueError", "%s: N_PATTERNS->%i", stackstr(), mladni.NMF.N_PATTERNS);
             end
@@ -64,12 +79,12 @@ classdef NMFRadar
                 opts.show logical = false
             end
 
-            ld = load(fullfile(this.workdir, this.matfile_param));
-            PC = ld.ParametricCoefficients20230721;
+            ld = load(fullfile(this.workdir, this.matfile_cohort));
+            PC = ld.CohortCoefficients20230928;
 
             apoe4 = PC(contains(PC.ParamCoefficients, "apoe4"), :);
-            apoe4 = sortrows(apoe4, "ParamCoefficients");
-            apoe4 = apoe4(this.label_permute, :);
+            %apoe4 = sortrows(apoe4, "ParamCoefficients");
+            %apoe4 = apoe4(this.label_permute, :);
 
             if opts.show
                 disp(apoe4)
@@ -87,15 +102,17 @@ classdef NMFRadar
     
             % PValue
             fprintf('NMFRadar.call_apoe4:\n')
-            [~,~,~,P] = fdr_bh(apoe4.PValue', 0.05, 'dep', 'yes');
-            P = asrow(P);
+            [h, crit_p, adj_ci_cvrg, P] = fdr_bh(apoe4.PValue', 0.05, 'dep', 'yes');
+            fprintf("crit_p->%g; adj_ci_cvrg->%g", crit_p, adj_ci_cvrg)
+            disp(this.AxesLabels(h))
+            P = asrow(P); 
             amin = min(P, [], 'all');
             amax = max(P, [], 'all');
             if amin < 1e-15 || amax < 1e-15
                 return
             end
             figure
-            axes_scaling = repmat({'log'}, [this.N_PATTERNS 1]);
+            axes_scaling = repmat({'log'}, [1 this.N_PATTERNS]);
             s2 = plot(this, P, AxesMin=amin, AxesMax=amax, ...
                 legend={'ApoE4'}, ti='FDR p-value \beta_{ApoE4}', AxesScaling=axes_scaling);
             saveFigures(this.figdir, closeFigure=true, prefix='FDR p-value beta_apoe4');
@@ -107,7 +124,7 @@ classdef NMFRadar
             end
 
             ld = load(fullfile(this.workdir, this.matfile_cohort));
-            CC = ld.CohortCoefficients20230721;
+            CC = ld.CohortCoefficients20230928;
 
             assert(length(this.groups) == length(this.groupLabels))
             s1 = cell(1, length(this.groups));
@@ -117,7 +134,7 @@ classdef NMFRadar
                 try
                     T = CC(contains(CC.ParamCoefficients, this.groups{ig}), :);
                     T = sortrows(T, "ParamCoefficients");
-                    T = T(this.label_permute, :);
+                    %T = T(this.label_permute, :);
         
                     if opts.show
                         disp(T)
@@ -136,15 +153,17 @@ classdef NMFRadar
         
                     % PValue
                     fprintf('NMFRadar.call_groups:\n')
-                    [~,~,~,P] = fdr_bh(T.PValue, 0.05, 'dep', 'yes');
-                    P = asrow(P);
+                    [h, crit_p, adj_ci_cvrg, P] = fdr_bh(T.PValue, 0.05, 'dep', 'yes');
+                    fprintf("crit_p->%g; adj_ci_cvrg->%g", crit_p, adj_ci_cvrg)
+                    disp(this.AxesLabels(h))
+                    P = asrow(P); 
                     amin = min(P, [], 'all');
                     amax = max(P, [], 'all');
                     if amin < 1e-15 || amax < 1e-15
                         continue
                     end
                     figure
-                    axes_scaling = repmat({'log'}, [this.N_PATTERNS 1]);
+                    axes_scaling = repmat({'log'}, [1 this.N_PATTERNS]);
                     s2{ig} = plot(this, P, AxesMin=amin, AxesMax=amax, ...
                         legend=this.groupLabels(ig), ...
                         ti="FDR p-value \beta_{" + this.groupLabels{ig} + "}", ...
@@ -161,12 +180,12 @@ classdef NMFRadar
                 opts.show logical = false
             end
 
-            ld = load(fullfile(this.workdir, this.matfile_param));
-            PC = ld.ParametricCoefficients20230721;
+            ld = load(fullfile(this.workdir, this.matfile_cohort));
+            PC = ld.CohortCoefficients20230928;
 
             male = PC(contains(PC.ParamCoefficients, "sexM"), :);
-            male = sortrows(male, "ParamCoefficients");
-            male = male(this.label_permute, :);
+            %male = sortrows(male, "ParamCoefficients");
+            %male = male(this.label_permute, :);
 
             if opts.show
                 disp(male)
@@ -184,12 +203,14 @@ classdef NMFRadar
 
             % PValue
             fprintf('NMFRadar.call_sex:\n')
-            [~,~,~,P] = fdr_bh(male.PValue', 0.05, 'dep', 'yes');
-            P = asrow(P);
+            [h, crit_p, adj_ci_cvrg, P] = fdr_bh(male.PValue', 0.05, 'dep', 'yes');
+            fprintf("crit_p->%g; adj_ci_cvrg->%g", crit_p, adj_ci_cvrg)
+            disp(this.AxesLabels(h))
+            P = asrow(P); 
             amin = min(P, [], 'all');
             amax = max(P, [], 'all');
             figure
-            axes_scaling = repmat({'log'}, [this.N_PATTERNS; 1]);
+            axes_scaling = repmat({'log'}, [1 this.N_PATTERNS]);
             s2 = plot(this, P, AxesMin=amin, AxesMax=amax, ...
                 legend={'male'}, ti='FDR p-value \beta_{sex}', AxesScaling=axes_scaling);
             saveFigures(this.figdir, closeFigure=true, prefix='FDR p-value beta_sex');
@@ -261,13 +282,7 @@ classdef NMFRadar
             s = spider_plot_class(P);
             
             % Spider plot properties
-            s.AxesLabels = ...
-                {'ADNI P1', 'ADNI P2', 'ADNI P3', 'ADNI P4', ...
-                'ADNI P5', 'ADNI P6', 'ADNI P7', 'ADNI P8', ...
-                'ADNI P9', 'ADNI P10', 'ADNI P11', 'ADNI P12', ...
-                'ADNI P13', 'ADNI P14', 'ADNI P15', 'ADNI P16', ...
-                'ADNI P17', 'ADNI P18', 'ADNI P19', 'ADNI P20', ...
-                'ADNI P21', 'ADNI P22'};
+            s.AxesLabels = this.AxesLabels;
             s.AxesPrecision = 3;
             s.AxesDisplay = 'one';
             if ~isempty(opts.AxesMin) && ~isempty(opts.AxesMax)
@@ -334,14 +349,8 @@ classdef NMFRadar
             end
             if ~isempty(opts.AxesInterval)
                 s.AxesInterval = opts.AxesInterval;
-            end
-            s.AxesLabels = ...
-                {'ADNI P1', 'ADNI P2', 'ADNI P3', 'ADNI P4', ...
-                'ADNI P5', 'ADNI P6', 'ADNI P7', 'ADNI P8', ...
-                'ADNI P9', 'ADNI P10', 'ADNI P11', 'ADNI P12', ...
-                'ADNI P13', 'ADNI P14', 'ADNI P15', 'ADNI P16', ...
-                'ADNI P17', 'ADNI P18', 'ADNI P19', 'ADNI P20', ...
-                'ADNI P21', 'ADNI P22'};
+            end            
+            s.AxesLabels = this.AxesLabels;
             s.AxesShaded = 'on';
             s.AxesShadedLimits = axes_shaded_limits;
             s.AxesShadedColor = 'b';
@@ -368,27 +377,53 @@ classdef NMFRadar
             title(opts.ti, 'FontSize', 14);
         end
         function h = plot_beta0_to_beta1(this)
-            ld = load(this.matfile_cohort);
-            CC = ld.CohortCoefficients20230721;
             NP = this.N_PATTERNS;
-            h = figure;
-            hold on
-            
-            plot(CC.Estimate(1:NP), CC.Estimate(23:44), LineStyle="none", Marker="o", MarkerSize=15)
-            plot(CC.Estimate(1:NP), CC.Estimate(43:66), LineStyle="none", Marker="s", MarkerSize=15)
-            plot(CC.Estimate(1:NP), CC.Estimate(45:66), LineStyle="none", Marker="s", MarkerSize=15)
-            plot(CC.Estimate(1:NP), CC.Estimate(89:110), LineStyle="none", Marker="*", MarkerSize=15)
-
-            switch mladni.NMF.N_PATTERNS
-                case 16
-                    indices = {1 2 11 12 13 14 15 16 17 18 19 20 3 21 22 4 5 6 7 8 9 10};
-                otherwise
-                    error("mladni:ValueError", "%s: N_PATTERNS->%i", stackstr(), mladni.NMF.N_PATTERNS);
-            end
+            ld = load(this.matfile_cohort);
+            CC = ld.CohortCoefficients20230928;
+            CC(contains(CC.ParamCoefficients, "apoe4"),:) = [];
+            CC(contains(CC.ParamCoefficients, "sexM"),:) = [];
+            CC(contains(CC.ParamCoefficients, "cohortCDR>0,amy-"),:) = [];
+            indices = num2cell(1:NP);
             labels = cellfun(@(x) sprintf('P%i', x), indices, UniformOutput=false);
-            labelpoints(CC.Estimate(1:NP), CC.Estimate(23:44), labels, 'SE', 0.2, 1)
-            labelpoints(CC.Estimate(1:NP), CC.Estimate(45:66), labels, 'SE', 0.2, 1)
-            labelpoints(CC.Estimate(1:NP), CC.Estimate(89:110), labels, 'SE', 0.2, 1)
+
+            figure        
+            plot(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), LineStyle="none", Marker="o", MarkerSize=15)            
+            labelpoints(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), labels, 'SE', 0.25, 1)
+            xlim([0.7 1.4])
+            ylim([-0.3 0.015])
+            xlabel("\beta_{CDR=0,amy-}", FontSize=14)
+            ylabel("\beta_{CDR=0,amy+}", FontSize=14)
+            fontsize(gcf, scale=1.2)
+            grid on
+            pbaspect([1 1.618 1])
+            set(gcf, position=[100,100,618,1000])
+            saveFigure2(gcf, fullfile(this.figdir, "preclinical"))
+
+            figure
+            plot(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), LineStyle="none", Marker="o", MarkerSize=15)
+            labelpoints(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), labels, 'SE', 0.25, 1)
+            xlim([0.7 1.4])
+            ylim([-0.3 0.015])
+            xlabel("\beta_{CDR=0,amy-}", FontSize=14)
+            ylabel("\beta_{CDR=0.5,amy+}", FontSize=14)
+            fontsize(gcf, scale=1.2)
+            grid on
+            pbaspect([1 1.618 1])
+            set(gcf, position=[100,100,618,1000])
+            saveFigure2(gcf, fullfile(this.figdir, "mci"))
+
+            figure
+            plot(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), LineStyle="none", Marker="o", MarkerSize=15)
+            labelpoints(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), labels, 'SE', 0.25, 1)
+            xlim([0.7 1.4])
+            ylim([-0.3 0.015])
+            xlabel("\beta_{CDR=0,amy-}", FontSize=14)
+            ylabel("\beta_{CDR>0.5,amy+}", FontSize=14)
+            fontsize(gcf, scale=1.2)
+            grid on
+            pbaspect([1 1.618 1])
+            set(gcf, position=[100,100,618,1000])
+            saveFigure2(gcf, fullfile(this.figdir, "ad"))
         end
         
         function this = NMFRadar(varargin)

@@ -87,6 +87,7 @@ classdef Adni < handle
 %            this.nmf.build_table_variances(subgroups);  
 
             % radar plots
+            plot_beta0_to_beta1(this.nmfr);
             call_patt_weighted_fdg(this.nmfr);
             call_groups(this.nmfr);
             call_sex(this.nmfr);
