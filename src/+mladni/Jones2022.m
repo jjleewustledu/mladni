@@ -11,11 +11,14 @@ classdef Jones2022 < handle
     end
 
     properties (Dependent)
+        componentsdir
         jones2022dir
         labels_check_mvregress % labels for plots
         labels_check_mvregress_2 % labels for plots, excluding NpBraak
         mask
         nbases
+        plabels
+        patt_path 
         relevant_file % mat file:  nii Filelist, merge/demographic variables, Components.  N = 781.
         responses_table2 % cell of var names
         responses_table2_2 % cell of var names, excluding NpBraak
@@ -24,6 +27,9 @@ classdef Jones2022 < handle
     end
 
     methods % GET, SET
+        function g = get.componentsdir(this)
+            g = fullfile(this.workdir, 'baseline_cn', sprintf('NumBases%i', this.nbases), 'components');
+        end
         function g = get.jones2022dir(~)
             g = fullfile(getenv('ADNI_HOME'), 'Jones_2022');
         end
@@ -44,9 +50,16 @@ classdef Jones2022 < handle
         function g = get.nbases(this)
             g = this.N_PATTERNS;
         end
-        function g = get.relevant_file(~)
-            g = fullfile(getenv('ADNI_HOME'), 'NMF_FDG', ...
-                sprintf('mladni_NMFCovariates_table_covariates_%s.mat', this.study_design));
+        function g = get.patt_path(this)
+            g = fullfile(this.workdir, 'baseline_cn', sprintf('NumBases%i', this.nbases), 'OPNMF', 'niiImg');
+        end
+        function g = get.plabels(~)
+            g = {'P1' 'P2' 'P3' 'P4' 'P5' 'P6' 'P7' 'P8' 'P9' 'P10' 'P11' 'P12'  ...
+                 'P13' 'P14' 'P15' 'P16' 'P17' 'P18' 'P19' 'P20' 'P21' 'P22' 'P23' 'P24'};
+        end
+        function g = get.relevant_file(this)
+            g = fullfile(this.componentsdir, ...
+                sprintf('Jones2022_table_covariates_1stscan_%s.mat', this.study_design));
         end
         function g = get.responses_table2(~)
             g = {'Metaroi', ...
@@ -85,9 +98,12 @@ classdef Jones2022 < handle
     methods
         function this = Jones2022(opts)
             arguments
-                opts.study_design = 'cross-sectional';
+                opts.study_design = 'longitudinal';
             end
             this.study_design_ = opts.study_design;
+            if ~isfile(this.relevant_file)
+                this.build_table_relevant();
+            end
         end
 
         %% adjust spatial-autocorrelations
@@ -113,25 +129,32 @@ classdef Jones2022 < handle
             writetable(T, sprintf('%s_T.csv', stackstr()));
         end
         function build_table_relevant(this)
-            %% builds "mladni_NMFCovariates_table_covariates_<study_design>.mat" using all visible baseline_* folders
+            %% builds "Jones2022_table_covariates_1stscan_<study_design>.mat" using all visible baseline_* folders
 
             pwd0 = pushd(fileparts(this.relevant_file));
             
-            g = glob('baseline_*');
-            g = g(~contains(g, 'cdr_ge'));
-            ld = load(fullfile(g{1}, 'NumBases16', 'components', ...
-                sprintf('NMFCovariates_table_covariates_%s.mat', this.study_design)));
+            ld = load(fullfile(this.componentsdir, ...
+                sprintf('NMFCovariates_table_covariates_1stscan_%s.mat', this.study_design)));
             t = ld.t;
-            for i = 2:length(g)
-                ld = load(fullfile(g{i}, 'NumBases16', 'components', ...
-                    sprintf('NMFCovariates_table_covariates_%s.mat', this.study_design)));
-                t = [t; ld.t];
+
+            % buld Components variable from Components_i
+            vars = cellfun(@(x) sprintf('Components_%i', x), num2cell(1:this.N_PATTERNS), UniformOutput=false);
+            mat = nan(size(t, 1), this.N_PATTERNS);
+            for p = 1:this.N_PATTERNS
+                mat(:,p) = t{:, vars{p}};
             end
+            assert(~any(isnan(mat), 'all'))
+            t = addvars(t, mat, NewVariableNames={'Components'});
+            t = t(t.Cohort ~= categorical("CDR>0,amy-"), :);
+
+            % save to filesystem
             save(this.relevant_file, 't');
 
             popd(pwd0);
         end
         function h = heatmap_eigenbrains(this, mat, clbls, rlbls, opts)
+            %% selectd with FDR, but no considerations for spatial autocorrelations
+
             arguments
                 this mladni.Jones2022
                 mat double = []
@@ -150,7 +173,7 @@ classdef Jones2022 < handle
             end
             if isempty(clbls)
                 clbls = num2cell(1:this.nbases);
-                clbls = cellfun(@(x) sprintf('ADNI P%i', x), clbls, UniformOutput=false);
+                clbls = cellfun(@(x) sprintf('P%i', x), clbls, UniformOutput=false);
             end
             if isempty(rlbls)
                 rlbls = asrow(convertStringsToChars(T.term));
@@ -158,6 +181,12 @@ classdef Jones2022 < handle
             if opts.FlipColormap
                 opts.Colormap = flipud(opts.Colormap);
             end
+
+            sorted_bases_fn = fullfile(this.componentsdir, 'sorted_bases.mat');
+            ld = load(sorted_bases_fn);
+            sorted_bases = asrow(ld.sorted_bases);
+            mat = mat(:, sorted_bases);
+
             figure;
             h = heatmap(clbls, rlbls, mat, ...
                 CellLabelColor='auto', ...
@@ -165,6 +194,8 @@ classdef Jones2022 < handle
                 Colormap=opts.Colormap, ColorScaling=opts.ColorScaling, ...
                 FontSize=opts.FontSize);
             h.Title = "Pearson correlation of eigenbrains and ADNI patterns";
+            h.YLabel = "Eigenbrains";
+            h.XLabel = "ADNI Patterns";
         end
         function T = table_built_stats(this, varargin)
             %% test_neurodegeneration2.test_build_eigenbrains; 
@@ -265,15 +296,19 @@ classdef Jones2022 < handle
 
         %% table 2; mvregress related
 
-        function h = heatmap_patterns_to_vars(this, fn)
+        function h = heatmap_patterns_to_vars(this, sorted_bases_fn, dat_fn)
             arguments
                 this mladni.Jones2022
-                fn {mustBeFile} = fullfile(this.workdir, 'dat_20230310T015754.mat')
+                sorted_bases_fn {mustBeFile} = fullfile(this.componentsdir, 'sorted_bases.mat')
+                dat_fn {mustBeFile} = fullfile(this.componentsdir, 'dat_20231108T160213.mat')
             end
 
-            ld = load(fn);
+            ld = load(sorted_bases_fn);
+            sorted_bases = [1 asrow(ld.sorted_bases + 1)];
+            ld = load(dat_fn);
             B = ld.dat.B';
-            clbls = {'intercept' 'P1' 'P2' 'P3' 'P4' 'P5' 'P6' 'P7' 'P8' 'P9' 'P10' 'P11' 'P12' 'P13' 'P14' 'P15' 'P16'}; 
+            B = B(:, sorted_bases);
+            clbls = ['intercept' this.plabels]; 
             rlbls = this.labels_check_mvregress_2;            
 
             h = this.heatmap(abs(B), clbls, rlbls, ColorScaling='scaledrows');
@@ -534,10 +569,9 @@ classdef Jones2022 < handle
 
         %% bases compared
 
-        function h = heatmap_patterns_to_eigenbrain(this)
+        function h = heatmap_patterns_to_eigenbrains(this)
             %% Kuehback-Leibler divergence, relative entropy from eigenbrains to patterns
 
-            patt_path = '/Volumes/PrecunealSSD/Singularity/ADNI/NMF_FDG/baseline_cn/NumBases16/OPNMF/niiImg';
             eb_path = '/Volumes/PrecunealSSD/Singularity/ADNI/Jones_2022/Eigenbrains';
             mat = nan(10, this.N_PATTERNS);
 
@@ -547,17 +581,23 @@ classdef Jones2022 < handle
 
                 for icol = 1:this.N_PATTERNS        
 
-                    patt = mlfourd.ImagingContext2(fullfile(patt_path, sprintf('Basis_%i.nii', icol))); 
+                    patt = mlfourd.ImagingContext2(fullfile(this.patt_path, sprintf('Basis_%i.nii', icol))); 
                     div = eb.kldiv(patt, this.mask);    
                     mat(irow, icol) = div.nifti.img;
                 end
             end
 
-            clbls = {'P1' 'P2' 'P3' 'P4' 'P5' 'P6' 'P7' 'P8' 'P9' 'P10' 'P11' 'P12' 'P13' 'P14' 'P15' 'P16'};
+            sorted_bases_fn = fullfile(this.componentsdir, 'sorted_bases.mat');
+            ld = load(sorted_bases_fn);
+            sorted_bases = asrow(ld.sorted_bases);
+            mat = mat(:, sorted_bases);
+
+            clbls = this.plabels;
             rlbls = {'EB1' 'EB2' 'EB3' 'EB4' 'EB5' 'EB6' 'EB7' 'EB8' 'EB9' 'EB10'};
-            h = mladni.Jones2022.heatmap(mat, clbls, rlbls, CellLabelFormat='%3.1f', ColorScaling='scaledrows', FlipColormap=true);
+            h = mladni.Jones2022.heatmap(mat, clbls, rlbls, CellLabelFormat='%3.1f', ColorScaling='scaledrows', FlipColormap=false);
             ylabel('Eigenbrains');
             xlabel('ADNI Patterns');
+            title('KL-Divergence of Patterns to Eigenbrains')
         end
     end
 
@@ -711,7 +751,7 @@ classdef Jones2022 < handle
         end   
         function h = heatmap_beta(this, B)
             %B = B(2:end,:); % leave off intercept which can be large valued
-            clbls = {'intercept' 'P1' 'P2' 'P3' 'P4' 'P5' 'P6' 'P7' 'P8' 'P9' 'P10' 'P11' 'P12' 'P13' 'P14' 'P15' 'P16'};
+            clbls = ['intercept' this.plabels];
             rlbls = this.labels_check_mvregress_2;
             figure;
             h = heatmap(B', XData=clbls, YData=rlbls, Colormap=parula, ColorScaling='scaledrows', FontSize=18);
