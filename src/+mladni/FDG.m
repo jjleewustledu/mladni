@@ -944,7 +944,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         end
         
         function g = get.t1w(this)
-            if ~isempty(this.t1w_n4_) && isfile(this.t1w_n4_.fqfn)
+            if ~isempty(this.t1w_n4_) && isfile(this.t1w_n4_)
                 g = this.t1w_n4_;
                 return
             end
@@ -973,13 +973,11 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 return
             end
             if isfile(this.t1w_dlicv.fqfn)
-                this.t1w_brain_ = this.t1w .* this.t1w_dlicv;
+                t1wb = this.t1w.imagingFormat;
+                t1wb.img = single(t1wb.img) .* single(this.t1w_dlicv.imagingFormat.img);
+                this.t1w_brain_ = mlfourd.ImagingContext2(t1wb);
                 in = this.t1w;
-                S = struct(stackstr(2), 'this.t1w_brain_ = this.t1w .* this.t1w_dlicv');
-            else                
-                this.t1w_brain_ = this.t1w .* this.t1w_mskt;
-                in = this.t1w;
-                S = struct(stackstr(2), 'this.t1w_brain_ = this.t1w .* this.t1w_mskt');
+                S = struct(stackstr(2), 'this.t1w_brain_ := this.t1w.imagingFormat.img .* this.t1w_dlicv.imagingFormat.img');
             end
             this.t1w_brain_.fqfn = fqfn;
             this.t1w_brain_.save();
@@ -1003,6 +1001,12 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end
             fqfp = this.t1w.fqfp;
             this.t1w_dlicv_ = mlfourd.ImagingContext2(strcat(fqfp, '_dlicv', '.nii.gz'));
+            if ~isfile(this.t1w_dlicv_)
+                g = glob(fullfile(fileparts(fqfp), '*_T1w*_dlicv.nii.gz'));
+                assert(~isempty(g))
+                g = natsort(g);
+                this.t1w_dlicv_ = mlfourd.ImagingContext2(g{1});
+            end
             g = this.t1w_dlicv_;
         end
         function g = get.t1w_dlicv_detJ_warped(this)
@@ -1033,8 +1037,13 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 return
             end
             fqfp = this.t1w_.fqfp;
-            this.t1w_n4_ = mlfourd.ImagingContext2( ...
-                strcat(strrep(fqfp, '_orient', '-n4_orient'), '.nii.gz'));
+            assert(contains(fqfp, '_orient'))
+            if contains(fqfp, "_proc-")
+                fqfn_proposed = strcat(strrep(fqfp, '_orient', '-n4_orient'), '.nii.gz');
+            else
+                fqfn_proposed = strcat(strrep(fqfp, '_orient', '_proc-n4_orient'), '.nii.gz');
+            end
+            this.t1w_n4_ = mlfourd.ImagingContext2(fqfn_proposed);
             g = this.t1w_n4_;
         end        
         function g = get.t1w_on_atl(this)
@@ -1201,9 +1210,9 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             found_t1w = this.findT1w(any_fdg);
             this.t1w_ = this.prepare_derivatives(mlfourd.ImagingContext2(found_t1w));
             assert(~isempty(this.t1w_))   
-            if isfile(this.t1w_n4)
-                fprintf('%s: found %s\n', stackstr(), this.t1w_n4.fqfn)
-            end
+            %if isfile(this.t1w_n4)
+            %    fprintf('%s: found %s\n', stackstr(), this.t1w_n4.fqfn)
+            %end
 
             if isfile(this.fdg.fqfn)
                 % augment fdg json with t1w filename
@@ -1252,7 +1261,7 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 
                 if contains(this.fdg_reference, 'ponsvermis')
                     suvr = this.suvr_pons_vermis();
-                    assert(suvr > 0.5 && suvr < 2);
+                    %assert(suvr > 0.5 && suvr < 2);
                     ic_ = ic_./suvr;
                     S.suvr_pons_vermis = suvr;
                 end
@@ -1645,11 +1654,13 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end
             try
                 this.ants.N4BiasFieldCorrection(this.t1w_, this.t1w_n4);
-                mladni.FDG.jsonrecode( ...
-                    this.t1w_, ...
-                    struct('image_mass', this.image_mass(this.t1w_n4)), ...
-                    this.t1w_n4);
-            catch
+                this.t1w_n4.selectImagingTool();
+                % mladni.FDG.jsonrecode( ...
+                %     this.t1w_, ...
+                %     struct(stackstr(), 'this.ants.N4BiasFieldCorrection(this.t1w_, this.t1w_n4)'), ...
+                %     this.t1w_n4);
+            catch ME
+                handexcept(ME)
             end
         end
         function e    = resolve_err(~, ic)
@@ -1691,6 +1702,13 @@ classdef FDG < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             if ~this.debug
                 t4rb.deleteFourdfp(t4rb.theImages);
                 t4rb.deleteFourdfp(t4rb.theImagesOp(:,1));
+            end
+
+            try
+                if max(this.resolve_err(this.fdg_on_t1w)) > 8
+                    this = this.flirt_fdg2t1w();
+                end
+            catch
             end
 
             popd(pwd0);

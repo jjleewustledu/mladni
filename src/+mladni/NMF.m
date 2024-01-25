@@ -29,13 +29,17 @@
                 atl = mlfourd.ImagingContext2( ...
                     fullfile(getenv('FSLDIR'), 'data', 'standard', 'MNI152_T1_1mm.nii.gz'));
                 for g = glob('Basis_*.nii')'
-                    ic = mlfourd.ImagingContext2(g{1});
-                    product = strrep(strcat(ic.fqfp, '.png'), 'niiImg', 'Figures');
-                    if ~isfile(product) || ...
-                            (isfile(product) && ~ipr.noclobber)
-                        atl.save_qc(ic);
-                        png = strrep(g{1}, '.nii', '.png');
-                        movefile(png, '../Figures', 'f');
+                    try
+                        ic = mlfourd.ImagingContext2(g{1});
+                        product = strrep(strcat(ic.fqfp, '.png'), 'niiImg', 'Figures');
+                        if ~isfile(product) || ...
+                                (isfile(product) && ~ipr.noclobber)
+                            atl.save_qc(ic);
+                            png = strrep(g{1}, '.nii', '.png');
+                            movefile(png, '../Figures', 'f');
+                        end
+                    catch ME
+                        fprintf("%s:  %s\n", stackstr(), ME.message)
                     end
                 end
                 ensuredir('../Figures');
@@ -659,7 +663,7 @@
         end        
         function tf = components_are_available()
             tf = false;
-        end
+        end        
         function evaluateRepeatedReproducibility(subgroup, N, K, saveGcf)
             arguments
                 subgroup {mustBeTextScalar} = 'cn'
@@ -852,8 +856,8 @@
                 pathDir1, pathDir2, outputDir, saveGcf)
             %% https://github.com/sotiraslab/aris_nmf_analyses/blob/main/evaluateReproducibility.m
             %
-            % function that evaluates the reproducibility between the results obtained
-            % for two different splits
+            % This function evaluates the reproducibility between the results obtained
+            % for two parts of a data split.
             % The scripts assumes that experiments using the same range of components
             % have been performed for both splits. 
             %

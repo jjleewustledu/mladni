@@ -766,6 +766,30 @@ classdef AdniDemographics < handle
 
             d = fullfile(this.workdir, sprintf("%s_%s", study_design, subgr));
         end
+        function t = table_ad(this, cs, T_name, bl_1st)
+            %% N = ___ longitudinal by table_fdg4; N = ___ longitudinal by table_fdg5.
+            %  N = ___ cross-sectional by table_fdg5.
+            
+            arguments
+                this mladni.AdniDemographics
+                cs logical = false % cross-sectional
+                T_name {mustBeTextScalar} = 'table_fdg5'
+                bl_1st logical = false
+            end
+
+            fdg__ = this.(T_name);
+            if ~cs
+                t = fdg__(fdg__.CDGLOBAL >= 0.5 & fdg__.AmyloidStatusLong == 1, :);
+                return
+            end
+            if bl_1st
+                fdg__ = this.table_firstscan(fdg__);
+                t = fdg__(fdg__.CDGLOBAL >= 0.5 & fdg__.AmyloidStatusLong == 1, :);
+            else
+                t = fdg__(fdg__.CDGLOBAL >= 0.5 & fdg__.AmyloidStatusLong == 1, :);
+                t = this.table_firstscan(t);
+            end
+        end
         function t = table_all(this, cs, T_name)
             %% N = 3478 longitudinal by table_fdg4; N = 3377 longitudinal by table_fdg5.
             %  N = 1512 cross-sectional by table_fdg5.

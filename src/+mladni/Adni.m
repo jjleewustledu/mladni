@@ -27,6 +27,18 @@ classdef Adni < handle
     end
 
     methods
+        function anticlust_ad_repeat(this)
+            %% prepares folders in NMF_FDG for reproducibility runs of NMF
+
+            t = this.ad.table_ad(true, 'table_fdg5');
+            Filelist = strrep(t.Filelist, "/home/usr", "/scratch");
+            t.Filelist = Filelist;
+            csv_fqfn = fullfile(this.workdir, "anticlust_ad_repeat.csv");
+            writetable(t, csv_fqfn, WriteVariableNames=true)
+
+            R_fqfn = fullfile(this.workdir, "anticlust_ad_repeat.R");
+%            mysystem(sprintf("Rscript %s", R_fqfn))
+        end
         function anticlust_cn_repeat(this)
             %% prepares folders in NMF_FDG for reproducibility runs of NMF
 
@@ -37,7 +49,7 @@ classdef Adni < handle
             writetable(t, csv_fqfn, WriteVariableNames=true)
 
             R_fqfn = fullfile(this.workdir, "anticlust_cn_repeat.R");
-            mysystem(sprintf("Rscript %s", R_fqfn))
+%            mysystem(sprintf("Rscript %s", R_fqfn))
         end
         function call(this)
             % mladni.AdniBidsT1w ~ generates T1w in bids
