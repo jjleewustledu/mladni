@@ -242,7 +242,7 @@
             ifc_argmax = copy(ifc);
             ifc_argmax.img = argmax;
             ifc_argmax.fileprefix = 'Basis_argmax';
-            ifc_argmax.save();
+            %ifc_argmax.save();
 
             % tight mask
             brain_mask = mlfourd.ImagingContext2(fullfile(this.standardDir, 'MNI152_T1_2mm_brain_mask.nii.gz'));
@@ -252,18 +252,18 @@
             ic_argmax.save
 
             % dilated mask
-            brain_mask = mlfourd.ImagingContext2(fullfile(this.standardDir, 'MNI152_T1_2mm_brain_mask_dil1.nii.gz'));
-            ic_argmax = mlfourd.ImagingContext2(ifc_argmax);
-            ic_argmax = ic_argmax .* brain_mask.binarized();
-            ic_argmax.fileprefix = strcat(ifc_argmax.fileprefix, '_brain_mask_dil1');
-            ic_argmax.save
+            % brain_mask = mlfourd.ImagingContext2(fullfile(this.standardDir, 'MNI152_T1_2mm_brain_mask_dil1.nii.gz'));
+            % ic_argmax = mlfourd.ImagingContext2(ifc_argmax);
+            % ic_argmax = ic_argmax .* brain_mask.binarized();
+            % ic_argmax.fileprefix = strcat(ifc_argmax.fileprefix, '_brain_mask_dil1');
+            % ic_argmax.save
 
             % more dilated mask
-            brain_mask = mlfourd.ImagingContext2(fullfile(this.standardDir, 'MNI152_T1_2mm_brain_mask_dil.nii.gz'));
-            ic_argmax = mlfourd.ImagingContext2(ifc_argmax);
-            ic_argmax = ic_argmax .* brain_mask.binarized();
-            ic_argmax.fileprefix = strcat(ifc_argmax.fileprefix, '_brain_mask_dil');
-            ic_argmax.save
+            % brain_mask = mlfourd.ImagingContext2(fullfile(this.standardDir, 'MNI152_T1_2mm_brain_mask_dil.nii.gz'));
+            % ic_argmax = mlfourd.ImagingContext2(ifc_argmax);
+            % ic_argmax = ic_argmax .* brain_mask.binarized();
+            % ic_argmax.fileprefix = strcat(ifc_argmax.fileprefix, '_brain_mask_dil');
+            % ic_argmax.save
 
             popd(pwd0)
         end

@@ -144,6 +144,76 @@ classdef AdjRandIndex
             [~,clustering2] = max(WW2,[],2);
             ARI = mladni.AdjRandIndex.clustering_fast(clustering1,clustering2);   
         end
+        function [ARI,overlap] = evaluate_pair_of_vectors(B1, B2)
+            %% https://github.com/sotiraslab/aris_nmf_analyses/blob/main/evaluateReproducibility.m
+            %
+            % This function evaluates the adjust Rand index between NMF results obtained for two parts of a data split.  
+            % The scripts assumes that experiments using the same range of components have been performed for both 
+            % parts. 
+            %
+            % Args:
+            % B1: matrix N_voxels x Ncomponents
+            % B2: matrix N_voxels x Ncomponents
+            % 
+            % Returns:
+            % ARI : adjusted Rand Index evaluated by deriving hard clusters from the estimated components
+            % overlap : double, size ~ {1,numDifBases}[length(wlen1) in 2:2:40, 1]
+
+            arguments
+                B1 {mustBeNumeric}
+                B2 {mustBeNumeric}
+            end
+            
+            % normalize to unit norm
+            wlen1 = sqrt(sum((B1).^2)) ;
+            wlen2 = sqrt(sum((B2).^2)) ;    
+            
+            if any(wlen1==0)
+                wlen1(wlen1==0) = 1;
+            end
+            W1 = bsxfun(@times,B1,1./wlen1) ;
+           
+            if any(wlen2==0)
+                wlen2(wlen2==0) = 1;
+            end
+            W2 = bsxfun(@times,B2,1./wlen2) ;
+            
+            % calculate inner products
+            inner_product = W1'*W2 ;
+            
+            % take a distance
+            dist = 2*(1 - inner_product) ;
+            
+            % find correspondences
+            [Matching,~] = mladni.AdjRandIndex.Hungarian(dist);
+            [~,idx_hug1]=max(Matching,[],2);
+            
+            % overlap - hungarian
+            overlap = zeros(length(wlen1),1) ;
+            for b=1:length(wlen1)
+                overlap(b) = inner_product(b,idx_hug1(b));
+            end
+            
+            % overlap with best
+            %overlap_best = max(inner_product,[],2) ;
+            
+            % also evaluate overlap based on adjusted Rand Index    
+            rowLen1 = sum(W1,2) ;
+            rowLen2 = sum(W2,2) ;
+            
+            if any(rowLen1==0)
+                rowLen1(rowLen1==0) = 1 ;
+            end
+            if any(rowLen2==0)
+                rowLen2(rowLen2==0) = 1 ;
+            end
+            WW1 = bsxfun(@times,(W1'),1./(rowLen1')); WW1=WW1';
+            WW2 = bsxfun(@times,(W2'),1./(rowLen2')); WW2=WW2';
+            
+            [~,clustering1] = max(WW1,[],2);
+            [~,clustering2] = max(WW2,[],2);
+            ARI = mladni.AdjRandIndex.clustering_fast(clustering1,clustering2);   
+        end
 
         %% Hungarian algorithm/method.
         %  See also https://en.wikipedia.org/wiki/Hungarian_algorithm

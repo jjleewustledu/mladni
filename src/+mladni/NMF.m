@@ -6,7 +6,7 @@
         
     properties (Constant)
         MAX_NUM_BASES = 40
-        N_PATTERNS = 24
+        N_PATTERNS = 2
     end
 
     methods (Static)
@@ -1538,7 +1538,7 @@
             assert(size(X,1) == sum(selectVoxels), stackstr())
             this.calcRecError(X, this.outputDir, resultsDir, selectVoxels);
         end
-        function call2(this, tags)
+        function T = call2(this, tags)
             %% Writes imaging data to X2.mat, 
             %  then calls this.calculateSelectedComponentWeightedAverageNIFTI(), 
             %  which writes component_weighted_average_study-study_design.csv.
@@ -1564,12 +1564,13 @@
                 meanX = mean(data.X,2);
                 X = data.X(meanX>0,:); 
                 clear data;
-                save(this.X2mat, 'X', 'meanX');
+                save(this.X2mat, 'X', 'meanX' );
             end
 
             weightedAverFilename = fullfile(this.componentDir, sprintf('component_weighted_average_%s.csv', tags));
             this.calculateSelectedComponentWeightedAverageNIFTI( ...
                 this.inFiles2, this.targetDatasetDir, this.selectedNumBases, weightedAverFilename);
+            T = readtable(weightedAverFilename, Delimiter=',', ReadVariableNames=false);
         end
         function run_extractBasesMT(this, numBases, outputDir)
             assert(isscalar(numBases));
@@ -1627,7 +1628,7 @@
             addParameter(ip, "numBases", 2:2:mladni.NMF.MAX_NUM_BASES, @isnumeric)
             addParameter(ip, "permute", false, @islogical);
             addParameter(ip, "repetitions", 50, @isscalar);
-            addParameter(ip, "selectedNumBases", 24, @isscalar);
+            addParameter(ip, "selectedNumBases", mladni.NMF.N_PATTERNS, @isscalar);  % [2, 8, 10, 12, 14 24]
             addParameter(ip, "smooth", false, @islogical);
             addParameter(ip, "study_design", "longitudinal", @istext)
             addParameter(ip, "volbin", fullfile(getenv("ADNI_HOME"), "VolBin"), @isfolder);
