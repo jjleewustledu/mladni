@@ -12,18 +12,12 @@ classdef AdjRandIndex
     methods
         function this = AdjRandIndex(dataset_home)
             arguments
-                dataset_home {mustBeFolder}
+                dataset_home {mustBeFolder} = pwd
             end
-            mg = mglob(fullfile(dataset_home, "NumBases*"));
-            assert(20 == length(mg));
             this.dataset_home = dataset_home;
         end
 
-        function clusterdata(this, filename)
-            arguments
-                this mladni.AdjRandIndex
-                filename {mustBeTextScalar} = stackstr()
-            end
+        function clusterdata(this)
         end
         function pdist(this)
         end
@@ -74,58 +68,65 @@ classdef AdjRandIndex
             
             r=(ra-rb*rc/rn)/( 0.5*rb+0.5*rc-rb*rc/rn );
         end  
-        function [ARI,overlap] = evaluate_pair(B1, B2)
-            %% https://github.com/sotiraslab/aris_nmf_analyses/blob/main/evaluateReproducibility.m
+        
+        function [ARI,overlap] = evaluate_pair(B1, B2, opts)
+            %% evaluates the adjusted Rand Index (ARI) between NMF results B1 and B2, equally shaped.
             %
-            % This function evaluates the adjust Rand index between NMF results obtained for two parts of a data split.  
-            % The scripts assumes that experiments using the same range of components have been performed for both 
-            % parts. 
+            %  ARI is evaluated by deriving hard clusters from the estimated components.
             %
-            % Args:
-            % B1: matrix N_voxels x Ncomponents
-            % B2: matrix N_voxels x Ncomponents
+            %  Args:
+            %    B1 {mustBeNumeric}  % Nvoxels x Ncomponents; Ncomponents may be 1
+            %    B2 {mustBeNumeric}  % same shape as B1
+            %    opts.do_hungarian logical = true
+            %    opts.do_ari logical = true            
             % 
-            % Returns:
-            % ARI : adjusted Rand Index evaluated by deriving hard clusters from the estimated components
-            % overlap : double, size ~ {1,numDifBases}[length(wlen1) in 2:2:40, 1]
+            %  Returns:
+            %    ARI : scalar
+            %    overlap : Ncomponents x 1
 
             arguments
-                B1 {mustBeNumeric}
-                B2 {mustBeNumeric}
+                B1 {mustBeNumeric}  % Nvoxels x Ncomponents
+                B2 {mustBeNumeric}  % Nvoxels x Ncomponents
+                opts.do_hungarian logical = true
+                opts.do_ari logical = true
             end
             
             % normalize to unit norm
-            wlen1 = sqrt(sum((B1).^2)) ;
-            wlen2 = sqrt(sum((B2).^2)) ;    
+            wlen1 = sqrt(sum((B1).^2)) ;  % 1 x Ncomponents
+            wlen2 = sqrt(sum((B2).^2)) ;  % same shape as wlen1
             
             if any(wlen1==0)
                 wlen1(wlen1==0) = 1;
             end
-            W1 = bsxfun(@times,B1,1./wlen1) ;
+            W1 = bsxfun(@times,B1,1./wlen1) ;  % normalize
            
             if any(wlen2==0)
                 wlen2(wlen2==0) = 1;
             end
-            W2 = bsxfun(@times,B2,1./wlen2) ;
+            W2 = bsxfun(@times,B2,1./wlen2) ;  % normalize
             
-            % calculate inner products
-            inner_product = W1'*W2 ;
-            
-            % take a distance
-            dist = 2*(1 - inner_product) ;
-            
-            % find correspondences
-            [Matching,~] = mladni.AdjRandIndex.Hungarian(dist);
-            [~,idx_hug1]=max(Matching,[],2);
-            
-            % overlap - hungarian
-            overlap = zeros(length(wlen1),1) ;
-            for b=1:length(wlen1)
-                overlap(b) = inner_product(b,idx_hug1(b));
+            if opts.do_hungarian
+                % calculate inner products
+                inner_product = W1'*W2 ;  % Ncomponents x Ncomponents
+
+                % take a distance
+                dist = 2*(1 - inner_product) ;
+
+                % find correspondences
+                [Matching,~] = mladni.AdjRandIndex.Hungarian(dist);
+                [~,idx_hug1]=max(Matching,[],2);
+
+                % overlap - hungarian
+                overlap = zeros(length(wlen1),1) ;
+                for b=1:length(wlen1)
+                    overlap(b) = inner_product(b,idx_hug1(b));
+                end
+
+                % overlap with best
+                %overlap_best = max(inner_product,[],2) ;
+            else
+                overlap = nan;
             end
-            
-            % overlap with best
-            %overlap_best = max(inner_product,[],2) ;
             
             % also evaluate overlap based on adjusted Rand Index    
             rowLen1 = sum(W1,2) ;
@@ -144,75 +145,314 @@ classdef AdjRandIndex
             [~,clustering2] = max(WW2,[],2);
             ARI = mladni.AdjRandIndex.clustering_fast(clustering1,clustering2);   
         end
-        function [ARI,overlap] = evaluate_pair_of_vectors(B1, B2)
-            %% https://github.com/sotiraslab/aris_nmf_analyses/blob/main/evaluateReproducibility.m
-            %
-            % This function evaluates the adjust Rand index between NMF results obtained for two parts of a data split.  
-            % The scripts assumes that experiments using the same range of components have been performed for both 
-            % parts. 
-            %
-            % Args:
-            % B1: matrix N_voxels x Ncomponents
-            % B2: matrix N_voxels x Ncomponents
-            % 
-            % Returns:
-            % ARI : adjusted Rand Index evaluated by deriving hard clusters from the estimated components
-            % overlap : double, size ~ {1,numDifBases}[length(wlen1) in 2:2:40, 1]
+
+        function S = inspect_bimodal_ARI(opts)
+            %% provides more information for revealing why ARI reproducibility appear bimodal after bootstrapping
 
             arguments
-                B1 {mustBeNumeric}
-                B2 {mustBeNumeric}
+                opts.span {mustBeNumeric} = 24
+                opts.anticlust_home {mustBeFolder} = ...
+                    fullfile(getenv("SINGULARITY_HOME"), "ADNI", "NMF_FDG", "baseline_cn_anticlust")
+                opts.fileprefixA {mustBeTextScalar} = "baseline_cn_repA"
+                opts.fileprefixB {mustBeTextScalar} = "baseline_cn_repB"
+                opts.ARI_thresh {mustBeNumeric} = NaN
+                opts.Niter {mustBeNumeric} = 50
+                opts.mask mlfourd.ImagingContext2 = ...
+                    mlfourd.ImagingContext2( ...
+                    fullfile(getenv("SINGULARITY_HOME"), "ADNI", "VolBin", "mask.nii.gz"));
             end
-            
-            % normalize to unit norm
-            wlen1 = sqrt(sum((B1).^2)) ;
-            wlen2 = sqrt(sum((B2).^2)) ;    
-            
-            if any(wlen1==0)
-                wlen1(wlen1==0) = 1;
+
+            if isnan(opts.ARI_thresh)
+                switch opts.span
+                    case 2
+                        opts.ARI_thresh = 0.822;
+                    case 4
+                        opts.ARI_thresh = 0.743;
+                    case 6
+                        opts.ARI_thresh = 0.78;
+                    case 8
+                        opts.ARI_thresh = 0.876;
+                    case 10
+                        opts.ARI_thresh = 0.893;
+                    case 12
+                        opts.ARI_thresh = 0.903;
+                    case 14
+                        opts.ARI_thresh = 0.854;
+                    case 16
+                        opts.ARI_thresh = 0.823;
+                    case 18
+                        opts.ARI_thresh = 0.836;
+                    case 20
+                        opts.ARI_thresh = 0.846;
+                    case 22
+                        opts.ARI_thresh = 0.849;
+                    case 24
+                        opts.ARI_thresh = 0.889;
+                    otherwise
+                        error("mladni:ValueError", stackstr())
+                end
             end
-            W1 = bsxfun(@times,B1,1./wlen1) ;
-           
-            if any(wlen2==0)
-                wlen2(wlen2==0) = 1;
+
+            % mask_vec = reshape(double(opts.mask), [numel(opts.mask), 1]);
+            high_mode_A = [];
+            high_mode_B = [];
+            low_mode_A = [];
+            low_mode_B = [];
+            low_mode_indices = [];
+            low_mode_ARIs = [];
+
+            for iter = 1:opts.Niter
+                try
+                    pthA = fullfile(opts.anticlust_home, opts.fileprefixA+iter);
+                    pthB = fullfile(opts.anticlust_home, opts.fileprefixB+iter);
+
+                    [A,img_A] = results2num(path2result(pthA));
+                    [B,img_B] = results2num(path2result(pthB));
+
+                    ARI = mladni.AdjRandIndex.evaluate_pair(A, B, do_hungarian=false);
+                    if ARI > opts.ARI_thresh
+                        if isempty(high_mode_A)
+                            high_mode_A = img_A;
+                        else
+                            high_mode_A = cat(5, high_mode_A, img_A);
+                        end
+                        if isempty(high_mode_B)
+                            high_mode_B = img_B;
+                        else
+                            high_mode_B = cat(5, high_mode_B, img_B);
+                        end
+                    else
+                        if isempty(low_mode_A)
+                            low_mode_A = img_A;
+                        else
+                            low_mode_A = cat(5, low_mode_A, img_A);
+                        end
+                        if isempty(low_mode_B)
+                            low_mode_B = img_B;
+                        else
+                            low_mode_B = cat(5, low_mode_B, img_B);
+                        end
+
+                        low_mode_indices = [low_mode_indices, iter]; %#ok<AGROW>
+                        low_mode_ARIs = [low_mode_ARIs, ARI]; %#ok<AGROW>
+                    end
+                catch ME
+                    handwarning(ME)
+                end
             end
-            W2 = bsxfun(@times,B2,1./wlen2) ;
-            
-            % calculate inner products
-            inner_product = W1'*W2 ;
-            
-            % take a distance
-            dist = 2*(1 - inner_product) ;
-            
-            % find correspondences
-            [Matching,~] = mladni.AdjRandIndex.Hungarian(dist);
-            [~,idx_hug1]=max(Matching,[],2);
-            
-            % overlap - hungarian
-            overlap = zeros(length(wlen1),1) ;
-            for b=1:length(wlen1)
-                overlap(b) = inner_product(b,idx_hug1(b));
+
+            %% assign output, S
+
+            S.low_mode_indices = low_mode_indices;
+            S.low_mode_ARIs = low_mode_ARIs;
+
+            all = cat(5, high_mode_A, high_mode_B, low_mode_A, low_mode_B);
+            S.all_median = stat_of_iter(all, "all_median", @median);
+            S.all_iqr = stat_of_iter(all, "all_iqr", @iqr);
+
+            S.high_mode_A_median = stat_of_iter(high_mode_A, "high_mode_A_median", @median);
+            S.high_mode_A_iqr = stat_of_iter(high_mode_A, "high_mode_A_iqr", @iqr);
+            S.high_mode_B_median = stat_of_iter(high_mode_B, "high_mode_B_median", @median);
+            S.high_mode_B_iqr = stat_of_iter(high_mode_B, "high_mode_B_iqr", @iqr);
+            S.high_mode_median = stat_of_iter(abs(high_mode_A - high_mode_B), "high_mode_median", @median);
+            S.high_mode_iqr = stat_of_iter(abs(high_mode_A - high_mode_B), "high_mode_iqr", @iqr);
+            % S.high_wb_median = stat_of_iter(abs(sum(high_mode_A,4) - sum(high_mode_B,4)), "high_wb_median", @median);
+            % S.high_wb_iqr = stat_of_iter(abs(sum(high_mode_A,4) - sum(high_mode_B,4)), "high_wb_iqr", @iqr);
+
+            S.low_mode_A_median = stat_of_iter(low_mode_A, "low_mode_A_median", @median);
+            S.low_mode_A_iqr = stat_of_iter(low_mode_A, "low_mode_A_iqr", @iqr);
+            S.low_mode_B_median = stat_of_iter(low_mode_B, "low_mode_B_median", @median);
+            S.low_mode_B_iqr = stat_of_iter(low_mode_B, "low_mode_B_iqr", @iqr);
+            S.low_mode_median = stat_of_iter(abs(low_mode_A - low_mode_B), "low_mode_median", @median);
+            S.low_mode_iqr = stat_of_iter(abs(low_mode_A - low_mode_B), "low_mode_iqr", @iqr);
+            % S.low_wb_median = stat_of_iter(abs(sum(low_mode_A,4) - sum(low_mode_B,4)), "low_wb_median", @median);
+            % S.low_wb_iqr = stat_of_iter(abs(sum(low_mode_A,4) - sum(low_mode_B,4)), "low_wb_iqr", @iqr);
+
+            S.delta_delta_of_modes = abs(S.low_mode_median - S.high_mode_median);
+            S.delta_delta_of_modes.fileprefix = "delta_delta_of_modes";
+
+            view(S.delta_delta_of_modes, S.all_median, S.all_iqr)
+
+            % high_mode = cat(5, high_mode_A, high_mode_B);
+            % low_mode = cat(5, low_mode_A, low_mode_B);
+            % S.high_mode_median = stat_of_iter(high_mode, "high_mode_median", @median);
+            % S.high_mode_iqr = stat_of_iter(high_mode, "high_mode_iqr", @iqr);
+            % S.low_mode_median = stat_of_iter(low_mode, "low_mode_median", @median);
+            % S.low_mode_iqr = stat_of_iter(low_mode, "low_mode_iqr", @iqr);
+            % 
+            % numer = S.low_mode_median - S.high_mode_median;
+            % denom = (S.low_mode_median + S.high_mode_median) / 2; 
+            % ic = numer ./ denom;
+            % ic = ic.scrubNanInf;
+            % ic.fileprefix = "residual_mode";
+            % view(ic)
+            % S.residual_mode = ic;            
+
+            %% inner functions
+
+            function result = path2result(pth)
+                mat = fullfile(pth, "NumBases"+opts.span, "OPNMF", "ResultsExtractBases.mat");
+                result = load(mat);
             end
-            
-            % overlap with best
-            %overlap_best = max(inner_product,[],2) ;
-            
-            % also evaluate overlap based on adjusted Rand Index    
-            rowLen1 = sum(W1,2) ;
-            rowLen2 = sum(W2,2) ;
-            
-            if any(rowLen1==0)
-                rowLen1(rowLen1==0) = 1 ;
+            function [B,img] = results2num(results)
+                %% sum all patterns from an NMF factoring
+
+                B = results.B;  % Nvoxels x Npatterns
+                img = reshape(B, [size(opts.mask), opts.span]);
             end
-            if any(rowLen2==0)
-                rowLen2(rowLen2==0) = 1 ;
+            function ic = stat_of_iter(img, fp, stat)
+                ic = copy(opts.mask);
+                ic.selectImagingTool(img=stat(img, 5), fileprefix=fp);
             end
-            WW1 = bsxfun(@times,(W1'),1./(rowLen1')); WW1=WW1';
-            WW2 = bsxfun(@times,(W2'),1./(rowLen2')); WW2=WW2';
-            
-            [~,clustering1] = max(WW1,[],2);
-            [~,clustering2] = max(WW2,[],2);
-            ARI = mladni.AdjRandIndex.clustering_fast(clustering1,clustering2);   
+
+        end
+        
+        function ri = rand_index(p1, p2, varargin)
+            %%  RAND_INDEX Computes the rand index between two partitions.
+            %   RAND_INDEX(p1, p2) computes the rand index between partitions p1 and
+            %   p2. Both p1 and p2 must be specified as N-by-1 or 1-by-N vectors in
+            %   which each elements is an integer indicating which cluster the point
+            %   belongs to.
+            %
+            %   RAND_INDEX(p1, p2, 'adjusted') computes the adjusted rand index
+            %   between partitions p1 and p2. The adjustment accounts for chance
+            %   correlation.
+            %
+            %   https://github.com/cmccomb/rand_index/tree/master
+
+            %% Parse the input and throw errors
+            % Check inputs
+            adj = 0;
+            if nargin == 0
+                error('Arguments must be supplied.');
+            end
+            if nargin == 1
+                error('Two partitions must be supplied.');
+            end
+            if nargin > 3
+                error('Too many input arguments');
+            end
+            if nargin == 3
+                if strcmp(varargin{1}, 'adjusted')
+                    adj = 1;
+                else
+                    error('%s is an unrecognized argument.', varargin{1});
+                end
+            end
+            if length(p1)~=length(p2)
+                error('Both partitions must contain the same number of points.');
+            end
+
+            % Check if arguments need to be flattened
+            if length(p1)~=numel(p1)
+                p1 = p1(:);
+                warning('The first partition was flattened to a 1D vector.')
+            end
+            if length(p2)~=numel(p2)
+                p2 = p2(:);
+                warning('The second partition was flattened to a 1D vector.')
+            end
+
+            % Check for integers
+            if isreal(p1) && all(rem(p1, 1)==0)
+                % all is well
+            else
+                warning('The first partition contains non-integers, which may make the results meaningless. Attempting to continue calculations.');
+            end
+
+            if isreal(p2) && all(rem(p2, 1)==0)
+                % all is well
+            else
+                warning('The second partition contains non-integers, which may make the results meaningless. Attempting to continue calculations.');
+            end
+
+        	%% Preliminary computations and cleansing of the partitions
+            N = length(p1);
+            [~, ~, p1] = unique(p1);
+            N1 = max(p1);
+            [~, ~, p2] = unique(p2);
+            N2 = max(p2);
+
+            n = zeros(N1,N2);
+            %% Create the matching matrix
+            for i = 1:length(p1)
+                n(p1(i), p2(i)) = n(p1(i), p2(i)) + 1;
+            end
+
+            %% If required, calculate the basic rand index
+            if adj==0
+                ss = sum(sum(n.^2));
+                ss1 = sum(sum(n,1).^2);
+                ss2 =sum(sum(n,2).^2);
+                ri = (nchoosek2(N,2) + ss - 0.5*ss1 - 0.5*ss2)/nchoosek2(N,2);
+            end
+
+
+            %% Otherwise, calculate the adjusted rand index
+            if adj==1
+                ssm = 0;
+                sm1 = 0;
+                sm2 = 0;
+                for i=1:1:N1
+                    for j=1:1:N2
+                        ssm = ssm + nchoosek2(n(i,j),2);
+                    end
+                end
+                temp = sum(n,2);
+                for i=1:1:N1
+                    sm1 = sm1 + nchoosek2(temp(i),2);
+                end
+                temp = sum(n,1);
+                for i=1:1:N2
+                    sm2 = sm2 + nchoosek2(temp(i),2);
+                end
+                NN = ssm - sm1*sm2/nchoosek2(N,2);
+                DD = (sm1 + sm2)/2 - sm1*sm2/nchoosek2(N,2);
+
+                % Special case to handle perfect partitions
+                if (NN == 0 && DD==0)
+                    ri = 1;
+                else
+                    ri = NN/DD;
+                end
+            end
+
+            %% Special definition of n choose k
+            function c = nchoosek2(a,b)
+                if a>1
+                    c = nchoosek(a,b);
+                else
+                    c = 0;
+                end
+            end
+        end
+
+        function test_rand_index()
+            %%  https://github.com/cmccomb/rand_index/tree/master
+
+            %% Two arbitrary partitions
+            p1 = [1 2 3 3 2 1 1 3 3 1 2 2];
+            p2 = [3 2 3 2 2 1 1 2 3 1 3 1];
+
+            % Compute the unadjusted rand index
+            ri = mladni.AdjRandIndex.rand_index(p1, p2);
+            assert(ri == 7/11);
+
+            % Compute the adjusted rand index
+            ari = mladni.AdjRandIndex.rand_index(p1, p2, 'adjusted');
+            assert(ari == 1/12);
+
+            %% Two perfect partitions
+            p1 = [1 1 1];
+            p2 = [1 1 1];
+
+            % Compute the unadjusted rand index
+            ri = mladni.AdjRandIndex.rand_index(p1, p2);
+            assert(ri == 1);
+
+            % Compute the adjusted rand index
+            ari = mladni.AdjRandIndex.rand_index(p1, p2, 'adjusted');
+            assert(ari == 1);            
         end
 
         %% Hungarian algorithm/method.

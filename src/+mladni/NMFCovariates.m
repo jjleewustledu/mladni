@@ -15,9 +15,12 @@ classdef NMFCovariates < handle
         covariates_file
         covariates_1stscan_file
         inFiles
+        pet_on_T1w_suffix
+        pve_1_suffix
         selectedNumBases
         study_design
         targetDatasetDir
+        T1w_dlicv_suffix
         weightedAverFilename
         X2mat
     end
@@ -36,9 +39,15 @@ classdef NMFCovariates < handle
         function g = get.inFiles(this)
             g = fullfile(this.componentDir, sprintf("%s_%s.csv", stackstr(), this.study_design));
             if ~isfile(g)
-                t = table(this.table_fdg5.Filelist);
+                t = table(this.table_fdg.Filelist);
                 writetable(t, g, WriteVariableNames=false)
             end
+        end
+        function g = get.pet_on_T1w_suffix(this)
+            g = this.pet_on_T1w_suffix_;
+        end
+        function g = get.pve_1_suffix(this)
+            g = this.pve_1_suffix_;
         end
         function g = get.selectedNumBases(this)
             g = this.selectedNumBases_;
@@ -46,8 +55,11 @@ classdef NMFCovariates < handle
         function g = get.study_design(this)
             g = this.study_design_;
         end
-        function g = get.targetDatasetDir(~)
-            g = fullfile(getenv("ADNI_HOME"), "NMF_FDG", "baseline_cn");
+        function g = get.targetDatasetDir(this)
+            g = fullfile(this.data_home_, "NMF_FDG", "baseline_cn");
+        end
+        function g = get.T1w_dlicv_suffix(this)
+            g = this.T1w_dlicv_suffix_;
         end
         function g = get.weightedAverFilename(this)
             g = fullfile(this.componentDir, ...
@@ -63,17 +75,23 @@ classdef NMFCovariates < handle
             %% NMFCovariates 
             %  Args:
             %    opts.table_covariates = []: to provision from memory
-            %    opts.study_design = "cross-sectional"            
+            %    opts.study_design = "cross-sectional"
     
             arguments
                 opts.table_covariates = []
                 opts.selectedNumBases {mustBeScalarOrEmpty} = mladni.NMF.N_PATTERNS
-                opts.study_design = "longitudinal"
+                opts.study_design {mustBeTextScalar} = "longitudinal"
+                opts.data_home {mustBeFolder} = getenv("ADNI_HOME")
             end
             this.selectedNumBases_ = opts.selectedNumBases;
             this.study_design_ = opts.study_design;
-            this.adni_demo_ = mladni.AdniDemographics(study_design=opts.study_design);
+            this.demogr_ = mladni.AdniDemographics(study_design=opts.study_design);
             this.table_covariates_cache_ = opts.table_covariates;
+            this.data_home_ = opts.data_home;
+
+            this.pet_on_T1w_suffix_ = 'orient-rpi_pet_on_T1w.nii.gz';
+            this.T1w_dlicv_suffix_ = 'orient-rpi_T1w_dlicv.nii.gz';
+            this.pve_1_suffix_ = 'orient-rpi_T1w_brain_pve_1.nii.gz';
             %assert(this.components_are_available)
         end   
         function globbed_dx_csv = rawdata_pet_filename_dx(this, varargin)
@@ -96,7 +114,7 @@ classdef NMFCovariates < handle
             
             %% select dx from table_fdg1
             
-            fdg1 = this.adni_demo_.table_fdg1(); % 14358 x 53 table
+            fdg1 = this.demogr_.table_fdg1(); % 14358 x 53 table
             dx = fdg1.MergeDx; % 15358 x 1 cell
             desc = fdg1.Description; % 15358 x 1 cell
             select1 = cell2mat( ...
@@ -155,7 +173,7 @@ classdef NMFCovariates < handle
             
             %% select amyloid status using ADNI/studydata/ucberkeleyav45_skinny.csv
             
-            fdg1 = this.adni_demo_.table_fdg1(); % 14358 x 53 table
+            fdg1 = this.demogr_.table_fdg1(); % 14358 x 53 table
             sub = cellfun(@(x) strrep(x, '_', ''), fdg1.Subject, 'UniformOutput', false);
             ses = cellstr(datestr(fdg1.AcqDate, 'yyyymmdd'));
 
@@ -195,66 +213,7 @@ classdef NMFCovariates < handle
             writetable(tbl_amypos, globbed_amypos_csv, 'WriteVariableNames', false);
             writetable(tbl_amyneg, globbed_amyneg_csv, 'WriteVariableNames', false);
         end
-        function globbed_dx_csv = pve_filename_dx(this, varargin)
-            %% Builds and writes a subtable of pve filenames for subjects with a specified Merge Dx code.
-            %  Args:
-            %      globbed_csv (file):  default is /path/to/globbed.csv
-            %      merge_dx (text):  'CN'|'Dementia'|'MCI' determined from AdniDemographics.
-            
-            globbed_csv = fullfile(getenv('SINGULARITY_HOME'), 'ADNI', 'bids', 'derivatives', 'mladni_FDG_batch_globbed.csv');
-            
-            ip = inputParser;
-            addParameter(ip, 'globbed_csv', globbed_csv, @isfile);
-            addParameter(ip, 'merge_dx', 'CN', @(x) any(contains({'CN', 'Dementia', 'MCI'}, x)))
-            addParameter(ip, 'description', 'Coreg, Avg, Std Img and Vox Siz, Uniform Resolution', @istext)
-            addParameter(ip, 'pve', 1, @isscalar)
-            parse(ip, varargin{:});
-            ipr = ip.Results;           
-            globbed_tbl = readtable(ipr.globbed_csv, 'ReadVariableNames', false, 'Delimiter', ' '); % 3735 x 1 table
-            
-            globbed_dx_csv = sprintf('%s_pve%i_%s.csv', ...
-                myfileprefix(ipr.globbed_csv), ipr.pve, lower(ipr.merge_dx));
-            
-            %% select dx from table_fdg1
-            
-            fdg1 = this.adni_demo_.table_fdg1(); % 14358 x 53 table
-            dx = fdg1.MergeDx; % 15358 x 1 cell
-            desc = fdg1.Description; % 15358 x 1 cell
-            select1 = cell2mat( ...
-                cellfun(@(x) ischar(x) && strcmp(x, ipr.description), desc, ...
-                'UniformOutput', false));
-            select2 = cell2mat( ...
-                cellfun(@(x) ischar(x) && strcmp(x, ipr.merge_dx), dx, ...
-                'UniformOutput', false));
-            select = select1 & select2;
-            sub = fdg1.Subject(select);
-            sub = cellfun(@(x) strrep(x, '_', ''), sub, 'UniformOutput', false);
-            ses = fdg1.AcqDate(select);
-            ses = cellstr(datestr(ses, 'yyyymmdd'));
-            
-            %% select sub and ses from globbed_tbl
-            
-            selected_files = {};
-            files = globbed_tbl.rawdata_pet_filename;
-            for rowi = 1:length(files)
-                re = regexp(files{rowi}, '\S+/sub-(?<sub>\d{3}S\d{4})/ses-(?<ses>\d{8})/\S+', 'names');
-                if sum( contains(sub, re.sub) & contains(ses, re.ses) ) > 0
-                    pth = strrep(myfileparts(files{rowi}), 'rawdata', 'derivatives');
-                    g = glob(fullfile(pth, ...
-                        sprintf('sub-%s_ses-*_*_orient-rpi_T1w_brain_pve_%i_detJ_Warped.nii.gz', re.sub, ipr.pve)));
-                    if ~isempty(g)
-                        selected_files = [selected_files; g{1}]; %#ok<AGROW>
-                    end
-                end
-            end
-            
-            %% write requested subtable
-            
-            tbl = table(selected_files);
-            tbl.Properties.VariableNames = {sprintf('filename_pve%i_%s', ipr.pve, lower(ipr.merge_dx))};
-            writetable(tbl, globbed_dx_csv);
-        end        
-        
+
         %% tables
 
         function t = AddAcqDuration(~, t)
@@ -360,7 +319,7 @@ classdef NMFCovariates < handle
             end
 
             % from ADNIDemographics ~ 3478 rows
-            t = table_fdg5(this); 
+            t = table_fdg(this); 
 
             % Cohort ~ categorical
             Cohort = repmat({'unknown'}, size(t,1), 1);
@@ -414,7 +373,7 @@ classdef NMFCovariates < handle
             end
         end
         function t = table_covariates_1stscan(this)
-            t = this.adni_demo_.table_firstscan(this.table_covariates());
+            t = this.demogr_.table_firstscan(this.table_covariates());
 
             cache_file = this.covariates_1stscan_file;
             save(cache_file, 't');
@@ -428,24 +387,12 @@ classdef NMFCovariates < handle
             c = c(:, idx);
             t.Components = c;
         end
-        function t = table_fdg5(this)
-            if ~isempty(this.table_fdg5_)
-                t = this.table_fdg5_;
-                return
-            end
-            this.table_fdg5_ = this.adni_demo_.table_fdg5();
-            t = this.table_fdg5_;
-        end
-        function t = table_filelist(this)
-            t = table(this.table_fdg5.Filelist);
-            t.Properties.VariableNames = {'Filelist'};
-        end
         function t = table_dlicv(this)
             %% Finds dlicv json string; estimate icv using this.find_icv().
             %  Returns:
             %      t: table with variables Filelist and DLICV.
 
-            Filelist = this.table_fdg5.Filelist;
+            Filelist = this.table_fdg.Filelist;
             Dlicv = nan(size(Filelist));
             for fidx = 1:length(Filelist)
                 item = Filelist{fidx};
@@ -457,9 +404,9 @@ classdef NMFCovariates < handle
                         ss = strsplit(item, ',');
                         item = ss{1};
                     end
-                    if ~contains(item, 'orient-rpi_T1w_dlicv.nii.gz')
+                    if ~contains(item, this.T1w_dlicv_suffix)
                         pth = fileparts(item);
-                        g = glob(fullfile(pth, '*orient-rpi_T1w_dlicv.nii.gz'));
+                        g = glob(fullfile(pth, strcat('*', this.T1w_dlicv_suffix)));
                         assert(~isempty(g))
                         item = g{1};
                     end
@@ -471,12 +418,27 @@ classdef NMFCovariates < handle
             end
             t = table(Filelist, Dlicv);
         end
+        function t = table_fdg(this)
+            t = this.table_fdg5();
+        end
+        function t = table_fdg5(this)
+            if ~isempty(this.table_fdg_)
+                t = this.table_fdg_;
+                return
+            end
+            this.table_fdg_ = this.demogr_.table_fdg5();
+            t = this.table_fdg_;
+        end
+        function t = table_filelist(this)
+            t = table(this.table_fdg.Filelist);
+            t.Properties.VariableNames = {'Filelist'};
+        end        
         function t = table_imagedataIDs(this)
             %% Finds imagedataIDs;
             %  Returns:
             %      t: table with variables Filelist and ImageDataID.
 
-            Filelist = this.table_fdg5.Filelist;
+            Filelist = this.table_fdg.Filelist;
             ImageDataID = cell(size(Filelist));
             for fidx = 1:length(Filelist)
                 ImageDataID{fidx} = 'unknown';
@@ -534,7 +496,7 @@ classdef NMFCovariates < handle
             %  Returns:
             %      t: table with variables Filelist and PVE1, grey matter.
 
-            Filelist = this.table_fdg5.Filelist;
+            Filelist = this.table_fdg.Filelist;
             PVE1 = nan(size(Filelist));
             for fidx = 1:length(Filelist)
                 item = Filelist{fidx};
@@ -546,9 +508,9 @@ classdef NMFCovariates < handle
                         ss = strsplit(item, ',');
                         item = ss{1};
                     end
-                    if ~contains(item, 'orient-rpi_T1w_brain_pve_1.nii.gz')
+                    if ~contains(item, this.pve_1_suffix)
                         pth = fileparts(item);
-                        g = glob(fullfile(pth, '*orient-rpi_T1w_brain_pve_1.nii.gz'));
+                        g = glob(fullfile(pth, strcat('*', this.pve_1_suffix)));
                         assert(~isempty(g))
                         item = g{1};
                     end
@@ -563,7 +525,7 @@ classdef NMFCovariates < handle
             t = table(Filelist, PVE1);
         end
         function t = table_regerr(this)
-            Filelist = this.table_fdg5.Filelist;
+            Filelist = this.table_fdg.Filelist;
             RegErr = nan(size(Filelist));
             for fidx = 1:length(Filelist)
                 item = Filelist{fidx};
@@ -575,9 +537,9 @@ classdef NMFCovariates < handle
                         ss = strsplit(item, ',');
                         item = ss{1};
                     end
-                    if ~contains(item, 'orient-rpi_pet_on_T1w.nii.gz')
+                    if ~contains(item, this.pet_on_T1w_suffix)
                         pth = fileparts(item);
-                        g = glob(fullfile(pth, '*orient-rpi_pet_on_T1w.nii.gz'));
+                        g = glob(fullfile(pth, strcat('*', this.pet_on_T1w_suffix)));
                         assert(~isempty(g))
                         item = g{1};
                     end
@@ -602,7 +564,7 @@ classdef NMFCovariates < handle
             param.isList = 1 ;
             param.downSample = 1;
             param.smooth = 0;
-            param.mask = fullfile(getenv("ADNI_HOME"), "VolBin", "mask.nii.gz");
+            param.mask = fullfile(this.data_home_, "VolBin", "mask.nii.gz");
             param.permute = 0;
             param.numBase = this.selectedNumBases;
             param.componentDir = this.componentDir;
@@ -612,9 +574,9 @@ classdef NMFCovariates < handle
             if isfile(this.X2mat)
                 load(this.X2mat);
             else
-                data = mladni.NMF.loadData(this.inFiles, param, []);
+                data = mladni.ArisCodes.loadData(this.inFiles, param, []);
                 meanX = mean(data.X, 2);
-                X = data.X(meanX > 0, :); 
+                X = data.X; % data.X(meanX > 0, :); 
                 clear data;
                 save(this.X2mat, "X", "meanX");
             end
@@ -624,7 +586,7 @@ classdef NMFCovariates < handle
                 mladni.NMF.calculateSelectedComponentWeightedAverageNIFTI( ...
                     this.inFiles, this.targetDatasetDir, this.selectedNumBases, this.weightedAverFilename);
             end
-            t = readtable(this.weightedAverFilename);
+            t = readtable(this.weightedAverFilename, 'ReadVariableNames', false, 'Delimiter', ',');
             comp_vars = cellfun(@(x) sprintf('P%i', x), num2cell(1:this.selectedNumBases), UniformOutput=false);
             t.Properties.VariableNames = ['Filelist', comp_vars];
             t = mergevars(t, comp_vars, NewVariableName="Components");
@@ -764,7 +726,7 @@ classdef NMFCovariates < handle
             end            
         end 
         function t = table_firstscan(this, varargin)
-            t = this.adni_demo_.table_firstscan(varargin{:});
+            t = this.demogr_.table_firstscan(varargin{:});
         end
     end
 
@@ -863,9 +825,9 @@ classdef NMFCovariates < handle
                         ss = strsplit(item, ',');
                         item = ss{1};
                     end
-                    if ~contains(item, 'orient-rpi_T1w_dlicv.nii.gz')
+                    if ~contains(item, this.T1w_dlicv_suffix)
                         pth = fileparts(item);
-                        g = glob(fullfile(pth, '*orient-rpi_T1w_dlicv.nii.gz'));
+                        g = glob(fullfile(pth, strcat('*', this.T1w_dlicv_suffix)));
                         assert(~isempty(g))
                         item = g{1};
                     end
@@ -897,9 +859,9 @@ classdef NMFCovariates < handle
                         ss = strsplit(item, ',');
                         item = ss{1};
                     end
-                    if ~contains(item, 'orient-rpi_T1w_brain_pve_1.nii.gz')
+                    if ~contains(item, this.pve_1_suffix)
                         pth = fileparts(item);
-                        g = glob(fullfile(pth, '*orient-rpi_T1w_brain_pve_1.nii.gz'));
+                        g = glob(fullfile(pth, strcat('*', this.pve_1_suffix)));
                         assert(~isempty(g))
                         item = g{1};
                     end
@@ -957,15 +919,19 @@ classdef NMFCovariates < handle
         end
     end
     
-    %% PRIVATE
+    %% PROTECTED
     
-    properties (Access = private)
-        adni_demo_
+    properties (Access = protected)
+        data_home_
+        demogr_
+        pet_on_T1w_suffix_
+        pve_1_suffix_
         selectedNumBases_
         study_design_
         table_cohorts_
         table_covariates_cache_
-        table_fdg5_
+        table_fdg_
+        T1w_dlicv_suffix_
     end
     
     %  Created with mlsystem.Newcl, inspired by Frank Gonzalez-Morphy's newfcn.

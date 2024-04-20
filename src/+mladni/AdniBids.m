@@ -14,10 +14,10 @@ classdef AdniBids < handle
         %% GET
 
         function g = get.adni_demographics(this)
-            if isempty(this.adni_demo_)
-                this.adni_demo_ = mladni.AdniDemographics();
+            if isempty(this.demogr_)
+                this.demogr_ = mladni.AdniDemographics();
             end
-            g = this.adni_demo_;
+            g = this.demogr_;
         end
         function g = get.adni_merge(this)
             g = this.adni_demographics.adni_merge;
@@ -318,7 +318,7 @@ classdef AdniBids < handle
     %% PROTECTED
 
     properties (Access = protected)
-        adni_demo_
+        demogr_
         adni_merge_
     end
 

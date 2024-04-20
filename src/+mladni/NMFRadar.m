@@ -45,7 +45,8 @@ classdef NMFRadar < handle
         label_permute
         N_bases_target
         N_groups
-        sorted_bases % ordered by pattern-weighted FDG SUvR
+        sorted_bases % indexing from VolBin -> indexing sorted by pattern-weighted FDG SUvR; 
+                     % e.g., sorted_bases(16) == 20
     end
 
     methods % GET
@@ -692,8 +693,9 @@ classdef NMFRadar < handle
             % ans =
             %   24×3 table
             %
-            %     indices_bases      mu        sigma
-            %     _____________    _______    ________
+            %  reported VolBin         mu       sigma
+            %           generated
+            %  ________ ______      _______    ________
             %
             %  1        22           1.3149     0.12809
             %  2        10           1.2628     0.13907

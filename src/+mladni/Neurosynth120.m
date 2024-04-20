@@ -98,8 +98,8 @@ classdef Neurosynth120 < handle
                 T = this.table_built_stats_;
                 return
             end
-            ld = load(fullfile(this.neurosynthdir, 'neurodegeneration2_1k.mat'));
-            this.table_built_stats_ = ld.neurodegeneration2_1k;
+            ld = load(fullfile(this.neurosynthdir, 'neurodegeneration2_5k_Neurosynth120.mat'));
+            this.table_built_stats_ = ld.T;
             T = this.table_built_stats_;            
             T = this.table_paren(T, varargin{:});
         end

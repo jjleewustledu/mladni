@@ -30,14 +30,6 @@ classdef AdniDemographics < handle
     %  Created 14-Dec-2021 13:51:20 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 9.11.0.1809720 (R2021b) Update 1 for MACI64.  Copyright 2021 John J. Lee.
 
-    properties (Constant)
-        EXCLUSIONS = {'I315216', 'I371791', 'I85877'} 
-        EXCLUSION_PATHS = { ...
-            '/home/usr/jjlee/Singularity/ADNI/bids/derivatives/sub-094S4649/ses-20120606', ...
-            '/home/usr/jjlee/Singularity/ADNI/bids/derivatives/sub-127S5132/ses-20130507', ...
-            '/home/usr/jjlee/Singularity/ADNI/bids/derivatives/sub-003S1059/ses-20071211'}
-    end
-
     properties
         datetime_separation_tol
         description
@@ -56,6 +48,11 @@ classdef AdniDemographics < handle
                   'sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_pve_2_Warped.nii.gz', ...
                   'sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_Warped.nii.gz'}
         categories = {'CN', 'EMCI', 'MCI', 'LMCI', 'SMC', 'AD'};
+        EXCLUSIONS = {'I315216', 'I371791', 'I85877'} 
+        EXCLUSION_PATHS = { ...
+            '/home/usr/jjlee/Singularity/ADNI/bids/derivatives/sub-094S4649/ses-20120606', ...
+            '/home/usr/jjlee/Singularity/ADNI/bids/derivatives/sub-127S5132/ses-20130507', ...
+            '/home/usr/jjlee/Singularity/ADNI/bids/derivatives/sub-003S1059/ses-20071211'}
         LABELS = { ...
                   'sub-cn_ses-all_trc-FDG_pet_on_T1w_Warped_dlicv', ...
                   'sub-cn_ses-all_T1w_dlicv_detJ_Warped', ...
@@ -1082,6 +1079,70 @@ classdef AdniDemographics < handle
         end
     end
 
+    methods % (Access = protected)
+        function [fqfn,acqdat] = table2fdgfilename(this, T)
+            %% T1w NIfTI must have been linearly registrable to T1w.  Does not check for ponsvermis availability.
+
+            assert(size(T,1) == 1, strcat('assert fail:', stackstr))
+            descr = this.description_acro;
+
+            % sub
+            re = regexp(T.Subject{1}, '(?<siteid>\d{3})_S_(?<rid>\d{4})', 'names');
+            sub = sprintf('sub-%sS%s', re.siteid, re.rid);
+
+            % candidate filenames
+            fdgfn = sprintf('*_trc-FDG_proc-%s_orient-rpi_pet.nii.gz', descr);
+            globbed = glob(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', sub, 'ses-*', 'pet', fdgfn));
+            assert(~isempty(globbed), strcat(stackstr, sprintf(': %s not found', fdgfn)))
+            acqdate = NaT(size(globbed));
+            for ig = 1:length(globbed)
+                re1 = regexp(globbed{ig}, ...
+                    sprintf("\\S+/sub-\\d{3}S\\d{4}_ses-(?<dt>\\d{14})_trc-FDG_proc-%s_orient-rpi_pet.nii.gz", descr), ...
+                    'names');
+                acqdate(ig) = datetime(re1.dt, InputFormat='yyyyMMddHHmmss');
+            end
+            T1 = table(globbed, acqdate);
+            [~,select] = min(abs(T1.acqdate - T.AcqDate));
+            fqfn = T1.globbed{select};
+            acqdat = T1.acqdate(select);
+            assert(abs(duration(acqdat - T.AcqDate)) < this.datetime_separation_tol, strcat('assert fail:', stackstr))
+        end
+        function [fqfn,acqdat] = table2t1wfilename(this, T)
+            %% T1w must have been warpable to MNI152
+
+            assert(size(T,1) == 1, strcat('assert fail:', stackstr))
+
+            % sub
+            re = regexp(T.Subject{1}, '(?<siteid>\d{3})_S_(?<rid>\d{4})', 'names');
+            sub = sprintf('sub-%sS%s', re.siteid, re.rid);
+
+            % candidate filenames
+            t1wfqfn = fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', sub, 'ses-*', 'pet', ...
+                'sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_2Warp.nii.gz');
+            globbed = glob(t1wfqfn);
+            assert(~isempty(globbed), strcat(stackstr, sprintf(': %s not found', t1wfqfn)))
+            acqdate = NaT(size(globbed));
+            for ig = 1:length(globbed)
+                re1 = regexp(globbed{ig}, ...
+                    '\S+/sub-\d{3}S\d{4}_ses-(?<dt>\d{14})_\S+orient-rpi_T1w_brain_2Warp.nii.gz', ...
+                    'names');
+                acqdate(ig) = datetime(re1.dt, InputFormat='yyyyMMddHHmmss');
+            end
+            T1 = table(globbed, acqdate);
+            [~,select] = min(abs(T1.acqdate - T.AcqDate));
+            fqfn = T1.globbed{select};
+            acqdat = T1.acqdate(select);
+            assert(abs(duration(acqdat - T.AcqDate)) < this.datetime_separation_tol, strcat('assert fail:', stackstr))
+        end
+        function sep = filenames2sep(~, fn, fn1)
+            re = regexp(fn, '\S+sub-\d{3}S\d{4}_ses-(?<dt>\d{14})_\S+.nii.gz', 'names');
+            dt = datetime(re.dt, InputFormat='yyyyMMddHHmmss');
+            re1 = regexp(fn1, '\S+sub-\d{3}S\d{4}_ses-(?<dt>\d{14})_\S+.nii.gz', 'names');
+            dt1 = datetime(re1.dt, InputFormat='yyyyMMddHHmmss');
+            sep = abs(duration(dt - dt1));
+        end
+    end
+
     methods (Static)
         function t = create_table_of_filenames(varargin)
             import mladni.AdniDemographics.*
@@ -2024,70 +2085,6 @@ classdef AdniDemographics < handle
                     ED(row) = trial(middle);
                 end
             end
-        end
-    end
-
-    methods % (Access = protected)
-        function [fqfn,acqdat] = table2fdgfilename(this, T)
-            %% T1w NIfTI must have been linearly registrable to T1w.  Does not check for ponsvermis availability.
-
-            assert(size(T,1) == 1, strcat('assert fail:', stackstr))
-            descr = this.description_acro;
-
-            % sub
-            re = regexp(T.Subject{1}, '(?<siteid>\d{3})_S_(?<rid>\d{4})', 'names');
-            sub = sprintf('sub-%sS%s', re.siteid, re.rid);
-
-            % candidate filenames
-            fdgfn = sprintf('*_trc-FDG_proc-%s_orient-rpi_pet.nii.gz', descr);
-            globbed = glob(fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', sub, 'ses-*', 'pet', fdgfn));
-            assert(~isempty(globbed), strcat(stackstr, sprintf(': %s not found', fdgfn)))
-            acqdate = NaT(size(globbed));
-            for ig = 1:length(globbed)
-                re1 = regexp(globbed{ig}, ...
-                    sprintf("\\S+/sub-\\d{3}S\\d{4}_ses-(?<dt>\\d{14})_trc-FDG_proc-%s_orient-rpi_pet.nii.gz", descr), ...
-                    'names');
-                acqdate(ig) = datetime(re1.dt, InputFormat='yyyyMMddHHmmss');
-            end
-            T1 = table(globbed, acqdate);
-            [~,select] = min(abs(T1.acqdate - T.AcqDate));
-            fqfn = T1.globbed{select};
-            acqdat = T1.acqdate(select);
-            assert(abs(duration(acqdat - T.AcqDate)) < this.datetime_separation_tol, strcat('assert fail:', stackstr))
-        end
-        function [fqfn,acqdat] = table2t1wfilename(this, T)
-            %% T1w must have been warpable to MNI152
-
-            assert(size(T,1) == 1, strcat('assert fail:', stackstr))
-
-            % sub
-            re = regexp(T.Subject{1}, '(?<siteid>\d{3})_S_(?<rid>\d{4})', 'names');
-            sub = sprintf('sub-%sS%s', re.siteid, re.rid);
-
-            % candidate filenames
-            t1wfqfn = fullfile(getenv('ADNI_HOME'), 'bids', 'derivatives', sub, 'ses-*', 'pet', ...
-                'sub-*_ses-*_acq-*_proc-*_orient-rpi_T1w_brain_2Warp.nii.gz');
-            globbed = glob(t1wfqfn);
-            assert(~isempty(globbed), strcat(stackstr, sprintf(': %s not found', t1wfqfn)))
-            acqdate = NaT(size(globbed));
-            for ig = 1:length(globbed)
-                re1 = regexp(globbed{ig}, ...
-                    '\S+/sub-\d{3}S\d{4}_ses-(?<dt>\d{14})_\S+orient-rpi_T1w_brain_2Warp.nii.gz', ...
-                    'names');
-                acqdate(ig) = datetime(re1.dt, InputFormat='yyyyMMddHHmmss');
-            end
-            T1 = table(globbed, acqdate);
-            [~,select] = min(abs(T1.acqdate - T.AcqDate));
-            fqfn = T1.globbed{select};
-            acqdat = T1.acqdate(select);
-            assert(abs(duration(acqdat - T.AcqDate)) < this.datetime_separation_tol, strcat('assert fail:', stackstr))
-        end
-        function sep = filenames2sep(~, fn, fn1)
-            re = regexp(fn, '\S+sub-\d{3}S\d{4}_ses-(?<dt>\d{14})_\S+.nii.gz', 'names');
-            dt = datetime(re.dt, InputFormat='yyyyMMddHHmmss');
-            re1 = regexp(fn1, '\S+sub-\d{3}S\d{4}_ses-(?<dt>\d{14})_\S+.nii.gz', 'names');
-            dt1 = datetime(re1.dt, InputFormat='yyyyMMddHHmmss');
-            sep = abs(duration(dt - dt1));
         end
     end
 

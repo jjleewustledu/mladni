@@ -65,7 +65,7 @@ classdef Neurosynth27 < handle
             end
         end
         function patterns_for_terms(this)
-            terms = mladni.Neurosynth.PREFIXES;
+            terms = mladni.Neurosynth.PREFIXES27;
             for t = terms
                 this.patterns_for_term(t{1});
             end
@@ -78,8 +78,8 @@ classdef Neurosynth27 < handle
                 T = this.table_built_stats_;
                 return
             end
-            ld = load(fullfile(this.neurosynthdir, 'testbuildstats27.mat'));
-            this.table_built_stats_ = ld.testbuildstats27;
+            ld = load(fullfile(this.neurosynthdir, 'neurodegeneration2_5k_Neurosynth27.mat'));
+            this.table_built_stats_ = ld.T;
             T = this.table_built_stats_;            
             T = this.table_paren(T, varargin{:});
         end
@@ -92,7 +92,7 @@ classdef Neurosynth27 < handle
             end
             
             index = mladni.Neurosynth.ORDERING;            
-            filename = cellfun(@(x) sprintf('%s.txt', x), mladni.Neurosynth.PREFIXES, UniformOutput=false);
+            filename = cellfun(@(x) sprintf('%s.txt', x), mladni.Neurosynth.PREFIXES27, UniformOutput=false);
             term = mladni.Neurosynth.TERMS;
             this.table_termlist_ = table(index, filename, term);
             T = this.table_termlist_;            

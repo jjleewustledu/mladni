@@ -12,7 +12,7 @@ classdef Jones2022 < handle
 
     properties (Dependent)
         componentsdir
-        jones2022dir
+        data_home
         labels_check_mvregress % labels for plots
         labels_check_mvregress_2 % labels for plots, excluding NpBraak
         mask
@@ -30,8 +30,8 @@ classdef Jones2022 < handle
         function g = get.componentsdir(this)
             g = fullfile(this.workdir, 'baseline_cn', sprintf('NumBases%i', this.nbases), 'components');
         end
-        function g = get.jones2022dir(~)
-            g = fullfile(getenv('ADNI_HOME'), 'Jones_2022');
+        function g = get.data_home(~)
+            g = fullfile(getenv('SINGULARITY_HOME'), 'MAYO');
         end
         function g = get.mask(this)
             if ~isempty(this.mask_)
@@ -115,7 +115,7 @@ classdef Jones2022 < handle
             %
             %  Returns table of 'SummaryTerm', 'TopicTermNumber', 'Filename'}
 
-            workdir__ = fullfile(this.jones2022dir, 'Eigenbrains');
+            workdir__ = fullfile(this.data_home, 'Eigenbrains');
             cd(workdir__)
 
             Number = (1:10)';
@@ -128,6 +128,7 @@ classdef Jones2022 < handle
             end
             writetable(T, sprintf('%s_T.csv', stackstr()));
         end
+        
         function build_table_relevant(this)
             %% builds "Jones2022_table_covariates_1stscan_<study_design>.mat" using all visible baseline_* folders
 
@@ -152,6 +153,7 @@ classdef Jones2022 < handle
 
             popd(pwd0);
         end
+        
         function h = heatmap_eigenbrains(this, mat, clbls, rlbls, opts)
             %% selectd with FDR, but no considerations for spatial autocorrelations
 
@@ -197,6 +199,7 @@ classdef Jones2022 < handle
             h.YLabel = "Eigenbrains";
             h.XLabel = "ADNI Patterns";
         end
+        
         function T = table_built_stats(this, varargin)
             %% test_neurodegeneration2.test_build_eigenbrains; 
             %  hand-assembled by importing test_build_eigenbrains.log
@@ -205,11 +208,12 @@ classdef Jones2022 < handle
                 T = this.table_built_stats_;
                 return
             end
-            ld = load(fullfile(this.jones2022dir, 'testbuildeigenbrains.mat'));
-            this.table_built_stats_ = ld.testbuildeigenbrains;
+            ld = load(fullfile(this.data_home, 'neurodegeneration2_5k_EB.mat'));
+            this.table_built_stats_ = ld.T;
             T = this.table_built_stats_;            
             T = this.table_paren(T, varargin{:});
         end
+        
         function T = table_termlist(this, varargin)
             %% enumerations of Jones Table 3
 
@@ -225,6 +229,7 @@ classdef Jones2022 < handle
             T = this.table_termlist_;            
             T = this.table_paren(T, varargin{:});
         end
+        
         function T = table(this, varargin)
             %% compendium
             %  VariableNames:  'index', 'odd', 'term', 'corr', 'pval', 'fdr', 'groups'
@@ -317,6 +322,7 @@ classdef Jones2022 < handle
             xlabel('NMF pattern from ADNI CN')
             saveFigures(this.workdir, closeFigure=false, prefix=stackstr())
         end
+        
         function dat = mvregress(this, maxiter)
             %% Following Jones' Table 2.
             %  Regression approach:
@@ -410,13 +416,14 @@ classdef Jones2022 < handle
 
             save(sprintf('dat_%s.mat', datetime('now', 'Format','uuuuMMdd''T''HHmmss')), 'dat')
         end     
+        
         function h = plot_results(this, dat)
             %% plot dat after mvregress
 
             h = figure;
         end
 
-        function plotall_relevant(this)
+        function plot_relevant_all(this)
             this.plot_relevant('Metaroi', 'scatter', xlabel='FDG_{AD}');
             this.set_gcf()
             this.plot_relevant('MergeAge', 'scatter', xlabel='Age');
@@ -448,6 +455,7 @@ classdef Jones2022 < handle
             this.plot_relevant('ApoE2', 'boxchart', catnames={'0 alleles' '1 allele' '2 alleles'}, xlabel='E2+');
             this.set_gcf()
         end
+        
         function h = plot_relevant(this, tblvar, plotfun, opts)
             %% Following Jones' Table 2, mapping tblvar -> averaged components
             %  Args:
@@ -504,6 +512,7 @@ classdef Jones2022 < handle
                 xlabel(opts.xlabel, FontSize=20, FontWeight="bold");
             end
         end
+        
         function t = table_relevant(this, varargin)
             if isempty(this.relevant_)
                 ld = load(this.relevant_file);
@@ -572,7 +581,7 @@ classdef Jones2022 < handle
         function h = heatmap_patterns_to_eigenbrains(this)
             %% Kuehback-Leibler divergence, relative entropy from eigenbrains to patterns
 
-            eb_path = '/Volumes/PrecunealSSD/Singularity/ADNI/Jones_2022/Eigenbrains';
+            eb_path = '/Volumes/PrecunealSSD/Singularity/MAYO/Eigenbrains';
             mat = nan(10, this.N_PATTERNS);
 
             for irow = 1:10
@@ -607,6 +616,7 @@ classdef Jones2022 < handle
             T.MergeMmse = T.MergeMmse/30; % fractional
             T.MergeHippocampus = T.MergeHippocampus/1e4;
         end        
+        
         function h = boxchart(cats, catnames, comp, marksize)
             try
                 if any(isnan(cats))
@@ -624,6 +634,7 @@ classdef Jones2022 < handle
             %s.XJitterWidth = 0.25;
             hold off
         end
+        
         function [h,mu,sigma,q,notch] = al_goodplot(cat, catnames, metric)
             %% https://www.mathworks.com/matlabcentral/fileexchange/91790-al_goodplot-boxblot-violin-plot?s_tid=srchtitle_site_search_3_violin
             %  cat {mustBeNumeric}:  e.g., [2 4 6 8 ...]
@@ -663,6 +674,7 @@ classdef Jones2022 < handle
             xticklabels(asrow(catnames));
             set(findobj(get(h{1}{1}, 'parent'), 'type', 'text'), 'fontsize', 18);
         end
+        
         function h = heatmap(mat, clbls, rlbls, opts)
             arguments
                 mat double
@@ -684,6 +696,7 @@ classdef Jones2022 < handle
                 Colormap=opts.Colormap, ColorScaling=opts.ColorScaling, ...
                 FontSize=opts.FontSize);
         end
+        
         function errors = regf(X1train,X2train,ytrain,X1test,X2test,ytest)
             tbltrain = table(X1train,X2train,ytrain, ...
                 'VariableNames',{'Acceleration','Displacement','Weight'});
@@ -695,6 +708,7 @@ classdef Jones2022 < handle
             adjMAE = MAE/range(tbltest.Weight);
             errors = [MAE adjMAE];
         end
+        
         function set_gcf(opts)
             arguments
                 opts.fracx double = 0.5
@@ -704,6 +718,7 @@ classdef Jones2022 < handle
             end
             set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
         end
+        
         function t = table_paren(varargin)
             t = mladni.AdniMerge.table_paren(varargin{:});
         end
