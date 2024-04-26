@@ -85,11 +85,11 @@ classdef Adni < mladni.DataCuration & handle
             % call2(this.nmf)
 
             % build argmax maps
-            for b = 2:2:24
-                nmfc = mladni.NMFCovariates(selectedNumBases=b);
-                nmfc.table_covariates_1stscan();
-            end
-            this.nmfh.build_argmax_maps;
+            % for b = 2:2:24
+            %     nmfc = mladni.NMFCovariates(selectedNumBases=b);
+            %     nmfc.table_covariates_1stscan();
+            % end
+            % this.nmfh.build_argmax_maps;
 
             % check completeness
             % fdg5 = this.demogr.table_fdg5;
@@ -149,27 +149,43 @@ classdef Adni < mladni.DataCuration & handle
 
             arguments
                 this mladni.Adni
-                opts.ARI {mustBeNumeric}
-                opts.overlap {mustBeNumeric}
+                opts.ARI {mustBeNumeric} = []  % median
+                opts.overlap {mustBeNumeric} = []  % matrix for raincloud
+                opts.rec_error {mustBeNumeric} = []  % median
                 opts.fileprefix {mustBeTextScalar} = stackstr()
-                opts.K double {mustBeInteger} = 20 % count of bases computed by VolBin/*
+                opts.N_K double {mustBeInteger} = 20  % count of bases computed by VolBin/*
                 opts.subgroup {mustBeTextScalar} = 'cn'
-                opts.ylab {mustBeText} = 'Split-sample reproducibility'
             end
-            sortedBasisNum = 2:2:2*opts.K;
-            sortedBasisNames = cellfun(@num2str, num2cell(2:2:2*opts.K), UniformOutput=false);
+            sortedBasisNum = 2:2:2*opts.N_K;
+            sortedBasisNames = cellfun(@num2str, num2cell(2:2:2*opts.N_K), UniformOutput=false);
+            plt = mladni.Plot();
 
-            rm_raincloud(sortedBasisNum, sortedBasisNames, ARI');
-            xlabel('Number of patterns in model space', 'fontsize', 30)
-            ylabel(opts.ylab, 'fontsize', 30)
-            legend({'pattern overlaps', 'Adj. Rand Index'}, 'fontsize', 20)
-            set(gca,'fontsize',20)
-            set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
+            %% reconstruction error
 
-            outputDir_ = fullfile(this.nmf_fdg_home, sprintf('baseline_%s', subgroup), 'results');
-            saveas(gcf, fullfile(outputDir_, [opts.fileprefix, '.fig']));
-            saveas(gcf, fullfile(outputDir_, [opts.fileprefix, '.png']));
-            saveas(gcf, fullfile(outputDir_, [opts.fileprefix, '.svg']));
+
+
+            %% ARI
+
+            
+            
+            %% overlap
+
+            colors = [0.5, 0.5, 0.5];
+            plt.rm_raincloud_(overlap', colors);
+            ylabel("Number of patterns in model space");  % raincloud is rotated
+            xlabel("Reproducibility of anticlusters");
+            fontsize(plt.fontsize_scale);
+            set(gca, fontsize=20);
+            set(gcf, Position=[1 1 2330 1440]);
+
+            legend({'inner products', 'adjusted Rand Index'});
+
+            %% save
+
+            output_dir_ = fullfile(this.nmf_fdg_home, sprintf('baseline_%s', subgroup), 'results');
+            saveas(gcf, fullfile(output_dir_, [opts.fileprefix, '.fig']));
+            saveas(gcf, fullfile(output_dir_, [opts.fileprefix, '.png']));
+            saveas(gcf, fullfile(output_dir_, [opts.fileprefix, '.svg']));
         end
 
         function t = paper_table_census(this)

@@ -92,7 +92,6 @@ classdef NMFCovariates < handle
             this.pet_on_T1w_suffix_ = 'orient-rpi_pet_on_T1w.nii.gz';
             this.T1w_dlicv_suffix_ = 'orient-rpi_T1w_dlicv.nii.gz';
             this.pve_1_suffix_ = 'orient-rpi_T1w_brain_pve_1.nii.gz';
-            %assert(this.components_are_available)
         end   
         function globbed_dx_csv = rawdata_pet_filename_dx(this, varargin)
             %% Builds and writes a subtable of rawdata PET filenames for subjects with a specified Merge Dx code.
@@ -552,7 +551,7 @@ classdef NMFCovariates < handle
             t = table(Filelist, RegErr);
         end
         function t = table_selectedComponentWeightedAverageNIFTI(this)
-            %% See also mladni.NMF.calculateSelectedComponentWeightedAverageNIFTI(),
+            %% See also mladni.ArisCodes.calculateSelectedComponentWeightedAverageNIFTI(),
             %  which writes component_weighted_average_<study_design>.csv.
             %  t.Filelist will exclude registration failures.
 
@@ -583,7 +582,7 @@ classdef NMFCovariates < handle
 
             % generate table t; write table
             if ~isfile(this.weightedAverFilename)
-                mladni.NMF.calculateSelectedComponentWeightedAverageNIFTI( ...
+                mladni.ArisCodes.calculateSelectedComponentWeightedAverageNIFTI( ...
                     this.inFiles, this.targetDatasetDir, this.selectedNumBases, this.weightedAverFilename);
             end
             t = readtable(this.weightedAverFilename, 'ReadVariableNames', false, 'Delimiter', ',');
@@ -731,11 +730,6 @@ classdef NMFCovariates < handle
     end
 
     methods (Static)
-        function create_tables_for_R()
-        end
-        function tf = components_are_available()
-            tf = mladni.NMF.components_are_available();
-        end
         function [idids,comps,filelist] = csv_to_imagedataIDs(fn_csv)
             %% finds imagedataIDs from csv;
             %  also finds numerical components if fn_csv is, e.g., "component_weighted_average.csv"
