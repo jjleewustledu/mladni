@@ -84,31 +84,23 @@ classdef ArisCodes < handle
             assert(islogical(selectVoxels))
             assert(size(X,1) == sum(selectVoxels, "all"), stackstr()) %% JJL's BUG CHECK
             
-            listing = dir(resultDir);
-            listing=listing(3:end);
-            hh =cellfun(@(x) ( (strfind(x,'NumBases')==1)  ),{listing(:).name},'UniformOutput',false) ;
-            listing=listing(cellfun(@(x) (~isempty(x)&&(x==1)),hh));
-            numDifBases=numel(listing);
+            listing = mglob(fullfile(resultDir, "NumBases*", "OPNMF", "ResultsExtractBases.mat"));
+            listing = natsort(listing);
+            numDifBases = numel(listing);
             
-            % sort them in ascending order
-            basisNum = zeros(1,numDifBases) ;
-            for i=1:numDifBases
-                basisNum(i) = str2double(listing(i).name(9:end));
-            end
-            [~,idx]=sort(basisNum) ;
-            sortedBasisNum=basisNum(idx) ;
-            
-            RecError=zeros(numDifBases,1);
-            for b=1:numDifBases
-                disp(b/numDifBases)
-                load( ...
-                    fullfile(resultDir, ['NumBases', num2str(sortedBasisNum(b))], 'OPNMF', ...
-                    'ResultsExtractBases.mat')) %#ok<LOAD>
-                Est = B*C ;
-                assert(size(Est,1) == size(selectVoxels,1), stackstr()) %% JJL's BUG CHECK
-                Est = Est(selectVoxels,:); %% JJL
-                RecError(b) = norm(X-Est,'fro') ;
-                clear B C
+            RecError = zeros(numDifBases, 1);
+            for b = 1:numDifBases
+                try
+                    fprintf("%s: loading %s\n", stackstr(), listing(b));
+                    load(listing(b)) %#ok<LOAD>
+                    Est = B*C ;
+                    assert(size(Est,1) == size(selectVoxels,1), stackstr()) %% JJL's BUG CHECK
+                    Est = Est(selectVoxels,:); %% JJL
+                    RecError(b) = norm(X-Est, "fro") ;
+                    clear B C
+                catch ME
+                    handwarning(ME)
+                end
             end
             
             if opts.do_plot

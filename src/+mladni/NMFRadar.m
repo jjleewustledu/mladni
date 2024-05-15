@@ -34,6 +34,7 @@ classdef NMFRadar < handle
         % family=mvn(d=24), data=soto)
         % b2
         % summary(b2)  
+        matfile_cohort_sorted = 'CohortCoefficientsSorted.mat'  % P1 has highest SUVR, P24 has lowest SUVR
 
         workdir
     end
@@ -68,7 +69,7 @@ classdef NMFRadar < handle
                 return
             end
             T = this.table_patt_weighted_fdg();
-            g = asrow(T.sorted_bases);
+            g = asrow(T.indices_bases);
         end
         function g = get.figdir(this)
             g = fullfile(this.workdir, 'baseline_cn', 'results');
@@ -643,43 +644,43 @@ classdef NMFRadar < handle
             labels = cellfun(@(x) sprintf('P%i', x), indices, UniformOutput=false);
 
             figure        
-            plot(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), LineStyle="none", Marker="o", MarkerSize=24)            
-            labelpoints(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), labels, 'C', 0.25, 1)
+            plot(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), LineStyle="none", Marker="none", MarkerSize=24)            
+            labelpoints(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), labels, 'C')
             xlim([0.7 1.4])
             ylim([-0.3 0.015])
-            xlabel("\beta_{CDR=0,amy-}", FontSize=14)
-            ylabel("\beta_{CDR=0,amy+}", FontSize=14)
-            fontsize(gcf, scale=1.2)
+            % xlabel("\beta_{CDR=0,amy-}", FontSize=14)
+            % ylabel("\beta_{CDR=0,amy+}", FontSize=14)
+            fontsize(gcf, scale=2)
             grid on
             pbaspect([1 1.618 1])
-            set(gcf, position=[100,100,618,1000])
-            saveFigure2(gcf, fullfile(this.figdir, "preclinical"))
+            set(gcf, position=[1,1,1045,1692])
+            saveFigure2(gcf, fullfile(this.figdir, "cdr0_amy+"))
 
             figure
-            plot(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), LineStyle="none", Marker="o", MarkerSize=24)
-            labelpoints(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), labels, 'C', 0.25, 1)
+            plot(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), LineStyle="none", Marker="none", MarkerSize=24)
+            labelpoints(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), labels, 'C')
             xlim([0.7 1.4])
             ylim([-0.3 0.015])
-            xlabel("\beta_{CDR=0,amy-}", FontSize=14)
-            ylabel("\beta_{CDR=0.5,amy+}", FontSize=14)
-            fontsize(gcf, scale=1.2)
+            % xlabel("\beta_{CDR=0,amy-}", FontSize=14)
+            % ylabel("\beta_{CDR=0.5,amy+}", FontSize=14)
+            fontsize(gcf, scale=2)
             grid on
             pbaspect([1 1.618 1])
-            set(gcf, position=[100,100,618,1000])
-            saveFigure2(gcf, fullfile(this.figdir, "mci"))
+            set(gcf, position=[1,1,1045,1692])
+            saveFigure2(gcf, fullfile(this.figdir, "cdr0p5_amy+"))
 
             figure
-            plot(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), LineStyle="none", Marker="o", MarkerSize=24)
-            labelpoints(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), labels, 'C', 0.25, 1)
+            plot(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), LineStyle="none", Marker="none", MarkerSize=24)
+            labelpoints(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), labels, 'C')
             xlim([0.7 1.4])
             ylim([-0.3 0.015])
-            xlabel("\beta_{CDR=0,amy-}", FontSize=14)
-            ylabel("\beta_{CDR>0.5,amy+}", FontSize=14)
-            fontsize(gcf, scale=1.2)
+            % xlabel("\beta_{CDR=0,amy-}", FontSize=14)
+            % ylabel("\beta_{CDR>0.5,amy+}", FontSize=14)
+            fontsize(gcf, scale=2)
             grid on
             pbaspect([1 1.618 1])
-            set(gcf, position=[100,100,618,1000])
-            saveFigure2(gcf, fullfile(this.figdir, "ad"))
+            set(gcf, position=[1,1,1045,1692])
+            saveFigure2(gcf, fullfile(this.figdir, "cdrgt0p5_amy+"))
         end
         
         function h = plot_beta0_for_groups(this)
@@ -687,40 +688,65 @@ classdef NMFRadar < handle
         function h = plot_beta1_for_groups(this)
         end
 
+        function T = table_cohort_coefficients_sorted(this)
+            %% sorts this.matfile_cohort and writes this.matfile_cohort_sorted, along with corresponding csv.
+
+            ld = load(fullfile(this.workdir, this.matfile_cohort));
+            T0 = ld.CohortCoefficients20230928;
+            T = T0;
+
+            N_bundle = size(T0, 1) / 24;
+            assert(rem(size(T0, 1), 24) == 0)
+            for b = 1:N_bundle
+                rows = (b - 1)*24 + (1:24);
+                U0 = T0(rows, :);
+                U1 = U0(this.sorted_bases, :);
+                U1.ParamCoefficients = U0.ParamCoefficients;
+                T(rows,:) = U1;
+            end
+
+            % FDR by Benjamini-Hochberg
+            [~,~,~,FdrPValue] = fdr_bh(T.PValue, 0.05, 'dep', 'yes');
+            T = addvars(T, FdrPValue);
+            
+            save(fullfile(this.workdir, this.matfile_cohort_sorted), "T");
+            writetable(T, fullfile(this.workdir, myfileprefix(this.matfile_cohort_sorted) + ".csv"));
+        end
         function T = table_patt_weighted_fdg(this)
 
-            % nmfr.table_patt_weighted_fdg
+            % a.nmfr.table_patt_weighted_fdg
+            %
             % ans =
+            %
             %   24×3 table
             %
-            %  reported VolBin         mu       sigma
-            %           generated
-            %  ________ ______      _______    ________
+            %     indices_bases      mu        sigma
+            %     _____________    _______    ________
             %
-            %  1        22           1.3149     0.12809
-            %  2        10           1.2628     0.13907
-            %  3        11           1.2406     0.15168
-            %  4        15           1.2227     0.13558
-            %  5         5            1.206     0.12444
-            %  6        17           1.2051     0.12955
-            %  7        13           1.1859     0.14648
-            %  8         9           1.1639     0.13782
-            %  9         3           1.1386     0.14355
-            %  10       24           1.1309     0.11426
-            %  11       16           1.1286     0.10461
-            %  12        2           1.1146     0.12517
-            %  13        4           1.0951     0.10383
-            %  14        8           1.0474    0.075412
-            %  15       14           1.0423     0.10174
-            %  16       20           1.0375    0.036501
-            %  17        7           1.0082    0.099031
-            %  18       12           1.0022     0.12901
-            %  19       18          0.99447     0.15053
-            %  20       23          0.96043    0.067123
-            %  21        1          0.95748    0.097545
-            %  22       19          0.91651    0.067689
-            %  23       21          0.77652     0.10514
-            %  24        6          0.72945    0.060317
+            %          22           1.3149     0.12809
+            %          10           1.2628     0.13907
+            %          11           1.2406     0.15168
+            %          15           1.2227     0.13558
+            %           5            1.206     0.12444
+            %          17           1.2051     0.12955
+            %          13           1.1859     0.14648
+            %           9           1.1639     0.13782
+            %           3           1.1386     0.14355
+            %          24           1.1309     0.11426
+            %          16           1.1286     0.10461
+            %           2           1.1146     0.12517
+            %           4           1.0951     0.10383
+            %           8           1.0474    0.075412
+            %          14           1.0423     0.10174
+            %          20           1.0375    0.036501
+            %           7           1.0082    0.099031
+            %          12           1.0022     0.12901
+            %          18          0.99447     0.15053
+            %          23          0.96043    0.067123
+            %           1          0.95748    0.097545
+            %          19          0.91651    0.067689
+            %          21          0.77652     0.10514
+            %           6          0.72945    0.060317
             
             c = 1;
             ld = load(fullfile(this.workdir, ...

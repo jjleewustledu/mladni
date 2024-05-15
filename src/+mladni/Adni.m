@@ -24,7 +24,8 @@ classdef Adni < mladni.DataCuration & handle
             this.demogr = mladni.AdniDemographics();
             this.nmf = mladni.NMF( ...
                 data_home=this.data_home, ...
-                selectedNumBases=this.selectedNumBases);
+                selectedNumBases=this.selectedNumBases, ...
+                numBases=2:2:40);
             this.nmfc = mladni.NMFCovariates();
             this.nmfh = mladni.NMFHierarchies(data_home=this.data_home);
             this.nmfr = mladni.NMFRadar();
@@ -109,6 +110,8 @@ classdef Adni < mladni.DataCuration & handle
             end
             % this.nmf.build_table_variances(subgroups=subgroups);
 
+            % this.plot_model_selections()
+
             % radar plots
             % plot_beta0_to_beta1(this.nmfr);
             % call_patt_weighted_fdg(this.nmfr);
@@ -123,17 +126,7 @@ classdef Adni < mladni.DataCuration & handle
 
         end
 
-        function h = paper_plot_rec_error(this, opts)
-            arguments
-                this mladni.Adni
-                opts.fileprefix {mustBeTextScalar} = stackstr()
-                opts.K double {mustBeInteger} = 20 % count of bases computed by VolBin/*
-                opts.subgroup {mustBeTextScalar} = 'cn'
-                opts.ylab {mustBeText} = 'ylab'
-            end
-        end
-
-        function h = paper_plot_reproducibility(this, opts)
+        function h = plot_model_selections(this, opts)
             %% plots evaluations of reproducibility, using metrics for selecting granular models.
             %  For each granular model:
             %  - raincloud representation of bootstraps of the similarity between combinations of patterns;
@@ -149,43 +142,133 @@ classdef Adni < mladni.DataCuration & handle
 
             arguments
                 this mladni.Adni
-                opts.ARI {mustBeNumeric} = []  % median
-                opts.overlap {mustBeNumeric} = []  % matrix for raincloud
-                opts.rec_error {mustBeNumeric} = []  % median
-                opts.fileprefix {mustBeTextScalar} = stackstr()
-                opts.N_K double {mustBeInteger} = 20  % count of bases computed by VolBin/*
                 opts.subgroup {mustBeTextScalar} = 'cn'
             end
-            sortedBasisNum = 2:2:2*opts.N_K;
-            sortedBasisNames = cellfun(@num2str, num2cell(2:2:2*opts.N_K), UniformOutput=false);
+
+            removeColsWithNans = @mladni.NMF.removeColsWithNans;
+
+            nmf_a = this.nmf;
+            results_dir = fullfile(nmf_a.nmf_fdg_home, "baseline_" + opts.subgroup, "results");
+            ld = load(fullfile(results_dir, "NMF_build_repeated_reproducibility.mat"));
+            ARI_a = ld.ARI;
+            overlap_numer_a = ld.overlap_numer;
+            ld = load(fullfile(results_dir, "NMF_build_repeated_reproducibility_improvement_numer.mat"));
+            improvement_numer_a = ld.improvement_numer;
+            ld = load(fullfile(results_dir, "NMF_build_repeated_calc_rec_error.mat"));
+            grad_numer_a = diff(cell2mat(ld.rec_errors), 1);
+
+            nmf_o = mladni.NMF(data_home=fullfile(getenv("SINGULARITY_HOME"), "OASIS3"));
+            results_dir = fullfile(nmf_o.nmf_fdg_home, "baseline_" + opts.subgroup, "results");
+            ld = load(fullfile(results_dir, "NMF_build_repeated_reproducibility.mat"));
+            ARI_o = ld.ARI;
+            overlap_numer_o = ld.overlap_numer;
+            ld = load(fullfile(results_dir, "NMF_build_repeated_reproducibility_improvement_numer.mat"));
+            improvement_numer_o = ld.improvement_numer;
+            ld = load(fullfile(results_dir, "NMF_build_repeated_calc_rec_error.mat"));
+            grad_numer_o = diff(cell2mat(removeColsWithNans(ld.rec_errors)), 1);
+            ld = load(fullfile(results_dir, "NMF_build_repeated_reproducibility3.mat"));
+            ARI_ao = ld.ARI;
+            overlap_numer_ao = ld.overlap_numer;
+
             plt = mladni.Plot();
+            span_model = 2:2:40;
+            d_span_model = 364.119 / 38;
+            span_model_1 = (span_model - span_model(1)) * d_span_model;
+            cred = cbrewer2('Reds', 9);
+            cgreen = cbrewer2('YlGn', 9);
+            cblue = cbrewer2('Blues', 9);
+            crain = {cblue(6,:), cgreen(6,:), cred(6,:)};
+            cpdf = {cblue(3,:), cgreen(3,:), cred(3,:)};
+            cline = {cblue(8,:), cgreen(8,:), cred(8,:)};
 
-            %% reconstruction error
+            % %% ARIs
+             
+            figure(Position=nmf_a.fig_position);
+            hold on;
 
+            plt.rm_plot(span_model(1:size(ARI_a,1)), ARI_a', ...
+                line_width=5, ...
+                colours=cpdf{1}, ...
+                line_colour=cline{1}, ...
+                do_flip=false); 
+            plt.rm_plot(span_model(1:size(ARI_o,1)), ARI_o', ...
+                line_width=5, ...
+                colours=cpdf{2}, ...
+                line_colour=cline{2}, ...
+                do_flip=false); 
+            plt.rm_plot(span_model(1:size(ARI_ao,1)), ARI_ao', ...
+                line_width=5, ...
+                colours=cpdf{3}, ...
+                line_colour=cline{3}, ...
+                do_flip=false); 
 
+            hold off;
+            ylabel(["Reproducibility of hard clusters", "(adjusted Rand index)"]);
+            xlabel("Number of patterns in model space");
+            fontsize(scale=plt.fontsize_scale)
+            legend(["ADNI IQR", "ADNI median", "OASIS3 IQR", "OASIS3 median", "ADNI-OASIS3 IQR", "ADNI-OASIS3 median"])
 
-            %% ARI
+            %% inner products
+             
+            figure(Position=nmf_a.fig_position);
+            hold on;
 
-            
-            
-            %% overlap
+            data = {overlap_numer_a', overlap_numer_o', overlap_numer_ao'};
+            plt.rm_raincloud(data, ...
+                line_width=4, ...
+                rain_colours=crain, ...
+                pdf_colours=cpdf, ...
+                line_colour=cline);
 
-            colors = [0.5, 0.5, 0.5];
-            plt.rm_raincloud_(overlap', colors);
-            ylabel("Number of patterns in model space");  % raincloud is rotated
-            xlabel("Reproducibility of anticlusters");
-            fontsize(plt.fontsize_scale);
-            set(gca, fontsize=20);
-            set(gcf, Position=[1 1 2330 1440]);
+            hold off;
+            xlabel(["Reproducibility of matched patterns", "(inner products)"]);
+            ylabel("Number of patterns in model space");
+            fontsize(scale=plt.fontsize_scale)
+            legend(["ADNI PDF", "ADNI bootstraps", "OASIS3 PDF", "OASIS3 bootstraps", "ADNI-OASIS3 PDF", "ADNI-OASIS3 bootstraps"])
 
-            legend({'inner products', 'adjusted Rand Index'});
+            %% reconstruction errors
 
-            %% save
+            % figure(Position=nmf_a.fig_position);
+            % hold on;
+            % 
+            % plt.rm_plot(span_model(1:size(improvement_numer_a,1)), improvement_numer_a', ...
+            %     line_width=5, ...
+            %     colours=c{1}(end - 1, :), ...
+            %     line_colour=c{1}(end, :), ...
+            %     do_flip=false); 
+            % plt.rm_plot(span_model(1:size(improvement_numer_o,1)), improvement_numer_o', ...
+            %     line_width=5, ...
+            %     colours=c{2}(end - 1, :), ...
+            %     line_colour=c{2}(end, :), ...
+            %     do_flip=false); 
+            % 
+            % hold off;
+            % ylabel("Cumulative improvement of reconstruction fidelity");
+            % xlabel("Number of patterns in model space");
+            % fontsize(scale=plt.fontsize_scale)
+            % legend(["ADNI IQR", "ADNI median", "OASIS3 IQR", "OASIS3 median"])
 
-            output_dir_ = fullfile(this.nmf_fdg_home, sprintf('baseline_%s', subgroup), 'results');
-            saveas(gcf, fullfile(output_dir_, [opts.fileprefix, '.fig']));
-            saveas(gcf, fullfile(output_dir_, [opts.fileprefix, '.png']));
-            saveas(gcf, fullfile(output_dir_, [opts.fileprefix, '.svg']));
+            %% grad reconstruction errors
+
+            % figure(Position=nmf_a.fig_position);
+            % hold on;
+            % 
+            % plt.rm_plot(span_model(1:size(grad_numer_a,1)), grad_numer_a', ...
+            %     line_width=5, ...
+            %     colours=c{1}(end - 1, :), ...
+            %     line_colour=c{1}(end, :), ...
+            %     do_flip=false); 
+            % plt.rm_plot(span_model(1:size(grad_numer_o,1)), grad_numer_o', ...
+            %     line_width=5, ...
+            %     colours=c{2}(end - 1, :), ...
+            %     line_colour=c{2}(end, :), ...
+            %     do_flip=false); 
+            % 
+            % hold off;
+            % ylabel("Gradient of reconstruction error");
+            % xlabel("Number of patterns in model space");
+            % fontsize(scale=plt.fontsize_scale)
+            % legend(["ADNI IQR", "ADNI median", "OASIS3 IQR", "OASIS3 median"])
         end
 
         function t = paper_table_census(this)

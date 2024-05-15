@@ -60,7 +60,7 @@ classdef Anticlust < handle
             pwd0 = pushd(fullfile(opts.data_home, "NMF_FDG"));
             g = glob(opts.to_glob);
             g = natsort(g);
-            g = g(1:50);
+            %g = g(1:50);
             for g1 = asrow(g)
                 re = regexp(g1{1}, "table_cn_(?<rep>rep\S+).csv", "names");
                 fold = fullfile(opts.data_home, "NMF_FDG", sprintf("baseline_cn_%s", re.rep));

@@ -10,18 +10,19 @@ classdef NMFHierarchies < handle
     properties (Constant)
         EPS = 1e-6
         N_PATTERNS = mladni.NMF.N_PATTERNS
-        selected_spans = [2, 8, 10, 12, 14, 24]
+        selected_spans = [2, 6, 8, 10, 12, 14, 24]
     end
 
     properties    
         data_home
         home
         matfile0 = 'NMFCovariates_table_covariates_1stscan_longitudinal.mat'
-        Nforeground = 67019  % mask has 228483 foreground voxels in 2mm, 67019 voxels in 3mm
+        Nforeground = 228483  % mask has 228483 foreground voxels in 2mm, 67019 voxels in 3mm
     end
 
     properties (Dependent)
         mapping_span_by_suvr
+        mask
         standard_dir
         workdir
     end
@@ -37,6 +38,12 @@ classdef NMFHierarchies < handle
             T = sortrows(T, "indices_bases");
             this.mapping_span_by_suvr_ = T.rank;
             g = this.mapping_span_by_suvr_;
+        end
+        function g = get.mask(this)
+            mask_fqfn = fullfile(getenv("ADNI_HOME"), "VolBin", "mask.nii.gz");
+            assert(isfile(mask_fqfn))
+            g = mlfourd.ImagingContext2(mask_fqfn);
+            assert(sum(g.imagingFormat.img, "all") == this.Nforeground)
         end
         function g = get.standard_dir(~)
             g = fullfile(getenv('FSLDIR'), 'data', 'standard');
@@ -159,8 +166,7 @@ classdef NMFHierarchies < handle
             A = NaN(this.Nforeground, Nspans);
             for sidx = length(this.selected_spans):-1:1
                 mg = mglob(sprintf("NumBases%i/OPNMF/niiImg/Basis_argmax_brain_mask.nii", this.selected_spans(sidx)));
-                ic = this.build_downsampled_to_3mm( ...
-                    mlfourd.ImagingContext2(mg(1)));
+                ic = mlfourd.ImagingContext2(mg(1));
                 img = ic.imagingFormat.img;
                 img = ascol(img(img > 0));
                 assert(length(img) == this.Nforeground)
@@ -171,15 +177,20 @@ classdef NMFHierarchies < handle
                     img = this.reorder_patterns(img, img_span_ref);
                 end
 
+                ifc = copy(this.mask.imagingFormat);
+                ifc.img(ifc.img > 0) = img;
+                ifc.fqfileprefix = ic.fqfileprefix + "_reordered_patterns";
+                ifc.save();
+
                 A(:, sidx) = img;  % A <- assignment of pattern-# in pattern-model to voxel
             end
 
             tag_ = A(:, end);  % tag_ <- span-24
-            tag = cell(size(tag_));
-            for ti = 1:length(tag_)
-                tag{ti} = sprintf('P%02i', tag_(ti));
-            end
-            tag = string(tag);
+            % tag = cell(size(tag_));
+            % for ti = 1:length(tag_)
+            %     tag{ti} = sprintf('P%02i', tag_(ti));
+            % end
+            tag = string(tag_);
 
             freq = ones(this.Nforeground, 1);
 

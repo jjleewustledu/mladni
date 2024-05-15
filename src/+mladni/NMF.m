@@ -14,7 +14,7 @@
         mcrroot
         memInGB
         nmfDataset
-        numBases
+        numBases  % array, e.g., 2:2:40
         permute
         repetitions
         selectedNumBases
@@ -24,7 +24,6 @@
     end
 
     properties (Constant)
-        MAX_NUM_BASES = 40
         N_PATTERNS = 24
         fig_position = [80 80 2330 1440]; % coordinates for figures ~ [x0, y0, Dx, Dy]
         groups = { ...
@@ -132,7 +131,7 @@
             addParameter(ip, "mask", fullfile(getenv("ADNI_HOME"), "VolBin", "mask.nii.gz"), @isfile);
             addParameter(ip, "memInGB", 4, @isscalar);
             addParameter(ip, "nmfDataset", "baseline_cn", @(x) istext(x));
-            addParameter(ip, "numBases", 2:2:mladni.NMF.MAX_NUM_BASES, @isnumeric)
+            addParameter(ip, "numBases", 2:2:40, @isnumeric);
             addParameter(ip, "permute", false, @islogical);
             addParameter(ip, "repetitions", 50, @isscalar);
             addParameter(ip, "selectedNumBases", mladni.NMF.N_PATTERNS, @isscalar);  % [2, 8, 10, 12, 14 24]
@@ -155,6 +154,8 @@
             this.smooth = ipr.smooth;
             this.data_home = ipr.data_home;
             this.volbin = fullfile(this.data_home, "VolBin");
+
+            this.numBases = ipr.numBases;
 
             assert(isfolder(this.outputDir));
         end
@@ -215,7 +216,7 @@
 
             %% build the estimates for each anticlustered bootstrap
 
-            if ~isfile(results_mat_)
+            if ~isfile(results_mat_) || ~opts.cache_files
                 path_dirs = mglob( ...
                     fullfile(this.nmf_fdg_home, ...
                     sprintf("baseline_%s_anticlust", opts.subgroup), ...
@@ -260,7 +261,8 @@
                         rep_results_dir_ = fullfile(path_dirs(rep), "results");
                         ensuredir(rep_results_dir_);                        
                         assert(size(X, 1) == sum(select_voxels), stackstr())
-                        rec_errors{rep} = calcRecError_(X, path_dirs(rep), rep_results_dir_, select_voxels);
+                        rec_errors{rep} = calcRecError_( ...
+                            X, path_dirs(rep), rep_results_dir_, select_voxels);
 
                         frep = (rep - 1) / length(path_dirs);
                         progressbar(frep)
@@ -287,8 +289,9 @@
                 this mladni.NMF
                 opts.subgroup {mustBeTextScalar} = "cn"
                 opts.N_rep double {mustBeInteger} = 50 % # bootstrapping repetitions
-                opts.N_K double {mustBeInteger} = 20 % # models checked by VolBin/*
+                opts.N_K double {mustBeInteger} = length(this.numBases) % # models checked by VolBin/*
                 opts.do_plot logical = true
+                opts.magic double = 38  % for plotting rainclouds with others
             end
 
             results_dir = fullfile(this.nmf_fdg_home, "baseline_" + opts.subgroup, "results");
@@ -316,7 +319,7 @@
                             sprintf("baseline_%s_repA%i", opts.subgroup, rep));
                         path_dir2 = strrep(path_dir1, "repA", "repB");
                         [~,~,A_,o_] = mladni.ArisCodes.evaluateReproducibility( ...
-                            path_dir1, path_dir2, results_dir, do_plot=false, rep=rep, N_rep=opts.N_rep);
+                            path_dir1, path_dir2, results_dir, do_plot=false, rep=rep, N_K=opts.N_K, N_rep=opts.N_rep);
                         ARI(:,rep) = A_;
                         for ik = 1:opts.N_K
                             try
@@ -337,10 +340,10 @@
 
             %% improvement of reconstruction errors
 
-            if isfile(fullfile(results_dir, stackstr() + "_improvement.mat"))
+            if isfile(fullfile(results_dir, stackstr() + "_improvement_numer.mat"))
 
                 % load 
-                ld = load(fullfile(results_dir, stackstr() + "_improvement.mat"));
+                ld = load(fullfile(results_dir, stackstr() + "_improvement_numer.mat"));
                 improvement_numer = ld.improvement_numer;
             else
 
@@ -365,7 +368,7 @@
 
                 plt = mladni.Plot();
                 span_model = 2:2:2*opts.N_K;
-                d_span_model = 364.119 / 38;
+                d_span_model = 364.119 / opts.magic;  % (2*opts.N_K - 2);
                 span_model_1 = (span_model - span_model(1)) * d_span_model;
                 c_overlap = cbrewer2('YlOrRd', 8);
                 c_ari = cbrewer2('YlGn', 5);
@@ -389,7 +392,7 @@
                 hold off;
                 xlabel("Reproducibility and reconstruction fidelity");
                 ylabel("Number of patterns in model space");
-                fontsize(scale=plt.fontsize_scale)
+                % fontsize(scale=plt.fontsize_scale)
                 text(0.805, 16*d_span_model, "adjusted Rand index of hard clusters", ...
                     FontSize=24, FontAngle="italic", Color=0.3*c_ari(end,:))
                 text(0.41, 15*d_span_model, "inner product of matched patterns", ...
@@ -399,139 +402,49 @@
             end
         end
         
-        function build_repeated_reproducibility2(this, subgroup, N_rep, N_K, opts)
-            %% assesses OASIS3 vs OASIS3
-
-            arguments
-                this mladni.NMF
-                subgroup {mustBeTextScalar} = 'cn'
-                N_rep double {mustBeInteger} = 50 % # repetitions
-                N_K double {mustBeInteger} = 20 % # bases checked by VolBin/*
-                opts.fracx double = 0.5
-                opts.Npx double = 3400
-                opts.fracy double = 0.5
-                opts.Npy double = 1440
-                opts.data_home {mustBeFolder} = this.data_home
-                opts.do_plot logical = true
-            end
-
-            nmf_fdg_home_ = fullfile(opts.data_home, 'NMF_FDG');
-            subgroups = { ...
-                'cn', 'preclinical', ...
-                'cdr_0p5_apos', ...
-                'cdr_gt_0_aneg', 'cdr_gt_0p5_apos'};
-            assert(any(strcmp(subgroup, subgroups)));
-            
-            outputDir_ = fullfile(nmf_fdg_home_, sprintf('baseline_%s', subgroup), 'results');
-            ensuredir(outputDir_);
-            ARI = nan(N_K, N_rep);
-            overlap = cell(N_K, N_rep);
-
-            if ~isfile(fullfile(outputDir_, 'evaluateRepeatedReproducibility2.mat'))
-                parfor rep = 1:N_rep
-                    try
-                        pathDir1_ = fullfile(nmf_fdg_home_, sprintf('baseline_%s_repA%i', subgroup, rep));
-                        pathDir2_ = strrep(pathDir1_, 'repA', 'repB');
-                        [~,~,A_,o_] = mladni.ArisCodes.evaluateReproducibility( ...
-                            pathDir1_, pathDir2_, outputDir_, false);
-                        ARI(:,rep) = A_;
-                        for ik = 1:N_K
-                            try
-                                overlap{ik,rep} = o_{ik};
-                            catch %#ok<CTCH>
-                            end
-                        end
-                    catch ME
-                        handwarning(ME)
-                    end
-                end
-                ARI = mladni.NMF.removeColsWithNans(ARI);
-                overlap = mladni.NMF.removeColsWithNans(overlap);
-                save(fullfile(outputDir_, 'evaluateRepeatedReproducibility2.mat'), ...
-                    'ARI', 'overlap');
-            else
-                ld = load(fullfile(outputDir_, 'evaluateRepeatedReproducibility2.mat'));
-                ARI = ld.ARI;
-                overlap = ld.overlap;
-            end
-
-            if opts.do_plot
-                plt = mladni.Plot();
-                sortedBasisNum = 2:2:2*N_K;
-                sortedBasisNames = cellfun(@num2str, num2cell(2:2:2*N_K), UniformOutput=false);
-
-                meanInner=cell2mat(cellfun(@(x) mean(x),overlap,'UniformOutput', false));
-                meanInner(isnan(meanInner)) = 0;
-                medianInner=cell2mat(cellfun(@(x) median(x),overlap,'UniformOutput', false));      
-                medianInner(isnan(medianInner)) = 0;
-
-                plt.rm_raincloud(sortedBasisNum, sortedBasisNames, ARI');
-                ylabel('Number of patterns in model space', 'fontsize', 30)
-                xlabel({'Split-sample reproducibility'; '(Adjusted Rand Index)'}, 'fontsize', 30)
-                set(gca,'fontsize',20)
-                set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
-                saveas(gcf, fullfile(outputDir_, 'AdjustedRandIndexReproducibility_repeat2.fig'))
-                saveas(gcf, fullfile(outputDir_, 'AdjustedRandIndexReproducibility_repeat2.png'))
-                saveas(gcf, fullfile(outputDir_, 'AdjustedRandIndexReproducibility_repeat2.svg'))
-
-                plt.rm_raincloud(sortedBasisNum, sortedBasisNames, meanInner');
-                ylabel('Number of patterns in model space', 'fontsize', 20)
-                xlabel({'Split-sample reproducibility'; '(mean inner product)'}, 'fontsize', 20)
-                set(gca,'fontsize',20)
-                set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
-                saveas(gcf, fullfile(outputDir_, 'MeanInnerProductReproducibility_repeat2.fig'))
-                saveas(gcf, fullfile(outputDir_, 'MeanInnerProductReproducibility_repeat2.png'))
-                saveas(gcf, fullfile(outputDir_, 'MeanInnerProductReproducibility_repeat2.svg'))
-
-                plt.rm_raincloud(sortedBasisNum, sortedBasisNames, medianInner');
-                ylabel('Number of patterns in model space', 'fontsize', 20)
-                xlabel({'Split-sample reproducibility'; '(median inner product)'}, 'fontsize', 20)
-                set(gca,'fontsize',20)
-                set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
-                saveas(gcf, fullfile(outputDir_, 'MedianInnerProductReproducibility_repeat2.fig'))
-                saveas(gcf, fullfile(outputDir_, 'MedianInnerProductReproducibility_repeat2.png'))
-                saveas(gcf, fullfile(outputDir_, 'MedianInnerProductReproducibility_repeat2.svg'))
-
-                ARI_snr = median(ARI', 1)./iqr(ARI', 1); %#ok<UDIM>
-                plt.plotxy(sortedBasisNum, ARI_snr, ...
-                    xlab="Number of patterns in model space", ...
-                    ylab=["Split-sample reproducibility"; "(adjusted Rand index, median/iqr)"], ...
-                    fileprefix=fullfile(outputDir_, "MedianIqrARIReproducibility_repeat2"));
-            end
-        end
-        
-        function build_repeated_reproducibility3(this, subgroup, N_rep, N_K, opts)
+        function build_repeated_reproducibility3(this, subgroup, opts)
             %% assesses OASIS3 vs ADNI
             arguments
                 this mladni.NMF
-                subgroup {mustBeTextScalar} = 'cn'
-                N_rep double {mustBeInteger} = 50 % # repetitions
-                N_K double {mustBeInteger} = 12 % # bases checked by VolBin/*
-                opts.fracx double = 0.5
-                opts.Npx double = 3400
-                opts.fracy double = 0.5
-                opts.Npy double = 1440
-                opts.data_home {mustBeFolder} = this.data_home
+                subgroup {mustBeTextScalar} = "cn"
+                opts.N_rep double {mustBeInteger} = 50 % # repetitions
+                opts.N_K double {mustBeInteger} = length(this.numBases) % # bases checked by VolBin/*
                 opts.do_plot logical = true
+                opts.magic double = 2*38  % for plotting rainclouds with others
             end
-
-            nmf_fdg_home_ = fullfile(opts.data_home, 'NMF_FDG');
             
-            outputDir_ = fullfile(nmf_fdg_home_, sprintf('baseline_%s', subgroup), 'results');
-            ensuredir(outputDir_);
-            ARI = nan(N_K, N_rep);
-            overlap = cell(N_K, N_rep);
+            results_dir = fullfile(this.nmf_fdg_home, "baseline_" + subgroup, "results");
+            ensuredir(results_dir);
 
-            if ~isfile(fullfile(outputDir_, 'evaluateRepeatedReproducibility3.mat'))
-                oasis_folder = fullfile(nmf_fdg_home_, sprintf('baseline_%s', subgroup));
-                anticlust_folders = glob(fullfile(nmf_fdg_home_, 'baseline_cn_repAdni*'));
-                assert(length(anticlust_folders) >= N_rep);
-                parfor rep = 1:N_rep
+            %% ARI, overlap_numer
+            
+            if isfile(fullfile(results_dir, stackstr() + ".mat"))
+
+                % load
+                ld = load(fullfile(results_dir, stackstr() + ".mat"));
+                ARI = ld.ARI;
+                overlap_numer = ld.overlap_numer;  % ~ 16 x 50
+            else
+
+                % build
+                ARI = nan(opts.N_K, opts.N_rep);
+                overlap = cell(opts.N_K, opts.N_rep);
+                oasis_folder = fullfile( ...
+                    this.nmf_fdg_home, ...
+                    sprintf('baseline_%s', subgroup));
+                anticlust_folders = glob(fullfile( ...
+                    this.nmf_fdg_home, ...
+                    sprintf('baseline_%s_anticlust_AO', subgroup), ...
+                    sprintf('baseline_%s_repAdni*', subgroup)));
+                assert(length(anticlust_folders) >= opts.N_rep);
+                progressbar('boostraps', 'cardinality of models')
+                for rep = 1:opts.N_rep
                     try
                         [~,~,A_,o_] = mladni.ArisCodes.evaluateReproducibility( ...
-                            anticlust_folders{rep}, oasis_folder, outputDir_, false, K=N_K);
+                            anticlust_folders{rep}, oasis_folder, results_dir, ...
+                            do_plot=false, rep=rep, N_K=opts.N_K, N_rep=opts.N_rep);
                         ARI(:,rep) = A_;
-                        for ik = 1:N_K
+                        for ik = 1:opts.N_K
                             try
                                 overlap{ik,rep} = o_{ik};
                             catch %#ok<CTCH>
@@ -543,56 +456,41 @@
                 end
                 ARI = mladni.NMF.removeColsWithNans(ARI);
                 overlap = mladni.NMF.removeColsWithNans(overlap);
-                save(fullfile(outputDir_, 'evaluateRepeatedReproducibility3.mat'), ...
-                    'ARI', 'overlap');
-            else
-                ld = load(fullfile(outputDir_, 'evaluateRepeatedReproducibility3.mat'));
-                ARI = ld.ARI;
-                overlap = ld.overlap;
+                overlap_numer = cell2mat(cellfun(@median, overlap, UniformOutput=false));  % ~ 16 x 50
+                overlap_numer(isnan(overlap_numer)) = 0;
+                save(fullfile(results_dir, stackstr() + ".mat"), "ARI", "overlap_numer");
             end
 
+            %% do plot
+
             if opts.do_plot
-                plt = mladni.Plot();                
-                sortedBasisNum = 2:2:2*N_K;
-                sortedBasisNames = cellfun(@num2str, num2cell(2:2:2*N_K), UniformOutput=false);
 
-                meanInner=cell2mat(cellfun(@(x) mean(x),overlap,'UniformOutput', false));
-                meanInner(isnan(meanInner)) = 0;
-                medianInner=cell2mat(cellfun(@(x) median(x),overlap,'UniformOutput', false));    
-                medianInner(isnan(medianInner)) = 0;       
+                plt = mladni.Plot();
+                span_model = 2:2:2*opts.N_K;
+                d_span_model = 364.119 / opts.magic;
+                span_model_1 = (span_model - span_model(1)) * d_span_model;
+                c_overlap = cbrewer2('YlOrRd', 8);
+                c_ari = cbrewer2('YlGn', 5);
 
-                plt.rm_raincloud(sortedBasisNum, sortedBasisNames, ARI');
-                ylabel('Number of patterns in model space', 'fontsize', 30)
-                xlabel({'Split-sample reproducibility'; '(Adjusted Rand Index)'}, 'fontsize', 30)
-                set(gca,'fontsize',20)
-                set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
-                saveas(gcf, fullfile(outputDir_, 'AdjustedRandIndexReproducibility_repeat3.fig'))
-                saveas(gcf, fullfile(outputDir_, 'AdjustedRandIndexReproducibility_repeat3.png'))
-                saveas(gcf, fullfile(outputDir_, 'AdjustedRandIndexReproducibility_repeat3.svg'))
+                figure(Position=this.fig_position);
+                hold on;
 
-                plt.rm_raincloud(sortedBasisNum, sortedBasisNames, meanInner');
-                ylabel('Number of patterns in model space', 'fontsize', 20)
-                xlabel({'Split-sample reproducibility'; '(mean inner product)'}, 'fontsize', 20)
-                set(gca,'fontsize',20)
-                set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
-                saveas(gcf, fullfile(outputDir_, 'MeanInnerProductReproducibility_repeat3.fig'))
-                saveas(gcf, fullfile(outputDir_, 'MeanInnerProductReproducibility_repeat3.png'))
-                saveas(gcf, fullfile(outputDir_, 'MeanInnerProductReproducibility_repeat3.svg'))
+                % median overlap
+                plt.rm_raincloud(overlap_numer', line_width=4, ...
+                    rain_colours=c_overlap(end-3,:), pdf_colours=c_overlap(end-2,:), line_colour=c_overlap(end,:));
 
-                plt.rm_raincloud(sortedBasisNum, sortedBasisNames, medianInner');
-                ylabel('Number of patterns in model space', 'fontsize', 20)
-                xlabel({'Split-sample reproducibility'; '(median inner product)'}, 'fontsize', 20)
-                set(gca,'fontsize',20)
-                set(gcf, Position=[1 1 opts.fracx*opts.Npx opts.fracy*opts.Npy])
-                saveas(gcf, fullfile(outputDir_, 'MedianInnerProductReproducibility_repeat3.fig'))
-                saveas(gcf, fullfile(outputDir_, 'MedianInnerProductReproducibility_repeat3.png'))
-                saveas(gcf, fullfile(outputDir_, 'MedianInnerProductReproducibility_repeat3.svg'))
+                % ARI
+                plt.rm_plot(span_model_1, ARI', line_width=5, ...
+                    colours=c_ari(end-1,:), line_colour=c_ari(end,:));      
 
-                ARI_snr = median(ARI', 1)./iqr(ARI', 1); %#ok<UDIM>
-                plt.plotxy(sortedBasisNum, ARI_snr, ...
-                    xlab="Number of patterns in model space", ...
-                    ylab=["Split-sample reproducibility"; "(Adjusted Rand Index, median/iqr)"], ...
-                    fileprefix=fullfile(outputDir_, "MedianIqrARIReproducibility_repeat3"));
+                hold off;
+                xlabel("Reproducibility and reconstruction fidelity");
+                ylabel("Number of patterns in model space");
+                % fontsize(scale=plt.fontsize_scale)
+                text(0.805, 16*d_span_model, "adjusted Rand index of hard clusters", ...
+                    FontSize=24, FontAngle="italic", Color=0.3*c_ari(end,:))
+                text(0.41, 15*d_span_model, "inner product of matched patterns", ...
+                    FontSize=24, FontAngle="italic", Color=0.3*c_overlap(end,:))
             end
         end
 
@@ -642,8 +540,10 @@
         end
         
         function call(this)
-            this.build_repeated_reproducibility('cn')
-            % this.build_repeated_calc_rec_error()
+            this.plot_ARIs();
+            this.plot_inner_products();
+            this.plot_recon_error();
+            this.plot_grad_recon_error();
         end
         
         function T = call2(this, tags)
@@ -680,45 +580,6 @@
             mladni.ArisCodes.calculateSelectedComponentWeightedAverageNIFTI( ...
                 this.inFiles2, this.targetDatasetDir, this.selectedNumBases, weightedAverFilename);
             T = readtable(weightedAverFilename, Delimiter=',', ReadVariableNames=false);
-        end
-        
-        function run_extractBasesMT(this, numBases, outputDir)
-            assert(isscalar(numBases));
-            assert(isfolder(outputDir));
-            
-            cmd = sprintf('%s/run_extractBasesMT.sh %s OPNMF %s 1 %i outputDir %s saveInterm 1 negPos 0 initMeth 4', ...
-                this.volbin, this.mcrroot, this.inFiles, numBases, outputDir); % downSample 2
-            system(cmd);
-        end
-        
-        function run_nmf_dataset(this)
-            %% quasi-constant
-
-            this.mcrroot = '/data/nil-bluearc/raichle/jjlee/Local/MCR_zfs/R2018b/v95';
-            if ~isempty(ipr.numBases)
-                this.numBases = ipr.numBases;
-            else
-                for n = 2:2:mladni.NMF.MAX_NUM_BASES
-                    if ~isfile(fullfile(this.outputDir, sprintf('NumBases%i', n), 'OPNMF', 'niiImg', ...
-                            sprintf('Basis_%i.nii', n)))
-                        try
-                            cmd = sprintf('%s/run_nmf_dataset.sh -d %s -r %i', ...
-                                this.volbin, this.nmfDataset, n);
-                            fprintf(strcat('mladni.NMF: ', cmd))
-                            mysystem(cmd);
-                        catch ME
-                            handerror(ME)
-                        end                        
-                    end
-                    this.numBases = [this.numBases n];
-                end
-            end
-        end
-        
-        function submit_nmf_dataset(this)
-            cmd = sprintf('%s/submit_nmf_dataset.sh -d %s -m %i', this.volbin, this.nmfDataset, this.memInGB);
-            [~,r] = mlbash(cmd);
-            disp(r)
         end
     end
 
@@ -827,7 +688,7 @@
             targetDatasetDir = fullfile(opts.data_home, 'NMF_FDG', 'baseline_cn');
             assert(isfolder(targetDatasetDir))
 
-            b = 2:2:mladni.NMF.MAX_NUM_BASES;
+            b = 2:2:40;  % MAGIC NUMBER as KLUDGE
             parfor bi = 1:length(b)
                 groups = mladni.NMF.groups;
                 for gi = 1:length(groups)
@@ -884,12 +745,17 @@
         %% Aris' inference, called from other method functions
              
         function X = removeColsWithNans(X)
-            %% implicitly converts cell -> mat
 
             if iscell(X)
+                numels = cellfun(@numel, X);
+                if numel(unique(numels)) > 1  % make cells of X uniformly sized
+                    N_X = min(numels);
+                    X = cellfun(@(x) x(1:N_X), X, UniformOutput=false);
+                end                
                 X = X(:, all(~isnan(cell2mat(X))));
                 return
-            end                        
+            end
+
             % remove reps (columns) that have any nan elements
             X = X(:, all(~isnan(X)));
         end
