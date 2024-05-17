@@ -24,6 +24,7 @@ classdef NMFManopt < handle
 
     properties
         do_AD
+        do_force_nonneg
         do_plot
         do_yang_oja
         solver_name
@@ -34,16 +35,19 @@ classdef NMFManopt < handle
         X
         r  % rank of W
         
+        batchsize
         cost_result
         epsilon0
         info
         manifold_factory  % handle to manopt factories
+        maxiter
         n_iterations
         problem
         recon
         reduction  % of epsilon0
         result
         residual
+        stepsize_lambda
         W0
     end
 
@@ -64,6 +68,7 @@ classdef NMFManopt < handle
         end
         function g = get.W(this)
             g = this.result;
+            g(g < eps) = eps;
         end
         function g = get.H(this)
             g = this.W'*this.X;
@@ -77,13 +82,17 @@ classdef NMFManopt < handle
                 r double {mustBeScalarOrEmpty} = 1
                 W0 double {mustBeNumeric} = []  % empty W0 will trigger random starting conditions for manopt
                 manifold_factory function_handle = @grassmannfactory
+                opts.batchsize {mustBeScalarOrEmpty} = size(X,2)/10
                 opts.do_AD logical = true
+                opts.do_force_nonneg logical = false
                 opts.do_plot logical = true
                 opts.do_yang_oja logical = false
-                opts.epsilon0 {mustBeScalarOrEmpty} = 0
+                opts.epsilon0 double {mustBeScalarOrEmpty} = 0
+                opts.maxiter {mustBeScalarOrEmpty} = 2e4
                 opts.n_iterations {mustBeScalarOrEmpty} = 6
-                opts.reduction {mustBeScalarOrEmpty} = 0.5;
+                opts.reduction double {mustBeScalarOrEmpty} = 0.5;
                 opts.solver_name {mustBeTextScalar} = "stochasticgradient"
+                opts.stepsize_lambda double {mustBeScalarOrEmpty} = 1
                 opts.verbose logical = true
             end
             if isempty(X)
@@ -99,22 +108,28 @@ classdef NMFManopt < handle
             this.W0 = W0;
             this.manifold_factory = manifold_factory;
 
+            this.batchsize = opts.batchsize;
             this.do_AD = opts.do_AD;
+            this.do_force_nonneg = opts.do_force_nonneg;
             this.do_plot = opts.do_plot;
             this.do_yang_oja = opts.do_yang_oja;
             this.epsilon0 = opts.epsilon0;
+            this.maxiter = opts.maxiter;
             this.n_iterations = opts.n_iterations;
             this.reduction = opts.reduction;
             this.solver_name = opts.solver_name;
+            this.stepsize_lambda = opts.stepsize_lambda;
             this.verbose = opts.verbose;
         end
 
         function call(this)
+            fprintf("================= start of %s =================\n", stackstr())
             this.nmf(this.X, this.r, this.do_AD, this.epsilon0);
             this.recon = this.W * this.H;
             this.residual = norm(this.recon - this.X, "fro") / norm(this.X, "fro");            
             fprintf("cost_value = %g\n", this.cost_result)
             fprintf("residual = %g\n", this.residual)
+            fprintf("================= end of %s =================\n", stackstr())
             
             if this.do_plot
                 plot(this)
@@ -187,13 +202,14 @@ classdef NMFManopt < handle
             figure
             hold on
             for rho = 1:this.r
-                smoothed = smoothdata(this.W(:, rho));
+                Wcol = smoothdata(this.W(:, rho), "movmean", 50);
+                % Wcol = this.W(:, rho);
                 if rho == 1
-                    plot(asrow(smoothed), LineWidth=1);
+                    plot(asrow(Wcol), LineWidth=1);
                 elseif rho == 2
-                    plot(asrow(smoothed), LineWidth=0.5);
+                    plot(asrow(Wcol), LineWidth=0.5);
                 else
-                    plot(asrow(smoothed), ':');
+                    plot(asrow(Wcol), ':');
                 end
             end
             hold off
@@ -206,7 +222,7 @@ classdef NMFManopt < handle
             figure 
             hold on
             plot(mean(this.X, 2), LineWidth=1)
-            plot(mean(this.recon, 2), '-', LineWidth=1)
+            plot(mean(this.recon, 2), '--', LineWidth=2)
             hold off
             xlabel("voxels")
             ylabel("suvr")
@@ -527,7 +543,9 @@ classdef NMFManopt < handle
             %%% M.inner = @(x, d1, d2) d1(:).'*d2(:);
             M.inner = @pinner;
             function pin = pinner(x, d1, d2)
-                pin = (d1(:)./x(:))'*(d2(:)./x(:));
+                D1 = exp(log(d1) - log(x));
+                D2 = exp(log(d2) - log(x));
+                pin = D1(:).'*D2(:);
             end
 
             %%% M.norm = @(x, d) norm(d(:));
@@ -735,13 +753,6 @@ classdef NMFManopt < handle
             % function on the right with the polar factor of X'*Y, that is,
             % multiply by u*v' where [u, s, v] = svd(X'*Y), for each slice.
             M.transp = @(X, Y, U) projection(Y, U);
-            %%%M.transp = @parallel_transport;
-            function Up = parallel_transport(X, Y, U)
-                Up = projection(Y, U);
-                Up = Up.*Y./X;
-                % [u,~,v] = svd(X'*Y);
-                % Up = Up*u*v';
-            end
 
             % The mean of two points is here defined as the midpoint of a
             % minimizing geodesic connecting the two points. If the log of (X1, X2)
@@ -825,6 +836,7 @@ classdef NMFManopt < handle
             %       Adjusted for trials of NMF
 
             assert(~any(X < 0, "all"))
+            do_force_nonneg_ = this.do_force_nonneg;
             do_yang_oja_ = this.do_yang_oja;  % avoid exposing this to inner functions
 
             % Retrieve the size of the problem and make sure the requested
@@ -882,7 +894,6 @@ classdef NMFManopt < handle
             % form of our (empirical) choice.
             options.Delta_bar = 1e5*sqrt(2*r);  % 4 -> 1e5
             options.tolgradnorm = 1e-7;
-            options.maxiter = 1e3;
         	options.verbosity = 3; % Change this number for more or less output
 
             % Starting guess for W uses NNDSVD using random SVD calculation
@@ -896,24 +907,28 @@ classdef NMFManopt < handle
             for iter = 1:n_iter
                 switch char(this.solver_name)
                     case 'trustregions'
+                        options.maxiter = 1e3;
                         [W, ~, info_] = trustregions(problem_, W, options);
                     case 'arc'
+                        options.maxiter = 1e3;
                         [W, ~, info_] = arc(problem_, W, options);  
                         % The subproblem solver failed to make progress even on the model; this is likely due to numerical errors.
                     case 'conjugategradient'
+                        options.maxiter = 1e3;
                         [W, ~, info_] = conjugategradient(problem_, W, options);
                     case 'pso'
                         [W, ~, info_] = pso(problem_, W, options);
                     case 'stochasticgradient'
                         %% see also PCA_stochastic
-                        options.checkperiod = 1e3;
+                        options.checkperiod = min(1e4, floor(this.maxiter/10));
                         options.statsfun = statsfunhelper('metric', @cost);
-                        options.maxiter = 2e4;
-                        options.batchsize = n_/10;
-                        % options.stepsize_type = 'decay';
+                        options.maxiter = this.maxiter;
+                        options.batchsize = this.batchsize;
+                        options.stepsize_type = 'decay';
                         options.stepsize_init = 1e2;
-                        options.stepsize_lambda = 1;
+                        options.stepsize_lambda = this.stepsize_lambda;
                         problem_.ncostterms = n_;
+                        problem_.cost = [];
                         problem_.partialegrad = @partialegrad;
                         [W, info_] = stochasticgradient(problem_, W, options);
                     otherwise
@@ -937,8 +952,9 @@ classdef NMFManopt < handle
 
             % Cost function
             function f = cost(W)
-                % W(W<1e-16)=1e-16;
-                vecs = W*W.'*X - X;
+                % W(W<1e-16)=1e-16;  % breaks gradients
+                WtX = W.'*X;  % r x n
+                vecs = W*WtX - X;  % m x n
                 sqnrms = sum(vecs.^2, 1);
                 vals = sqrt(sqnrms + epsilon^2) - epsilon;
                 f = mean(vals);
@@ -946,21 +962,25 @@ classdef NMFManopt < handle
 
             % Cost function with auto-differentiation
             function f = cost_AD(W)
-                % W(W<1e-16)=1e-16;
-                f = cnormsqfro(W*W.'*X - X) + epsilon^2;
+                % W(W<1e-16)=1e-16;  % breaks gradients
+                WtX = W.'*X;  % r x n
+                f = cnormsqfro(W*WtX - X) + epsilon^2;  % m x n
             end
 
             % Euclidean gradient of the cost function
             function G = egrad(W)
-                % W(W<1e-16)=1e-16;
+
+                %W(W<1e-16)=1e-16;
 
                 if do_yang_oja_
                     % https://github.com/asotiras/brainparts/blob/master/opnmf.m
-                    XXt = X*X.';
-                    numer = XXt*W;
-                    denom = W*W.'*numer;
+                    XtW = X.'*W;  % n x r
+                    numer = X*XtW;  % m x r
+                    Wtnumer = W.'*numer;  % r x r
+                    denom = W*Wtnumer;  % m x r
+                    update = numer./denom;  % m x r
                     % multiplicative update rule
-                    W = W.*numer./denom;
+                    W = W.*update;
                     % As the iterations were progressing, computational time per iteration was increasing due to operations involving really small values
                     W(W<1e-16)=1e-16;
                     W = W./norm(W, 'fro');
@@ -974,8 +994,8 @@ classdef NMFManopt < handle
 
                 % W = abs(W);  % produces negative curvature
 
-                WtX = W.'*X;
-                vecs = W*WtX - X;  % sign reversal produce negative curvature
+                WtX = W.'*X;  % r x n
+                vecs = W*WtX - X;  % m x n; sign reversal produces negative curvature
                 sqnrms = sum(vecs.^2, 1); 
 
                 % This explicit loop is a bit slow: the code below is equivalent
@@ -997,25 +1017,30 @@ classdef NMFManopt < handle
                 % Sample is a vector of indices between 1 and n: a subset.
                 % Extract a subset of the dataset X.
                 
-                % W(W<1e-16)=1e-16;
+                % Forcing nonnegativity is tolerable for SGD, 
+                % but other gradient methods, that also use consistently defined costs, fail gradient checks.
+                if do_force_nonneg_
+                    W(W<1e-16)=1e-16;
+                end
 
                 X_ = X(:, sample);
                 nsample = size(X_, 2);
 
                 if do_yang_oja_
-                    % https://github.com/asotiras/brainparts/blob/master/opnmf.m
-                    XXt = X_*X_.';
-                    numer = XXt*W;
-                    denom = W*W.'*numer;
+                    XtW = X.'*W;  % n x r
+                    numer = X*XtW;  % m x r
+                    Wtnumer = W.'*numer;  % r x r
+                    denom = W*Wtnumer;  % m x r
+                    update = numer./denom;  % m x r
                     % multiplicative update rule
-                    W = W.*numer./denom;
+                    W = W.*update;
                     % As the iterations were progressing, computational time per iteration was increasing due to operations involving really small values
                     W(W<1e-16)=1e-16;
                     W = W./norm(W, 'fro');
                 end
 
-                WtX = W.'*X_;
-                vecs = W*WtX - X_;  % sign reversal produce negative curvature
+                WtX = W.'*X_;  % r x n
+                vecs = W*WtX - X_;  % m x n; sign reversal produces negative curvature
                 sqnrms = sum(vecs.^2, 1); 
 
                 G = mean( ...

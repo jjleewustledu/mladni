@@ -25,6 +25,111 @@ classdef Test_NMFManopt < matlab.unittest.TestCase
             call(this.testObj_);
         end
 
+        function test_X(this)
+
+            import mladni.NMFManopt
+
+            ld = load( ...
+                fullfile(getenv("ADNI_HOME"), "NMF_FDG", "baseline_cn", "NumBases24", "X.mat"));
+            X = ld.X;  % 228483 x 269
+            X = X / norm(X, "fro");
+            X(X < 1e-14) = 1e-14;
+            
+            for r = [2,6,8,10,12,14]
+                W0 = NMFManopt.NNDSVD(X, r, 3);
+                obj = NMFManopt( ...
+                    X, r, W0, @mgrassmannfactory, ...
+                    maxiter=1e5, ...
+                    stepsize_lambda=1e-3, ...
+                    do_force_nonneg=true, do_plot=false, do_AD=false, epsilon0=0, ...
+                    solver_name="stochasticgradient");
+                tic
+                call(obj);
+                toc
+                disp(obj)
+                fqfp = fullfile(getenv("ADNI_HOME"), "NMF_FDG", "baseline_cn", "NumBases"+r, ...
+                    strrep(stackstr()+"_maxiter"+obj.maxiter, ".", "p"));
+                ensuredir(myfileparts(fqfp));
+                save(fqfp+".mat", "obj");
+
+                ifc = mlfourd.ImagingFormatContext2( ...
+                    fullfile(getenv("ADNI_HOME"), "VolBin", "mask.nii.gz"));
+                ifc.img = double(ifc.img);
+                img = ifc.img;
+                bin = logical(img);
+                for rho = 1:(r-1)
+                    ifc.img = cat(4, ifc.img, img);  % 3D -> 4D
+                end
+                for rho = 1:r
+                    img_ = img;
+                    img_(bin) = obj.W(:, rho);
+                    ifc.img(:, :, :, rho) = img_;
+                end
+                ifc.fqfp = fqfp;
+                ifc.save();
+                % ifc.view()
+
+                % reconstruction
+                ifc.fileprefix = ifc.fileprefix + "_recon";
+                ifc.img = img;
+                X_hat = obj.W * obj.H;
+                for nu = 1:size(X_hat, 2)
+                    img_ = img;
+                    img_(bin) = X_hat(:, nu);
+                    ifc.img(:,:,:,nu) = img_;
+                end
+                ifc.save()
+                % ifc.view()
+            end
+        end
+
+        function test_X_3mm(this)
+
+            import mladni.NMFManopt
+
+            ld = load( ...
+                fullfile(getenv("ADNI_HOME"), "NMF_FDG", "baseline_cn", "NumBases24", "X_3mm.mat"));
+            X = ld.X_3mm;  % 67019 x 269
+            % X = X(:, 1:10);
+            X = X / norm(X, "fro");
+            X(X < 1e-14) = 1e-14;
+            
+            r = 6;
+            W0 = NMFManopt.NNDSVD(X, r, 3);
+            obj = NMFManopt( ...
+                X, r, W0, @grassmannfactory, ...
+                maxiter=1e5, ...
+                stepsize_lambda=1, ...
+                batchsize=26, ...
+                do_force_nonneg=true, do_plot=false, do_AD=false, epsilon0=0, ...
+                solver_name="stochasticgradient");
+            tic
+            call(obj);
+            toc
+            disp(obj)
+            fqfp = fullfile(getenv("ADNI_HOME"), "NMF_FDG", "baseline_cn", "NumBases"+r, ...
+                strrep(stackstr()+"_maxiter"+obj.maxiter, ".", "p"));
+            ensuredir(myfileparts(fqfp));
+            save(fqfp+".mat", "obj");
+
+            ifc = mlfourd.ImagingFormatContext2( ...
+                fullfile(getenv("ADNI_HOME"), "VolBin", "mask_3mm.nii.gz"));
+            ifc.img = double(ifc.img);
+            img = ifc.img;
+            bin = logical(img);            
+            for rho = 1:(r-1)
+                ifc.img = cat(4, ifc.img, img);  % 3D -> 4D
+            end
+            for rho = 1:r
+                img_ = img;
+                img_(bin) = obj.W(:, rho);
+                ifc.img(:, :, :, rho) = img_;
+            end
+            ifc.fqfp = fqfp;
+            ifc.save();
+            ifc.view()
+        end
+
         function test_voxel_partitions(this)
 
             import mladni.NMFManopt
@@ -39,19 +144,22 @@ classdef Test_NMFManopt < matlab.unittest.TestCase
             X(1:mhalf,:) = 0.5;
             X(1:mqtr,:) = 0.25;
             X(mhalf+1:mhalf+mqtr,:) = 0.25;
-            X = X + 0.05*randn(m, n);
-            X = X / norm(X);
+            X = X + 0.02*randn(m, n);
+            % X = X / norm(X, "fro");
+            X(X < 1e-16) = 1e-16;
             
             r = 2;
             W0 = NMFManopt.NNDSVD(X, r, 3);
             obj = NMFManopt( ...
-                single(X), r, W0, @grassmannfactory, ...
-                do_plot=true, do_AD=false, epsilon0=0, ...
+                X, r, W0, @grassmannfactory, ...
+                batchsize=20, ...
+                maxiter=2e4, ...
+                stepsize_lambda=1, ...
+                do_force_nonneg=true, do_plot=true, do_AD=false, epsilon0=0, ...
                 solver_name="stochasticgradient");
             tic
             call(obj);
             toc
-
             disp(obj)
         end
 
@@ -69,17 +177,17 @@ classdef Test_NMFManopt < matlab.unittest.TestCase
             X(1:mhalf,:) = 0.5;
             X(1:mqtr,:) = 0.25;
             X(mhalf+1:mhalf+mqtr,:) = 0.25;
-            X = X + 0.05*randn(m, n);
-            X = X / norm(X);
+            X = X + 0.02*randn(m, n);
+            % X = X / norm(X, "fro");
+            X(X < 1e-16) = 1e-16;
             
             r = 2;
             W0 = NMFManopt.NNDSVD(X, r, 3);
             obj = NMFManopt( ...
-                single(X), r, W0, @stiefelfactory, ...
-                do_plot=true, do_AD=false, epsilon0=0, ...
+                X, r, W0, @stiefelfactory, ...
+                do_force_nonneg=false, do_plot=true, do_AD=false, epsilon0=0, ...
                 solver_name="stochasticgradient");
             call(obj);
-
             disp(obj)            
         end
 
