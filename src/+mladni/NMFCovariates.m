@@ -335,7 +335,7 @@ classdef NMFCovariates < handle
                 return
             end
 
-            % from ADNIDemographics ~ 3478 rows
+            % from ADNIDemographics ~ 3377 rows
             t = table_fdg(this); 
 
             % Cohort ~ categorical
@@ -348,25 +348,25 @@ classdef NMFCovariates < handle
             Cohort = categorical(Cohort);
             t = addvars(t, Cohort, NewVariableNames={'Cohort'});
 
-            % DLICV ~ 3478 rows, 12 nans
+            % DLICV ~ 3377 rows, >=4 nans
             t_ = this.table_dlicv;
             t = addvars(t, t_.Dlicv, NewVariableNames={'Dlicv'});
 
-            % PVE1 ~ 3478 rows, 8 nans
+            % PVE1 ~ 3377 rows, >=0 nans
             t_ = this.table_pve1;
             t = addvars(t, t_.PVE1, NewVariableNames={'PVE1'});
 
-            % RegErr ~ 3478 rows, 38 nans
+            % RegErr ~ 3377 rows, >=29 nans
             t_ = this.table_regerr;
             t = addvars(t, t_.RegErr, NewVariableNames={'RegErr'});
 
-            % Components ~ 3470 rows -> 3478 rows, 8 nans
+            % Components ~ 3377 rows, >= 0 nans
             % implicitly marks empty Filelist for exclusion by apply_table_qc()
             t_ = this.table_selectedComponentWeightedAverageNIFTI;
             t = this.addvars_by_filelist(t, t_, t_.Components, NewVariableNames={'Components'});
             t = splitvars(t, 'Components');
 
-            % apply table qc
+            % apply table qc to obtain 3357 rows
             t = this.apply_table_qc(t, permissive_qc=opts.permissive_qc);
 
             % sort rows by Subject, then AcqDate
