@@ -35,51 +35,59 @@ classdef Test_NMFManopt < matlab.unittest.TestCase
             X = X / norm(X, "fro");
             X(X < 1e-14) = 1e-14;
             
-            for r = [2,6,8,10,12,14]
-                W0 = NMFManopt.NNDSVD(X, r, 3);
-                obj = NMFManopt( ...
-                    X, r, W0, @mgrassmannfactory, ...
-                    maxiter=1e5, ...
-                    stepsize_lambda=1e-3, ...
-                    do_force_nonneg=true, do_plot=false, do_AD=false, epsilon0=0, ...
-                    solver_name="stochasticgradient");
-                tic
-                call(obj);
-                toc
-                disp(obj)
-                fqfp = fullfile(getenv("ADNI_HOME"), "NMF_FDG", "baseline_cn", "NumBases"+r, ...
-                    strrep(stackstr()+"_maxiter"+obj.maxiter, ".", "p"));
-                ensuredir(myfileparts(fqfp));
-                save(fqfp+".mat", "obj");
+            rs = [2,6,8,10,12,14];
+            parfor idx = 1:length(rs)
 
-                ifc = mlfourd.ImagingFormatContext2( ...
-                    fullfile(getenv("ADNI_HOME"), "VolBin", "mask.nii.gz"));
-                ifc.img = double(ifc.img);
-                img = ifc.img;
-                bin = logical(img);
-                for rho = 1:(r-1)
-                    ifc.img = cat(4, ifc.img, img);  % 3D -> 4D
-                end
-                for rho = 1:r
-                    img_ = img;
-                    img_(bin) = obj.W(:, rho);
-                    ifc.img(:, :, :, rho) = img_;
-                end
-                ifc.fqfp = fqfp;
-                ifc.save();
-                % ifc.view()
+                r = rs(idx);
 
-                % reconstruction
-                ifc.fileprefix = ifc.fileprefix + "_recon";
-                ifc.img = img;
-                X_hat = obj.W * obj.H;
-                for nu = 1:size(X_hat, 2)
-                    img_ = img;
-                    img_(bin) = X_hat(:, nu);
-                    ifc.img(:,:,:,nu) = img_;
+                try
+                    W0 = NMFManopt.NNDSVD(X, r, 3);
+                    obj = NMFManopt( ...
+                        X, r, W0, @grassmannfactory, ...
+                        maxiter=1e5, ...
+                        stepsize_lambda=1, ...
+                        do_force_nonneg=true, do_plot=false, do_AD=false, epsilon0=0, ...
+                        solver_name="stochasticgradient");
+                    tic
+                    call(obj);
+                    toc
+                    disp(obj)
+                    fqfp = fullfile(getenv("ADNI_HOME"), "NMF_FDG", "baseline_cn", "NumBases"+r, ...
+                        strrep(stackstr()+"_maxiter"+obj.maxiter, ".", "p"));
+                    ensuredir(myfileparts(fqfp));
+                    % save(fqfp+".mat", "obj");
+
+                    ifc = mlfourd.ImagingFormatContext2( ...
+                        fullfile(getenv("ADNI_HOME"), "VolBin", "mask.nii.gz"));
+                    ifc.img = double(ifc.img);
+                    img = ifc.img;
+                    bin = logical(img);
+                    for rho = 1:(r-1)
+                        ifc.img = cat(4, ifc.img, img);  % 3D -> 4D
+                    end
+                    for rho = 1:r
+                        img_ = img;
+                        img_(bin) = obj.W(:, rho);
+                        ifc.img(:, :, :, rho) = img_;
+                    end
+                    ifc.fqfp = fqfp;
+                    ifc.save();
+                    % ifc.view()
+
+                    % reconstruction
+                    ifc.fileprefix = ifc.fileprefix + "_recon";
+                    ifc.img = img;
+                    X_hat = obj.W * obj.H;
+                    for nu = 1:size(X_hat, 2)
+                        img_ = img;
+                        img_(bin) = X_hat(:, nu);
+                        ifc.img(:,:,:,nu) = img_;
+                    end
+                    ifc.save()
+                    % ifc.view()
+                catch ME
+                    handwarning(ME)
                 end
-                ifc.save()
-                % ifc.view()
             end
         end
 
@@ -101,7 +109,7 @@ classdef Test_NMFManopt < matlab.unittest.TestCase
                 maxiter=1e5, ...
                 stepsize_lambda=1, ...
                 batchsize=26, ...
-                do_force_nonneg=true, do_plot=false, do_AD=false, epsilon0=0, ...
+                do_force_nonneg=true, do_plot=true, do_AD=false, epsilon0=0, ...
                 solver_name="stochasticgradient");
             tic
             call(obj);

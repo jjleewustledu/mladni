@@ -8,11 +8,13 @@ classdef Jones2022 < handle
     
     properties (Constant)
         N_PATTERNS = mladni.NMF.N_PATTERNS
+        colormap = viridis
     end
 
     properties (Dependent)
         componentsdir
         data_home
+        elabels
         labels_check_mvregress % labels for plots
         labels_check_mvregress_2 % labels for plots, excluding NpBraak
         mask
@@ -22,6 +24,7 @@ classdef Jones2022 < handle
         relevant_file % mat file:  nii Filelist, merge/demographic variables, Components.  N = 781.
         responses_table2 % cell of var names
         responses_table2_2 % cell of var names, excluding NpBraak
+        sorted_bases
         study_design
         workdir
     end
@@ -32,6 +35,9 @@ classdef Jones2022 < handle
         end
         function g = get.data_home(~)
             g = fullfile(getenv('SINGULARITY_HOME'), 'MAYO');
+        end
+        function g = get.elabels(this)
+            g = {'EB1' 'EB2' 'EB3' 'EB4' 'EB5' 'EB6' 'EB7' 'EB8' 'EB9' 'EB10'};
         end
         function g = get.mask(this)
             if ~isempty(this.mask_)
@@ -63,17 +69,22 @@ classdef Jones2022 < handle
         end
         function g = get.responses_table2(~)
             g = {'Metaroi', ...
-                 'MergeAge', 'MergeMmse', 'NpBraak', 'MergeCdrsb', ...
+                 'Age', 'MergeMmse', 'NpBraak', 'MergeCdrsb', ...
                  'META_TEMPORAL_SUVR', 'BRAAK1_SUVR', 'BRAAK34_SUVR', 'BRAAK56_SUVR', ...
                  'MergeHippocampus', 'CDGLOBAL', 'Sex', ...
                  'SUMMARYSUVR_WHOLECEREBNORM', ...
-                 'MergeApoE4', 'ApoE2'};
+                 'ApoE4', 'ApoE2'};
             % BRAAK*:  tau PET
             % SUMMARSUVR*:  amyloid PET
         end
         function g_ = get.responses_table2_2(this)
             g = this.responses_table2;
             g_ = g(~contains(g, 'NpBraak', IgnoreCase=true));
+        end
+        function g = get.sorted_bases(this)
+            sorted_bases_fn = fullfile(this.componentsdir, 'sorted_bases.mat');
+            ld = load(sorted_bases_fn);
+            g = asrow(ld.sorted_bases);
         end
         function g = get.labels_check_mvregress(~)
             g = {'FDG_{AD}', ...
@@ -105,8 +116,6 @@ classdef Jones2022 < handle
                 this.build_table_relevant();
             end
         end
-
-        %% adjust spatial-autocorrelations
 
         function T = build_for_brainsmash(this)
             %% Prepares intermediates needed for brainsmash inference described in 
@@ -153,53 +162,7 @@ classdef Jones2022 < handle
 
             popd(pwd0);
         end
-        
-        function h = heatmap_eigenbrains(this, mat, clbls, rlbls, opts)
-            %% selectd with FDR, but no considerations for spatial autocorrelations
-
-            arguments
-                this mladni.Jones2022
-                mat double = []
-                clbls cell = {}
-                rlbls cell = {}
-                opts.CellLabelFormat {mustBeTextScalar} = '%0.2g'
-                opts.Colormap double = viridis
-                opts.ColorScaling {mustBeTextScalar} = 'scaled' % 'scaledrows' 'scaledcolumns'
-                opts.FlipColormap logical = false
-                opts.FontSize {mustBeScalarOrEmpty} = 18
-            end
-            if isempty(mat)
-                T = this.table();
-                mat = T.corr;
-                mat(T.fdr > 0.05) = 0;
-            end
-            if isempty(clbls)
-                clbls = num2cell(1:this.nbases);
-                clbls = cellfun(@(x) sprintf('P%i', x), clbls, UniformOutput=false);
-            end
-            if isempty(rlbls)
-                rlbls = asrow(convertStringsToChars(T.term));
-            end
-            if opts.FlipColormap
-                opts.Colormap = flipud(opts.Colormap);
-            end
-
-            sorted_bases_fn = fullfile(this.componentsdir, 'sorted_bases.mat');
-            ld = load(sorted_bases_fn);
-            sorted_bases = asrow(ld.sorted_bases);
-            mat = mat(:, sorted_bases);
-
-            figure;
-            h = heatmap(clbls, rlbls, mat, ...
-                CellLabelColor='auto', ...
-                CellLabelFormat=opts.CellLabelFormat, ...
-                Colormap=opts.Colormap, ColorScaling=opts.ColorScaling, ...
-                FontSize=opts.FontSize);
-            h.Title = "Pearson correlation of eigenbrains and ADNI patterns";
-            h.YLabel = "Eigenbrains";
-            h.XLabel = "ADNI Patterns";
-        end
-        
+                
         function T = table_built_stats(this, varargin)
             %% test_neurodegeneration2.test_build_eigenbrains; 
             %  hand-assembled by importing test_build_eigenbrains.log
@@ -208,12 +171,21 @@ classdef Jones2022 < handle
                 T = this.table_built_stats_;
                 return
             end
-            ld = load(fullfile(this.data_home, 'neurodegeneration2_5k_EB.mat'));
+            ld = load(fullfile(this.data_home, 'neurodegeneration2_5k_EB.mat'));  % from brainsmash 5k
             this.table_built_stats_ = ld.T;
             T = this.table_built_stats_;            
             T = this.table_paren(T, varargin{:});
         end
         
+        function t = table_relevant(this, varargin)
+            if isempty(this.relevant_)
+                ld = load(this.relevant_file);
+                this.relevant_ = ld.t;
+            end
+            t = this.relevant_;            
+            t = mladni.AdniMerge.table_paren(t);
+        end
+
         function T = table_termlist(this, varargin)
             %% enumerations of Jones Table 3
 
@@ -299,31 +271,63 @@ classdef Jones2022 < handle
             T = this.table_paren(T, varargin{:});
         end
 
-        %% table 2; mvregress related
-
-        function h = heatmap_patterns_to_vars(this, sorted_bases_fn, dat_fn)
-            arguments
-                this mladni.Jones2022
-                sorted_bases_fn {mustBeFile} = fullfile(this.componentsdir, 'sorted_bases.mat')
-                dat_fn {mustBeFile} = fullfile(this.componentsdir, 'dat_20231108T160213.mat')
-            end
-
-            ld = load(sorted_bases_fn);
-            sorted_bases = [1 asrow(ld.sorted_bases + 1)];
-            ld = load(dat_fn);
-            B = ld.dat.B';
-            B = B(:, sorted_bases);
-            clbls = ['intercept' this.plabels]; 
-            rlbls = this.labels_check_mvregress_2;            
-
-            h = this.heatmap(abs(B), clbls, rlbls, ColorScaling='scaledrows');
-            title('abs(\beta)')
-            ylabel('Dependent variables')
-            xlabel('NMF pattern from ADNI CN')
-            saveFigures(this.workdir, closeFigure=false, prefix=stackstr())
-        end
+        %% heatmap of bases compared
         
-        function dat = mvregress(this, maxiter)
+        function h = heatmap_eigenbrains_pcorr(this)
+            %% selectd with FDR, but no considerations for spatial autocorrelations
+            
+            % mat
+            T = this.table();
+            mat = T.corr;
+            mat(T.fdr > 0.05) = 0;
+            mat = mat(:, this.sorted_bases);
+            
+            % clbls
+            clbls = this.plabels;
+
+            % rlbls
+            rlbls = this.elabels;
+
+            figure;
+            this.heatmap(mat, clbls, rlbls);
+            h.Title = "Pearson correlation, auto-correlations corrected";
+            h.YLabel = "Eigenbrains";
+            h.XLabel = "Patterns of covariance";
+        end
+
+        function h = heatmap_eigenbrains_kldiv(this)
+            %% Kuehback-Leibler divergence, relative entropy from abs(eigenbrains) to patterns
+
+            % mat
+            eb_path = '/Volumes/PrecunealSSD/Singularity/MAYO/Eigenbrains';
+            mat = nan(10, this.N_PATTERNS);
+            for irow = 1:10
+                eb = mlfourd.ImagingContext2(fullfile(eb_path, sprintf('MNI152_EB_%02i', irow)));   
+                eb = abs(eb);
+                for icol = 1:this.N_PATTERNS       
+                    patt = mlfourd.ImagingContext2(fullfile(this.patt_path, sprintf('Basis_%i.nii', icol))); 
+                    div = eb.kldiv(patt, this.mask);    
+                    mat(irow, icol) = div.nifti.img;
+                end
+            end
+            mat = mat(:, this.sorted_bases);
+
+            % clbls
+            clbls = this.plabels;
+
+            % rlbls
+            rlbls = this.elabels;
+
+            figure;
+            h = this.heatmap(mat, clbls, rlbls, CellLabelFormat='%3.1f');
+            ylabel('Eigenbrains');
+            xlabel('Patterns of covariance');
+            title('KL-Divergence')
+        end
+
+        %% table 2; mvregress related
+        
+        function dat = heatmaps_mvregress(this, maxiter)
             %% Following Jones' Table 2.
             %  Regression approach:
             %      - web(fullfile(docroot, 'stats/specify-the-response-and-study_design-matrices.html'))
@@ -331,8 +335,8 @@ classdef Jones2022 < handle
             %      - when available, n observed subjects do share study_design matrix,
             %        but study_design may be incomplete for some subjects
             %  Multivariate GLM, Y = XB + E:
-            %      - Y_{n x d}:  n subjects, d measured responses
-            %      - X_{n x (p+1)}:  p predictors (NMF components), but sometime unavailable with up to
+            %      - Y_{n x d}:  n subjects, d measured responses starting with Metaroi
+            %      - X_{n x (p+1)}:  p predictors (NMF encodings), but sometime unavailable with up to
             %        p missing predictors, so use n-cell-array of {X^{(1..n)}}, 
             %        X^{(i)}_{d x K}:  K := d(p+1)
             %      - B_{(p+1) x d}
@@ -361,12 +365,11 @@ classdef Jones2022 < handle
             % responses from Jones' table 2
             Y = ld.t(:, this.responses_table2_2);
             Y = this.adjust_table_relevant(Y);
-            sex = Y.Sex;
-            sex = double(contains(sex, 'F'));
-            sex(sex == 0) = -1;
-            Y.Sex = sex;
+            % sex = Y.Sex;
+            % sex = double(contains(sex, 'F'));
+            % Y.Sex = sex;
             Y = Y{:,:};
-            [n,d] = size(Y); % ~ 781 x 14
+            [n,d] = size(Y); % ~ 781 x 14 vars from Jones' table 2
 
             X = zscore(ld.t.Components); % n x p ~ 781 x N_PATTERNS
             p = size(X, 2);
@@ -378,20 +381,22 @@ classdef Jones2022 < handle
                 Xcell{i} = [kron([Xmat(i,:)], eye(d))];
             end
 
-            [beta,sigma,E,V,logL] = mvregress(Xcell,Y, algorithm='ecm', varformat='beta', maxiter=maxiter);
+            [beta,sigma,E,covB,logL] = mvregress(Xcell,Y, algorithm='ecm', varformat='beta', maxiter=maxiter);
             B = reshape(beta, d, p+1)';
-            this.heatmap_beta(B) % excludes large intercepts for age, mmse
-            title('\beta matrix')
+            B = B(2:end, :);
+            this.heatmap_beta(B(asrow(this.sorted_bases), :))
+            title('Regression \beta for dependent variables from encodings of patterns')            
             this.heatmap_response(sigma)
-            title('variance-covariance matrix of responses')
+            title('Variance-covariance matrix of responses')
             this.set_gcf()
 
-            %figure; pcolor(V)
-            %title('V is variance-covariance of beta collapsed to vector')
-            se = sqrt(diag(V));
+            %figure; pcolor(covB)
+            %title('covB is variance-covariance of beta collapsed to vector')
+            se = sqrt(diag(covB));
             SE = reshape(se, d, p+1)';
-            this.heatmap_beta(SE)
-            title('standard errors')
+            SE = SE(2:end, :);
+            this.heatmap_beta(SE(asrow(this.sorted_bases), :))
+            title('Standard errors')
             this.set_gcf()
 
             %[nlogL,COVB] = mvregresslike(Xcell, Y, beta, sigma, 'ecm');
@@ -401,7 +406,7 @@ classdef Jones2022 < handle
             dat.beta = beta;
             dat.sigma = sigma;
             dat.E = E;
-            dat.V = V;
+            dat.covB = covB;
             dat.logL = logL;
             dat.se = se;
             dat.B = B;
@@ -414,14 +419,10 @@ classdef Jones2022 < handle
             this.check_mvregress(dat)
             this.set_gcf()
 
-            save(sprintf('dat_%s.mat', datetime('now', 'Format','uuuuMMdd''T''HHmmss')), 'dat')
-        end     
-        
-        function h = plot_results(this, dat)
-            %% plot dat after mvregress
-
-            h = figure;
-        end
+            save( ...
+                fullfile(this.componentsdir, sprintf('dat_%s.mat', datetime('now', 'Format','uuuuMMdd''T''HHmmss'))), ...
+                'dat')
+        end  
 
         function plot_relevant_all(this)
             this.plot_relevant('Metaroi', 'scatter', xlabel='FDG_{AD}');
@@ -430,7 +431,7 @@ classdef Jones2022 < handle
             this.set_gcf()
             this.plot_relevant('MergeMmse', 'scatter', xlabel='MMSE');
             this.set_gcf()
-            this.plot_relevant('NpBraak', 'boxchart', catnames={'Stage 0' 'Stage 1' 'Stage 2' 'Stage 3' 'Stage 5' 'Stage 6'}, xlabel='Braak NFT', marksize=20);
+            this.plot_relevant('NpBraak', 'boxchart', catnames={'Stage 0' 'Stage 1' 'Stage 2' 'Stage 3' 'Stage 4' 'Stage 5' 'Stage 6'}, xlabel='Braak NFT', marksize=20);
             this.set_gcf()
             this.plot_relevant('MergeCdrsb', 'scatter', xlabel='CDR-SOB');
             this.set_gcf()
@@ -444,7 +445,7 @@ classdef Jones2022 < handle
             this.set_gcf()
             this.plot_relevant('MergeHippocampus', 'scatter', xlabel='Hippo Vol');
             this.set_gcf()
-            this.plot_relevant('CDGLOBAL', 'boxchart', catnames={'0' '1' '1.5' '2'}, xlabel='CDR');
+            this.plot_relevant('CDGLOBAL', 'boxchart', catnames={'0' '0.5' '1' '2' '3'}, xlabel='CDR');
             this.set_gcf()
             this.plot_relevant('Sex', 'boxchart', catnames={'Female','Male'}, xlabel='Sex');
             this.set_gcf()
@@ -490,7 +491,13 @@ classdef Jones2022 < handle
             len = size(c, 2);
 
             h = figure; 
-            tiledlayout(upper(sqrt(len)), upper(len/sqrt(len))); 
+            tiledlayout(ceil(sqrt(len)), ceil(len/sqrt(len))); 
+            try
+                ylim_ = [min(c, [], "all"), max(c, [], "all")];
+            catch ME
+                fprintf("%s: %s has no ylim \n", stackstr(), tblvar);
+                ylim_ = [];
+            end
             for ci = 1:len
                 nexttile; 
                 if strcmp(plotfun, "boxchart")
@@ -501,6 +508,9 @@ classdef Jones2022 < handle
                     catch
                         hh = this.boxchart(T.(tblvar), opts.catnames, c(:,ci), opts.marksize);                        
                     end
+                end
+                if ~isempty(ylim_)
+                    ylim(ylim_);
                 end
                 set(gca, 'FontSize', 16);
 
@@ -513,109 +523,117 @@ classdef Jones2022 < handle
             end
         end
         
-        function t = table_relevant(this, varargin)
-            if isempty(this.relevant_)
-                ld = load(this.relevant_file);
-                this.relevant_ = ld.t;
-            end
-            t = this.relevant_;            
-            t = mladni.AdniMerge.table_paren(t);
-        end
-        
         %% table 2; fitlm related
 
-        function [mdls,T2] = fitlm(this)
+        function [mdls,T2,h,h1] = fitlm(this)
             T = this.table_relevant();
-            T = this.adjust_table_relevant(T);
+            T.Components = T.Components(:, this.sorted_bases);
             T1 = splitvars(T(:, 'Components')); % just the N_PATTERNS Components
-            for col = 1:size(T1,2)
-                T1{:,col} = zscore(T1{:,col});
-            end
-            respname = this.responses_table2; % var names for T
+            respname = this.responses_table2_2; % var names for T
             Nrows = length(respname);
             N = nan(Nrows, 1);
             R2 = nan(Nrows, 1);
             adjR2 = nan(Nrows, 1);
-            pre = nan(Nrows, 1);
-            sst = nan(Nrows, 1);
-            preR2 = nan(Nrows, 1);
+            % pre = nan(Nrows, 1);
+            % sst = nan(Nrows, 1);
+            % preR2 = nan(Nrows, 1);
             AIC = nan(Nrows, 1);
             BIC = nan(Nrows, 1);
             F = nan(Nrows, 1);
             adjPval = nan(Nrows, 1);            
             coeffs = nan(Nrows, size(T.Components, 2)+1);
+            Ncoeffs = size(coeffs, 2);
+            mdls = cell(size(respname));
 
-            parfor r = 1:Nrows
-                the_resp = T{:, respname{r}};
-                if strcmp(respname{r}, 'Sex')
-                    sex_ = double(strcmp(the_resp, 'F'));
-                    sex_(sex_~=1) = -1;
-                    the_resp = sex_;
+            for r = 1:Nrows
+                try
+                    the_resp = T{:, respname{r}};
+                    [the_resp,selected] = mladni.Jones2022.adjust_vars_relevant(the_resp, respname{r});
+                    U1 = addvars(T1(selected,:), the_resp); % e.g., [Comp1, ..., Comp1, Metaroi]
+                    mdls{r} = fitlm(U1);
+                    N(r) = mdls{r}.NumObservations;
+                    R2(r) = mdls{r}.Rsquared.Ordinary;
+                    adjR2(r) = mdls{r}.Rsquared.Adjusted;
+                    %arr = table2array(U1);
+                    %arr = arr(~isnan(arr(:,end)),:);
+                    %pre(r) = press(arr);
+                    %sst(r) = sum(anova(mdls{r},'component',2).SumSq); % https://rpubs.com/RatherBit/102428#:~:text=adjusted%20R%2Dsquared%20%3D%201%20%2D,the%20lm%20and%20related%20functions.&text=So%2C%20you%20have%20to%20calculate,derive%20the%20predictive%20R%2Dsquared.
+                    %preR2(r) = 1 - pre(r)/sst(r);
+                    AIC(r) = mdls{r}.ModelCriterion.AIC;
+                    BIC(r) = mdls{r}.ModelCriterion.BIC;
+                    %F(r) = mdls{r}.ModelFitVsNullModel.Fstat;
+                    adjPval(r) = mdls{r}.ModelFitVsNullModel.Pvalue/this.N_PATTERNS;
+                    coeffs(r, :) = asrow(mdls{r}.Coefficients.Estimate(1:Ncoeffs));
+                catch ME
+                    handwarning(ME)
                 end
-                %the_resp = zscore(the_resp);
-                U1 = addvars(T1, the_resp); % e.g., [Comp1, ..., Comp1, Metaroi]
-                mdls{r} = fitlm(U1); 
-                N(r) = mdls{r}.NumObservations;
-                R2(r) = mdls{r}.Rsquared.Ordinary;
-                adjR2(r) = mdls{r}.Rsquared.Adjusted;
-                arr = table2array(U1);
-                arr = arr(~isnan(arr(:,end)),:);
-                pre(r) = press(arr);
-                sst(r) = sum(anova(mdls{r},'component',2).SumSq); % https://rpubs.com/RatherBit/102428#:~:text=adjusted%20R%2Dsquared%20%3D%201%20%2D,the%20lm%20and%20related%20functions.&text=So%2C%20you%20have%20to%20calculate,derive%20the%20predictive%20R%2Dsquared.
-                preR2(r) = 1 - pre(r)/sst(r);
-                AIC(r) = mdls{r}.ModelCriterion.AIC;
-                BIC(r) = mdls{r}.ModelCriterion.BIC;
-                F(r) = mdls{r}.ModelFitVsNullModel.Fstat;
-                adjPval(r) = mdls{r}.ModelFitVsNullModel.Pvalue/this.N_PATTERNS;
-                coeffs(r, :) = asrow(mdls{r}.Coefficients.Estimate);
             end
 
             % structured similarly to Jones' table 2
-            T2 = table(ascol(this.labels_check_mvregress), N, R2, adjR2, preR2, AIC, coeffs(:,2:end), F, adjPval, ...
-                VariableName={'Variable', 'N', 'R^2', 'adj R^2', 'pre R^2', 'AIC', '\beta P', 'F', 'adj p'});
+            T2 = table(ascol(this.labels_check_mvregress_2), N, R2, adjR2, AIC, BIC, coeffs(:,2:end), adjPval, ...
+                VariableName={'Variable', 'N', 'R^2', 'adj R^2', 'AIC', 'BIC', '\beta P', 'adj p'}); %  preR2, 'pre R^2'
             T2 = splitvars(T2);
-        end
+            disp(T2(:, [1:6, end]))
 
-        %% bases compared
-
-        function h = heatmap_patterns_to_eigenbrains(this)
-            %% Kuehback-Leibler divergence, relative entropy from eigenbrains to patterns
-
-            eb_path = '/Volumes/PrecunealSSD/Singularity/MAYO/Eigenbrains';
-            mat = nan(10, this.N_PATTERNS);
-
-            for irow = 1:10
-
-                eb = mlfourd.ImagingContext2(fullfile(eb_path, sprintf('MNI152_EB_%02i', irow)));    
-
-                for icol = 1:this.N_PATTERNS        
-
-                    patt = mlfourd.ImagingContext2(fullfile(this.patt_path, sprintf('Basis_%i.nii', icol))); 
-                    div = eb.kldiv(patt, this.mask);    
-                    mat(irow, icol) = div.nifti.img;
-                end
-            end
-
-            sorted_bases_fn = fullfile(this.componentsdir, 'sorted_bases.mat');
-            ld = load(sorted_bases_fn);
-            sorted_bases = asrow(ld.sorted_bases);
-            mat = mat(:, sorted_bases);
-
-            clbls = this.plabels;
-            rlbls = {'EB1' 'EB2' 'EB3' 'EB4' 'EB5' 'EB6' 'EB7' 'EB8' 'EB9' 'EB10'};
-            h = mladni.Jones2022.heatmap(mat, clbls, rlbls, CellLabelFormat='%3.1f', ColorScaling='scaledrows', FlipColormap=false);
-            ylabel('Eigenbrains');
-            xlabel('ADNI Patterns');
-            title('KL-Divergence of Patterns to Eigenbrains')
+            beta = table2array(T2(:, 7:(end-1)))';
+            abs_beta = abs(beta);
+            h = this.heatmap_beta(beta, rlabels=this.labels_check_mvregress_2);
+            title('Regression \beta for dependent variables from encodings of patterns')
+            h1 = this.heatmap_beta(abs_beta, rlabels=this.labels_check_mvregress_2);
+            title('Regression abs(\beta) for dependent variables from encodings of patterns')
         end
     end
 
     methods (Static)
         function T = adjust_table_relevant(T)
-            T.MergeAge = T.MergeAge/100; % centuries
-            T.MergeMmse = T.MergeMmse/30; % fractional
-            T.MergeHippocampus = T.MergeHippocampus/1e4;
-        end        
+            for var = asrow(string(T.Properties.VariableNames))
+                try
+                    if contains(var, "Sex") || contains(var, "CDGLOBAL")
+                        T.(var) = categorical(T.(var));
+                    else
+                        T.(var) = zscore(T.(var));
+                    end
+                    % range = max(T.(var)) - min(T.(var));
+                    % assert(range > eps)
+                    % T.(var) = (T.(var) - min(T.(var))) / range;
+                catch 
+                    fprintf("%s: rescaling is not appropriate for %s\n", stackstr(), var)
+                end
+            end
+        end
+
+        function [var,selected] = adjust_vars_relevant(var, respname)
+            arguments
+                var
+                respname {mustBeTextScalar}
+            end
+
+            selected = true(size(var));
+
+            if all(iscategorical(var))
+                return
+            end
+
+            if contains(respname, "Sex")
+                var = categorical(var);
+                return
+            end
+
+            if contains(respname, "ApoE2")
+                selected = ~isnan(var) & var >= 0;
+                var = normalize(var(selected), "scale");
+                return
+            end
+
+            if contains(respname, "Component")
+                selected = ~isnan(var) & var >= 0;
+                var = normalize(var(selected), "scale");
+                return
+            end
+
+            selected = ~isnan(var) & var >= 0;
+            var = normalize(var(selected), "scale");
+        end
         
         function h = boxchart(cats, catnames, comp, marksize)
             try
@@ -664,7 +682,7 @@ classdef Jones2022 < handle
             sigma = nan(size(cat));
             q = cell(size(cat));
             notch = cell(size(cat));
-            colors = parula(length(cat));
+            colors = this.colormap(length(cat));
             parzen = std(metric,0,"all")/1000;
             for cati = 1:length(cat)
                 [h{cati},mu(cati),sigma(cati),q{cati},notch{cati}] = ...
@@ -681,7 +699,7 @@ classdef Jones2022 < handle
                 clbls cell
                 rlbls cell
                 opts.CellLabelFormat {mustBeTextScalar} = '%0.2g'
-                opts.Colormap double = viridis
+                opts.Colormap double = cividis
                 opts.ColorScaling {mustBeTextScalar} = 'scaled' % 'scaledrows' 'scaledcolumns'
                 opts.FlipColormap logical = false
                 opts.FontSize {mustBeScalarOrEmpty} = 18
@@ -693,7 +711,8 @@ classdef Jones2022 < handle
             h = heatmap(mat, ...
                 XData=clbls, YData=rlbls, ...
                 CellLabelFormat=opts.CellLabelFormat, ...
-                Colormap=opts.Colormap, ColorScaling=opts.ColorScaling, ...
+                Colormap=opts.Colormap, ...
+                ColorScaling=opts.ColorScaling, ...
                 FontSize=opts.FontSize);
         end
         
@@ -764,21 +783,44 @@ classdef Jones2022 < handle
                 hold off
             end
         end   
-        function h = heatmap_beta(this, B)
+        function h = heatmap_beta(this, B, opts)
             %B = B(2:end,:); % leave off intercept which can be large valued
-            clbls = ['intercept' this.plabels];
-            rlbls = this.labels_check_mvregress_2;
+
+            arguments
+                this mladni.Jones2022
+                B double
+                opts.rlabels = this.labels_check_mvregress_2
+            end
+
+            clbls = this.plabels;
+            rlbls = opts.rlabels;
             figure;
-            h = heatmap(B', XData=clbls, YData=rlbls, Colormap=parula, ColorScaling='scaledrows', FontSize=18);
-            h.Colormap = parula;
-            ylabel('Dependent Variables')
-            xlabel('ADNI Pattern')
+            h = heatmap(B', ...
+                XData=clbls, YData=rlbls, ...
+                CellLabelFormat='%0.2g', ...
+                Colormap=this.colormap, ...
+                ColorScaling='scaled', ...
+                FontSize=18);
+            h.Colormap = this.colormap;
+            ylabel('Dependent variables')
+            xlabel('Encodings of patterns')
         end
-        function h = heatmap_response(this, sigma)
-            lbls = this.labels_check_mvregress_2;
+        function h = heatmap_response(this, sigma, opts)
+            arguments
+                this mladni.Jones2022
+                sigma double
+                opts.labels = this.labels_check_mvregress_2
+            end
+
+            lbls = opts.labels;
             figure;
-            h = heatmap(sigma, XData=lbls, YData=lbls, Colormap=parula, ColorScaling='log', FontSize=18);
-            h.Colormap = parula;
+            h = heatmap(sigma, ...
+                XData=lbls, YData=lbls, ...
+                CellLabelFormat='%0.2g', ...
+                Colormap=this.colormap, ...
+                ColorScaling='log', ...
+                FontSize=18);
+            h.Colormap = this.colormap;
             ylabel('Dependent Variables')
             xlabel('Dependent Variables')
         end

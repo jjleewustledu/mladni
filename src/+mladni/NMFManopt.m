@@ -82,7 +82,7 @@ classdef NMFManopt < handle
                 r double {mustBeScalarOrEmpty} = 1
                 W0 double {mustBeNumeric} = []  % empty W0 will trigger random starting conditions for manopt
                 manifold_factory function_handle = @grassmannfactory
-                opts.batchsize {mustBeScalarOrEmpty} = size(X,2)/10
+                opts.batchsize {mustBeScalarOrEmpty} = floor(size(X,2)/10)
                 opts.do_AD logical = true
                 opts.do_force_nonneg logical = false
                 opts.do_plot logical = true
@@ -697,7 +697,7 @@ classdef NMFManopt < handle
                     [Q, unused] = qr(X(:, :, kk), 0); %#ok
                     X(:, :, kk) = Q;
                 end
-                X(X < 1e-16) = 1e-16;
+                X(X < eps) = eps;
             end
 
             M.randvec = @prandomvec;
@@ -708,7 +708,7 @@ classdef NMFManopt < handle
             function U = prandomvec(X)
                 U = projection(X, randn(n, p, k, array_type));
                 U = U / M.norm(X, U);
-                U(U < 1e-16) = 1e-16;
+                U(U < eps) = eps;
             end
 
             M.lincomb = @matrixlincomb;
@@ -920,7 +920,7 @@ classdef NMFManopt < handle
                         [W, ~, info_] = pso(problem_, W, options);
                     case 'stochasticgradient'
                         %% see also PCA_stochastic
-                        options.checkperiod = min(1e4, floor(this.maxiter/10));
+                        options.checkperiod = min(1e3, floor(this.maxiter/10));
                         options.statsfun = statsfunhelper('metric', @cost);
                         options.maxiter = this.maxiter;
                         options.batchsize = this.batchsize;
@@ -952,7 +952,7 @@ classdef NMFManopt < handle
 
             % Cost function
             function f = cost(W)
-                % W(W<1e-16)=1e-16;  % breaks gradients
+                % W(W<eps)=eps;  % breaks gradients
                 WtX = W.'*X;  % r x n
                 vecs = W*WtX - X;  % m x n
                 sqnrms = sum(vecs.^2, 1);
@@ -962,7 +962,7 @@ classdef NMFManopt < handle
 
             % Cost function with auto-differentiation
             function f = cost_AD(W)
-                % W(W<1e-16)=1e-16;  % breaks gradients
+                % W(W<eps)=eps;  % breaks gradients
                 WtX = W.'*X;  % r x n
                 f = cnormsqfro(W*WtX - X) + epsilon^2;  % m x n
             end
@@ -970,7 +970,7 @@ classdef NMFManopt < handle
             % Euclidean gradient of the cost function
             function G = egrad(W)
 
-                %W(W<1e-16)=1e-16;
+                %W(W<eps)=eps;
 
                 if do_yang_oja_
                     % https://github.com/asotiras/brainparts/blob/master/opnmf.m
@@ -982,7 +982,7 @@ classdef NMFManopt < handle
                     % multiplicative update rule
                     W = W.*update;
                     % As the iterations were progressing, computational time per iteration was increasing due to operations involving really small values
-                    W(W<1e-16)=1e-16;
+                    W(W<eps)=eps;
                     W = W./norm(W, 'fro');
                 end
 
@@ -1020,7 +1020,7 @@ classdef NMFManopt < handle
                 % Forcing nonnegativity is tolerable for SGD, 
                 % but other gradient methods, that also use consistently defined costs, fail gradient checks.
                 if do_force_nonneg_
-                    W(W<1e-16)=1e-16;
+                    W(W<eps)=eps;
                 end
 
                 X_ = X(:, sample);
@@ -1035,7 +1035,7 @@ classdef NMFManopt < handle
                     % multiplicative update rule
                     W = W.*update;
                     % As the iterations were progressing, computational time per iteration was increasing due to operations involving really small values
-                    W(W<1e-16)=1e-16;
+                    W(W<eps)=eps;
                     W = W./norm(W, 'fro');
                 end
 
