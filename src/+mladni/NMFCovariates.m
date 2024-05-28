@@ -12,8 +12,6 @@ classdef NMFCovariates < handle
 
     properties (Dependent)
         componentDir
-        covariates_file
-        covariates_1stscan_file
         inFiles
         pet_on_T1w_suffix
         pve_1_suffix
@@ -29,12 +27,6 @@ classdef NMFCovariates < handle
         function g = get.componentDir(this)
             g = fullfile(this.targetDatasetDir, sprintf('NumBases%i', this.selectedNumBases), 'components');
             ensuredir(g);
-        end
-        function g = get.covariates_file(this)
-            g = fullfile(this.componentDir, sprintf("NMFCovariates_table_covariates_%s.mat", this.study_design));
-        end
-        function g = get.covariates_1stscan_file(this)
-            g = fullfile(this.componentDir, sprintf("NMFCovariates_table_covariates_1stscan_%s.mat", this.study_design));
         end
         function g = get.inFiles(this)
             g = fullfile(this.componentDir, sprintf("%s_%s.csv", stackstr(), this.study_design));
@@ -213,6 +205,22 @@ classdef NMFCovariates < handle
             writetable(tbl_amyneg, globbed_amyneg_csv, 'WriteVariableNames', false);
         end
 
+        function f = covariates_file(this, opts)
+            arguments
+                this mladni.NMFCovariates
+                opts.permissive_qc logical = false
+            end
+
+            if opts.permissive_qc
+                f = fullfile(this.componentDir, sprintf("NMFCovariates_table_covariates_%s_permissive.mat", this.study_design));
+            else
+                f = fullfile(this.componentDir, sprintf("NMFCovariates_table_covariates_%s.mat", this.study_design));
+            end
+        end
+        function f = covariates_1stscan_file(this)
+            f = fullfile(this.componentDir, sprintf("NMFCovariates_table_covariates_1stscan_%s.mat", this.study_design));
+        end
+
         %% tables
 
         function t = AddAcqDuration(~, t)
@@ -249,8 +257,14 @@ classdef NMFCovariates < handle
             new_var(select,:) = new_var_;
             t = addvars(t, new_var, NewVariableNames=opts.NewVariableNames);
         end
-        function t = apply_table_qc(this, t)
+        function t = apply_table_qc(this, t, opts)
             %% qc that is more stringent than that for NMF, needed for regressions
+
+            arguments
+                this mladni.NMFCovariates
+                t table
+                opts.permissive_qc logical = false
+            end
 
             debug_file = fullfile(this.componentDir, stackstr()+this.datestr()+".mat");
             save(debug_file, 't');
@@ -261,6 +275,9 @@ classdef NMFCovariates < handle
             if any(contains(vns, 'CDGLOBAL'))
                 t = t(t.CDGLOBAL ~= -1, :);
             end % 3458 rows remaining
+            if opts.permissive_qc
+                return
+            end
             if any(contains(vns, 'Cohort'))
                 t = t(t.Cohort ~= 'unknown', :);
             end % 1961 rows remaining
@@ -300,7 +317,8 @@ classdef NMFCovariates < handle
 
             arguments
                 this mladni.NMFCovariates
-                opts.save_1comp logical = false                
+                opts.save_1comp logical = false
+                opts.permissive_qc logical = false
             end
 
             if ~isempty(this.table_covariates_cache_)
@@ -308,7 +326,7 @@ classdef NMFCovariates < handle
                 t = this.table_covariates_cache_;
                 return
             end
-            cache_file = this.covariates_file;
+            cache_file = this.covariates_file(permissive_qc=opts.permissive_qc);
             if isfile(cache_file)
                 fprintf("%s: using cached from filesystem\n", stackstr())
                 ld = load(cache_file);
@@ -349,7 +367,7 @@ classdef NMFCovariates < handle
             t = splitvars(t, 'Components');
 
             % apply table qc
-            t = this.apply_table_qc(t);
+            t = this.apply_table_qc(t, permissive_qc=opts.permissive_qc);
 
             % sort rows by Subject, then AcqDate
             t = sortrows(t, ["Subject", "AcqDate"]);

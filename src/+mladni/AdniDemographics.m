@@ -518,7 +518,7 @@ classdef AdniDemographics < handle
             t = this.table_paren(this.fdg4_, varargin{:}); 
         end
         function t = table_fdg5(this, varargin)
-            %%  this.table_fdg4(~site011, ~visible_migreg, :)
+            %%  this.table_fdg4(~site011, ~visible_misreg, :)
             %   prepended with fqfn of registered fdg NIfTI and json.
 
             if ~isempty(this.fdg5_)
