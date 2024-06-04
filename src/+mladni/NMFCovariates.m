@@ -275,9 +275,11 @@ classdef NMFCovariates < handle
             if any(contains(vns, 'CDGLOBAL'))
                 t = t(t.CDGLOBAL ~= -1, :);
             end % 3458 rows remaining
+
             if opts.permissive_qc
                 return
             end
+
             if any(contains(vns, 'Cohort'))
                 t = t(t.Cohort ~= 'unknown', :);
             end % 1961 rows remaining
@@ -450,6 +452,97 @@ classdef NMFCovariates < handle
             t = table(this.table_fdg.Filelist);
             t.Properties.VariableNames = {'Filelist'};
         end        
+        function t = table_gppm_metarois(this)
+            t_ = this.table_covariates(permissive_qc=true);
+
+            % build vars for gppm 
+            RID = nan(size(t_, 1), 1);  % imputes missing MergeRid
+            Time = nan(size(t_, 1), 1);  % years
+            for r = 1:size(t_, 1)
+                re = regexp(string(t_.Subject{r}), "\d{3}_S_(?<rid>\d{4})", "names");
+                RID(r) = double(re.rid);
+                Time(r) = t_.AcqDuration(r); 
+            end
+
+            % list vars from table_covariates for gppm
+            vars = [ ...
+                 "Metaroi", "Age", "MergeMmse", "NpBraak", "MergeCdrsb", ...
+                 "META_TEMPORAL_SUVR", "BRAAK1_SUVR", "BRAAK34_SUVR", "BRAAK56_SUVR", ...
+                 "MergeHippocampus", "Sex", ...
+                 "SUMMARYSUVR_WHOLECEREBNORM", ...
+                 "ApoE4", "CDGLOBAL"];
+            new_vars = [ ...
+                 "FDG_AD", "Age", "MMSE", "Braak_NFT", "CDR_SOB", ...
+                 "Tau_PET", "BRAAK1_SUVR", "BRAAK34_SUVR", "BRAAK56_SUVR", ...
+                 "Hippo_Vol", "Sex", ...
+                 "Amyloid_PET", ...
+                 "ApoE4", "CDR"];
+
+            % build table t
+            t = table(RID, Time);
+            for vidx = 1:length(vars)
+                t = addvars(t, t_.(vars(vidx)), NewVariableNames=new_vars(vidx));
+            end
+            t.Sex = double(strcmp(t.Sex, 'F'));
+
+            %save("NMFCovariates_table_gppm_metarois.mat", "t2")
+            %writetable(t2, "NMFCovariates_table_gppm_metarois.csv")
+        end
+        function t = table_gppm_patterns(this)
+            t_ = this.table_covariates(permissive_qc=true);
+            t_ = mergevars(t_, "Components_" + (1:24));  % new varname is "Var141"
+
+            % build vars for gppm 
+            RID = nan(size(t_, 1), 1);  % imputes missing MergeRid
+            Time = nan(size(t_, 1), 1);  % years
+            for r = 1:size(t_, 1)
+                re = regexp(string(t_.Subject{r}), "\d{3}_S_(?<rid>\d{4})", "names");
+                RID(r) = double(re.rid);
+                Time(r) = t_.AcqDuration(r); 
+            end
+
+            % build table t
+            t = table(RID, Time, t_.Var141, t_.CDGLOBAL, ...
+                VariableNames=["RID", "Time", "Pattern", "CDR"]);
+
+            % split the patterns
+            t = splitvars(t, "Pattern");
+            t.Properties.VariableNames = strrep(t.Properties.VariableNames, "Pattern_", "Pattern");
+            
+            %save("NMFCovariates_table_gppm_patterns.mat", "t1")
+            %writetable(t1, "NMFCovariates_table_gppm_patterns.csv")
+        end
+        function t1 = table_gppm_patterns_metaroi(this)
+            ld2 = load('NMFCovariates_table_gppm_metarois.mat');
+            ld1 = load('NMFCovariates_table_gppm_patterns.mat');
+            t1 = addvars(ld1.t1, ld2.t2.FDG_AD, Before="CDR", NewVariableNames="Metaroi");
+            t1.Properties.VariableNames = strrep(t1.Properties.VariableNames, "Pattern_", "Pattern");
+            save("NMFCovariates_table_gppm_patterns_metaroi.mat", "t1")
+            writetable(t1, "NMFCovariates_table_gppm_patterns_metaroi.csv")
+        end
+        function t = table_gppm_patterns_367(this)
+            ld = load(fullfile(this.componentDir, "NMFCovariates_table_gppm_patterns_metaroi.mat"));
+            t1 = ld.t1;
+            Nrows = size(t1, 1);
+            select_cdr0 = t1.CDR == 0;  % N = 937
+            select_cdr0(1:lower(0.90*Nrows)) = false;
+            % select_cdr0p5 = t1.CDR == 0.5;  % N = 1927
+            select_cdr1 = t1.CDR == 1;  % N = 428
+            select_cdr1(1:lower(0.90*Nrows)) = false;
+            select_cdr_ = select_cdr0 | select_cdr1 | t1.CDR == 2 | t1.CDR == 3;
+
+            % additional scans of rid's from select_cdr_
+            matched_cdr = select_cdr_;
+            for rid = asrow(t1.RID(select_cdr_))
+                matched_cdr = matched_cdr | (rid == t1.RID);  
+            end
+
+            t = t1(matched_cdr, :);  % N = 367
+            t.Properties.VariableNames = strrep(t.Properties.VariableNames, "Pattern_", "Pattern");
+
+            %save("NMFCovariates_table_gppm_patterns_367.mat", "t3")
+            %writetable(t3, "NMFCovariates_table_gppm_patterns_367.csv")
+        end
         function t = table_imagedataIDs(this)
             %% Finds imagedataIDs;
             %  Returns:
