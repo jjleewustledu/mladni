@@ -169,7 +169,7 @@ classdef AdniDemographics < handle
                 opts.desc {mustBeTextScalar} = "Coreg, Avg, Std Img and Vox Siz, Uniform Resolution"
                 opts.study_design {mustBeTextScalar} = "longitudinal"
                 opts.reuse_cache logical = true
-                opts.filt_bl_first logical = false
+                opts.filt_bl_first logical = true
                 opts.datetime_separation_tol duration = years(1)
             end
             this.description = convertStringsToChars(opts.desc);
@@ -727,7 +727,7 @@ classdef AdniDemographics < handle
             arguments
                 this mladni.AdniDemographics
                 aglob {mustBeTextScalar} = 'sub-*_ses-*_trc-FDG_proc-CASU-ponsvermis_orient-rpi_pet_on_T1w_Warped_dlicv.nii.gz'
-                opts.study_design {mustBeTextScalar} = this.study_design
+                opts.study_design {mustBeTextScalar} = 'cross-sectional'
             end
             
             pwd0 = pushd(this.workdir);
@@ -793,8 +793,8 @@ classdef AdniDemographics < handle
 
             arguments
                 this mladni.AdniDemographics
-                cs = false % cross-sectional
-                T_name = 'table_fdg5'
+                cs logical = false % cross-sectional
+                T_name {mustBeTextScalar} = 'table_fdg5'
             end
 
             fdg__ = this.(T_name);

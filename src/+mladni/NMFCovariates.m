@@ -217,9 +217,6 @@ classdef NMFCovariates < handle
                 f = fullfile(this.componentDir, sprintf("NMFCovariates_table_covariates_%s.mat", this.study_design));
             end
         end
-        function f = covariates_1stscan_file(this)
-            f = fullfile(this.componentDir, sprintf("NMFCovariates_table_covariates_1stscan_%s.mat", this.study_design));
-        end
 
         %% tables
 
@@ -391,13 +388,6 @@ classdef NMFCovariates < handle
                 end
             end
         end
-        function t = table_covariates_1stscan(this)
-            t = this.demogr_.table_firstscan(this.table_covariates());
-
-            cache_file = this.covariates_1stscan_file;
-            save(cache_file, 't');
-            writetable(t, strrep(cache_file, ".mat", ".csv"));
-        end
         function t = table_covariates_1comp(this, idx)
             %% returns table with indexed component in last column.
 
@@ -453,7 +443,9 @@ classdef NMFCovariates < handle
             t.Properties.VariableNames = {'Filelist'};
         end        
         function t = table_gppm_metarois(this)
-            t_ = this.table_covariates(permissive_qc=true);
+            %% t ~ 1890x16 table
+
+            t_ = this.table_covariates(permissive_qc=false);
 
             % build vars for gppm 
             RID = nan(size(t_, 1), 1);  % imputes missing MergeRid
@@ -472,7 +464,7 @@ classdef NMFCovariates < handle
                  "SUMMARYSUVR_WHOLECEREBNORM", ...
                  "ApoE4", "CDGLOBAL"];
             new_vars = [ ...
-                 "FDG_AD", "Age", "MMSE", "Braak_NFT", "CDR_SOB", ...
+                 "FDG_AD", "Age", "MMSE", "Braak_NFT", "MergeCdrsb", ...
                  "Tau_PET", "BRAAK1_SUVR", "BRAAK34_SUVR", "BRAAK56_SUVR", ...
                  "Hippo_Vol", "Sex", ...
                  "Amyloid_PET", ...
@@ -485,11 +477,13 @@ classdef NMFCovariates < handle
             end
             t.Sex = double(strcmp(t.Sex, 'F'));
 
-            %save("NMFCovariates_table_gppm_metarois.mat", "t2")
-            %writetable(t2, "NMFCovariates_table_gppm_metarois.csv")
+            save(fullfile(this.componentDir, "NMFCovariates_table_gppm_metarois.mat"), "t")
+            writetable(t, fullfile(this.componentDir, "NMFCovariates_table_gppm_metarois.csv"))
         end
         function t = table_gppm_patterns(this)
-            t_ = this.table_covariates(permissive_qc=true);
+            %% t ~ 1890x28 table
+
+            t_ = this.table_covariates(permissive_qc=false);
             t_ = mergevars(t_, "Components_" + (1:24));  % new varname is "Var141"
 
             % build vars for gppm 
@@ -502,46 +496,83 @@ classdef NMFCovariates < handle
             end
 
             % build table t
-            t = table(RID, Time, t_.Var141, t_.CDGLOBAL, ...
-                VariableNames=["RID", "Time", "Pattern", "CDR"]);
+            t = table(RID, Time, t_.Var141, t_.CDGLOBAL, t_.MergeCdrsb, ...
+                VariableNames=["RID", "Time", "Pattern", "CDR", "MergeCdrsb"]);
 
             % split the patterns
             t = splitvars(t, "Pattern");
             t.Properties.VariableNames = strrep(t.Properties.VariableNames, "Pattern_", "Pattern");
             
-            %save("NMFCovariates_table_gppm_patterns.mat", "t1")
-            %writetable(t1, "NMFCovariates_table_gppm_patterns.csv")
+            save(fullfile(this.componentDir, "NMFCovariates_table_gppm_patterns.mat"), "t")
+            writetable(t, fullfile(this.componentDir, "NMFCovariates_table_gppm_patterns.csv"))
         end
         function t1 = table_gppm_patterns_metaroi(this)
+            %% t1 ~ 1890x29 table
+            % 
+            %  N(CDR == 0) ~ 632
+            %  N(CDR == 0.5) ~ 1052
+            %  N(CDR == 1) ~ 185
+            %  N(CDR == 2) ~ 18
+            %  N(CDR == 3) ~ 3
+
             ld2 = load('NMFCovariates_table_gppm_metarois.mat');
             ld1 = load('NMFCovariates_table_gppm_patterns.mat');
-            t1 = addvars(ld1.t1, ld2.t2.FDG_AD, Before="CDR", NewVariableNames="Metaroi");
+            t1 = addvars(ld1.t, ld2.t.Amyloid_PET, ld2.t.FDG_AD, Before="CDR", NewVariableNames=["AmyloidSuvr", "Metaroi"]);
             t1.Properties.VariableNames = strrep(t1.Properties.VariableNames, "Pattern_", "Pattern");
-            save("NMFCovariates_table_gppm_patterns_metaroi.mat", "t1")
-            writetable(t1, "NMFCovariates_table_gppm_patterns_metaroi.csv")
+            save(fullfile(this.componentDir, "NMFCovariates_table_gppm_patterns_metaroi.mat"), "t1")
+            writetable(t1, fullfile(this.componentDir, "NMFCovariates_table_gppm_patterns_metaroi.csv"))
         end
-        function t = table_gppm_patterns_367(this)
+        function t = table_gppm_patterns_1403(this)
+            %% t ~ 1403x28 table
+            %
+            % NMFCovariates_table_gppm_patterns_1403:  distribution of cdrsb:
+            % cdrsb->10, n->21
+            % cdrsb->9, n->3
+            % cdrsb->8, n->20
+            % cdrsb->7, n->24
+            % cdrsb->6, n->37
+            % cdrsb->5, n->62
+            % cdrsb->4, n->82
+            % cdrsb->3, n->118
+            % cdrsb->2, n->227
+            % cdrsb->1, n->413
+            % cdrsb->0.5, n->286
+            % cdrsb->0, n->110
+            % for 872 subjects with RIDs.
+
             ld = load(fullfile(this.componentDir, "NMFCovariates_table_gppm_patterns_metaroi.mat"));
             t1 = ld.t1;
-            Nrows = size(t1, 1);
-            select_cdr0 = t1.CDR == 0;  % N = 937
-            select_cdr0(1:lower(0.90*Nrows)) = false;
-            % select_cdr0p5 = t1.CDR == 0.5;  % N = 1927
-            select_cdr1 = t1.CDR == 1;  % N = 428
-            select_cdr1(1:lower(0.90*Nrows)) = false;
-            select_cdr_ = select_cdr0 | select_cdr1 | t1.CDR == 2 | t1.CDR == 3;
-
-            % additional scans of rid's from select_cdr_
-            matched_cdr = select_cdr_;
-            for rid = asrow(t1.RID(select_cdr_))
-                matched_cdr = matched_cdr | (rid == t1.RID);  
+            t1 = removevars(t1, "CDR");
+            t1 = t1(~isnan(t1.MergeCdrsb), :);
+            t1.MergeCdrsb(t1.MergeCdrsb > 7) = 7;  % regroup cdrsb > 7
+            t1.MergeCdrsb(t1.MergeCdrsb == 6.5) = 6;
+            t1.MergeCdrsb(t1.MergeCdrsb == 5.5) = 5;
+            t1.MergeCdrsb(t1.MergeCdrsb == 4.5) = 4;
+            t1.MergeCdrsb(t1.MergeCdrsb == 3.5) = 3;
+            t1.MergeCdrsb(t1.MergeCdrsb == 2.5) = 2;
+            t1.MergeCdrsb(t1.MergeCdrsb == 1.5) = 1;
+            
+            % find repeaters
+            unique_cdrsb = sort(unique(t1.MergeCdrsb), 'descend');
+            unique_cdrsb = unique_cdrsb(1:(end-1));
+            repeaters = false(size(t1, 1), 1);
+            for cdrsb_ = asrow(unique_cdrsb)
+                for rid_ = asrow(t1.RID(t1.MergeCdrsb == cdrsb_))
+                    repeaters = repeaters | (t1.RID == rid_);
+                end
             end
 
-            t = t1(matched_cdr, :);  % N = 367
+            % apply pruning filter
+            t = t1(repeaters, :);  % N = 1403
             t.Properties.VariableNames = strrep(t.Properties.VariableNames, "Pattern_", "Pattern");
+            fprintf("%s:  distribution of cdrsb:\n", stackstr());
+            for u_ = [asrow(unique_cdrsb), 0]
+                fprintf("cdrsb->%g, n->%g\n", u_, sum(t.MergeCdrsb == u_)); 
+            end
+            fprintf("for %g subjects with RIDs.\n", length(unique(t.RID))); 
 
-            %save("NMFCovariates_table_gppm_patterns_367.mat", "t3")
-            %writetable(t3, "NMFCovariates_table_gppm_patterns_367.csv")
+            save("NMFCovariates_table_gppm_patterns_1403.mat", "t")
+            writetable(t, "NMFCovariates_table_gppm_patterns_1403.csv")
         end
         function t = table_imagedataIDs(this)
             %% Finds imagedataIDs;
@@ -709,7 +740,7 @@ classdef NMFCovariates < handle
 
             arguments
                 this mladni.NMFCovariates
-                cs logical = strcmp(this.study_design, "cross-sectional")
+                cs logical = false
                 T_name {mustBeTextScalar} = 'table_covariates'
             end
 
@@ -720,12 +751,28 @@ classdef NMFCovariates < handle
                 t = this.table_firstscan(fdg__);
             end
         end
-        function t = table_cn(this, cs, T_name, bl_1st)
+        function t = table_cn(this, varargin)
+            t = this.table_cdr_0_aneg(varargin{:});
+        end
+        function t = table_preclinical(this, varargin)
+            t = this.table_cdr_0_apos(varargin{:});
+        end
+        function t = table_mci(this, varargin)
+            t = this.table_cdr_0p5_apos(varargin{:});
+        end
+        function t = table_ad(this, varargin)
+            t = this.table_cdr_gt_0p5_apos(varargin{:});
+        end
+        function t = table_other(this, varargin)
+            t = this.table_cdr_gt_0_aneg(varargin{:});
+        end
+        
+        function t = table_cdr_0_aneg(this, cs, T_name, bl_1st)
             %% N -> 474 longitudinal, 269 cross-sectional.
             
             arguments
                 this mladni.NMFCovariates
-                cs logical = strcmp(this.study_design, "cross-sectional")
+                cs logical = true
                 T_name {mustBeTextScalar} = 'table_covariates'
                 bl_1st logical = false
             end
@@ -743,12 +790,12 @@ classdef NMFCovariates < handle
                 t = this.table_firstscan(t);
             end
         end
-        function t = table_preclinical(this, cs, T_name, bl_1st)
+        function t = table_cdr_0_apos(this, cs, T_name, bl_1st)
             %% N -> 158 longitudinal, 130 cross-sectional.
 
             arguments
                 this mladni.NMFCovariates
-                cs logical = strcmp(this.study_design, "cross-sectional")
+                cs logical = true
                 T_name {mustBeTextScalar} = 'table_covariates'
                 bl_1st logical = false
             end
@@ -764,6 +811,11 @@ classdef NMFCovariates < handle
             else
                 t = fdg__(fdg__.CDGLOBAL == 0 & fdg__.AmyloidStatusLong == 1, :);
                 t = this.table_firstscan(t);
+            end
+
+            t1 = this.table_cdr_0_aneg(cs, T_name, bl_1st);
+            for dup = asrow(string(intersect(t.Subject, t1.Subject)))
+                t(t.Subject==dup, :) = [];
             end
         end        
         function t = table_cdr_0p5_apos(this, cs, T_name, bl_1st)
@@ -771,7 +823,7 @@ classdef NMFCovariates < handle
 
             arguments
                 this mladni.NMFCovariates
-                cs logical = strcmp(this.study_design, "cross-sectional")
+                cs logical = true
                 T_name {mustBeTextScalar} = 'table_covariates'
                 bl_1st logical = false
             end
@@ -787,6 +839,15 @@ classdef NMFCovariates < handle
             else
                 t = fdg__(fdg__.CDGLOBAL == 0.5 & fdg__.AmyloidStatusLong == 1, :);
                 t = this.table_firstscan(t);
+            end
+
+            t1 = this.table_cdr_0_aneg(cs, T_name, bl_1st);
+            for dup = asrow(string(intersect(t.Subject, t1.Subject)))
+                t(t.Subject==dup, :) = [];
+            end
+            t2 = this.table_cdr_0_apos(cs, T_name, bl_1st);
+            for dup = asrow(string(intersect(t.Subject, t2.Subject)))
+                t(t.Subject==dup, :) = [];
             end
         end
         function t = table_cdr_gt_0p5_apos(this, cs, T_name, bl_1st)
@@ -794,7 +855,7 @@ classdef NMFCovariates < handle
 
             arguments
                 this mladni.NMFCovariates
-                cs logical = strcmp(this.study_design, "cross-sectional")
+                cs logical = true
                 T_name {mustBeTextScalar} = 'table_covariates'
                 bl_1st logical = false
             end
@@ -810,33 +871,131 @@ classdef NMFCovariates < handle
             else
                 t = fdg__(fdg__.CDGLOBAL > 0.5 & fdg__.AmyloidStatusLong == 1, :);
                 t = this.table_firstscan(t);
-            end            
+            end
+
+            t1 = this.table_cdr_0_aneg(cs, T_name, bl_1st);
+            for dup = asrow(string(intersect(t.Subject, t1.Subject)))
+                if ~isemptytext(dup)
+                    t(t.Subject==dup, :) = [];
+                end
+            end
+            t2 = this.table_cdr_0_apos(cs, T_name, bl_1st);
+            for dup = asrow(string(intersect(t.Subject, t2.Subject)))
+                if ~isemptytext(dup)
+                    t(t.Subject==dup, :) = [];
+                end
+            end
+            t3 = this.table_cdr_0p5_apos(cs, T_name, bl_1st);
+            for dup = asrow(string(intersect(t.Subject, t3.Subject)))
+                if ~isemptytext(dup)
+                    t(t.Subject==dup, :) = [];
+                end
+            end
         end
         function t = table_cdr_gt_0_aneg(this, cs, T_name, bl_1st)
             %% N -> 555 longitudinal, 327 cross-sectional.
 
             arguments
                 this mladni.NMFCovariates
-                cs logical = strcmp(this.study_design, "cross-sectional")
+                cs logical = true
                 T_name {mustBeTextScalar} = 'table_covariates'
                 bl_1st logical = false
             end
 
             fdg__ = this.(T_name);
             if ~cs
-                t = fdg__(fdg__.CDGLOBAL >= 0.5 & fdg__.AmyloidStatusLong == 0, :);
+                t = fdg__(fdg__.CDGLOBAL > 0 & fdg__.AmyloidStatusLong == 0, :);
                 return
             end
             if bl_1st
                 fdg__ = this.table_firstscan(fdg__);
-                t = fdg__(fdg__.CDGLOBAL >= 0.5 & fdg__.AmyloidStatusLong == 0, :);
+                t = fdg__(fdg__.CDGLOBAL > 0 & fdg__.AmyloidStatusLong == 0, :);
             else
-                t = fdg__(fdg__.CDGLOBAL >= 0.5 & fdg__.AmyloidStatusLong == 0, :);
+                t = fdg__(fdg__.CDGLOBAL > 0 & fdg__.AmyloidStatusLong == 0, :);
                 t = this.table_firstscan(t);
-            end            
+            end
+
+            t1 = this.table_cdr_0_aneg(cs, T_name, bl_1st);
+            for dup = asrow(string(intersect(t.Subject, t1.Subject)))
+                if ~isemptytext(dup)
+                    t(t.Subject==dup, :) = [];
+                end
+            end
+            t2 = this.table_cdr_0_apos(cs, T_name, bl_1st);
+            for dup = asrow(string(intersect(t.Subject, t2.Subject)))
+                if ~isemptytext(dup)
+                    t(t.Subject==dup, :) = [];
+                end
+            end
+            t3 = this.table_cdr_0p5_apos(cs, T_name, bl_1st);
+            for dup = asrow(string(intersect(t.Subject, t3.Subject)))
+                if ~isemptytext(dup)
+                    t(t.Subject==dup, :) = [];
+                end
+            end
+            t4 = this.table_cdr_gt_0p5_apos(cs, T_name, bl_1st);
+            for dup = asrow(string(intersect(t.Subject, t4.Subject)))
+                if ~isemptytext(dup)
+                    t(t.Subject==dup, :) = [];
+                end
+            end
         end 
         function t = table_firstscan(this, varargin)
             t = this.demogr_.table_firstscan(varargin{:});
+        end
+        
+        function t = writetables(this, opts)
+            arguments
+                this mladni.NMFCovariates
+                opts.first_scan logical = true
+            end            
+
+            t_1st = this.table_all(true);  % simple selection of 1st scan of FDG
+
+            t_cn = this.writetable(dx="cn");
+            t_preclinical = this.writetable(dx="preclinical");
+            t_mci = this.writetable(dx="mci");
+            t_ad = this.writetable(dx="ad");
+            t_other = this.writetable(dx="other");
+            t = [t_cn; t_preclinical; t_mci; t_ad; t_other];
+            assert(size(t_1st, 1) == ...
+                size(t_cn, 1) + size(t_preclinical, 1) + size(t_mci, 1) + size(t_ad, 1) + size(t_other, 1))
+
+            save(fullfile(this.componentDir, "NMFCovariates_table_covariates_1stscan_longitudinal.mat"), "t");
+            writetable(t, fullfile(this.componentDir, "NMFCovariates_table_covariates_1stscan_longitudinal.csv"), WriteVariableNames=true)
+        end
+        function t = writetable(this, opts)
+            arguments
+                this mladni.NMFCovariates
+                opts.dx {mustBeTextScalar} = "cn"
+                opts.first_scan logical = true
+            end
+
+            if contains(opts.dx, "cn", IgnoreCase=true) || contains(opts.dx, "cdr=0,amy-", IgnoreCase=true)
+                t = this.table_cn(opts.first_scan);
+            end
+            if contains(opts.dx, "preclinical", IgnoreCase=true) || contains(opts.dx, "cdr=0,amy+", IgnoreCase=true)
+                t = this.table_preclinical(opts.first_scan);
+            end
+            if contains(opts.dx, "mci", IgnoreCase=true) || contains(opts.dx, "cdr=0.5,amy+", IgnoreCase=true)
+                t = this.table_mci(opts.first_scan);
+            end
+            if contains(opts.dx, "ad", IgnoreCase=true) || contains(opts.dx, "cdr>0.5,amy+", IgnoreCase=true)
+                t = this.table_ad(opts.first_scan);
+            end
+            if contains(opts.dx, "other", IgnoreCase=true) || contains(opts.dx, "cdr>0,amy-", IgnoreCase=true)
+                t = this.table_other(opts.first_scan);
+            end
+
+            save(fullfile(this.componentDir, "NMFCovariates_table_"+opts.dx+"_1stscan_longitudinal.mat"), "t");
+            writetable(t, fullfile(this.componentDir, "NMFCovariates_table_"+opts.dx+"_1stscan_longitudinal.csv"), WriteVariableNames=true)
+
+            fprintf("Age range (years at enrollment)\n");
+            fprintf("Age (years at enrollment)\n");
+            fprintf("Female (%)\n");
+            fprintf("No. APOEe4 range (alleles)\n");
+            fprintf("No. APOEe4 (alleles)\n");
+            disp({min(t.Age), max(t.Age); mean(t.Age) std(t.Age); sum(strcmp(t.Sex,"F"))/size(t,1), nan; min(t.ApoE4), max(t.ApoE4); mean(t.ApoE4), std(t.ApoE4)})
         end
     end
 

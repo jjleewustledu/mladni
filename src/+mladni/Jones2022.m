@@ -102,7 +102,7 @@ classdef Jones2022 < handle
             g = this.study_design_;
         end
         function g = get.workdir(~)
-            g = fullfile(getenv('ADNI_HOME'), 'NMF_FDG');
+            g = fullfile(getenv('SINGULARITY_HOME'), 'MAYO');
         end
     end
 
@@ -112,9 +112,6 @@ classdef Jones2022 < handle
                 opts.study_design = 'longitudinal';
             end
             this.study_design_ = opts.study_design;
-            if ~isfile(this.relevant_file)
-                this.build_table_relevant();
-            end
         end
 
         function T = build_for_brainsmash(this)
@@ -136,31 +133,6 @@ classdef Jones2022 < handle
                 system(sprintf('3dmaskdump -mask mask.nii.gz -o %s.txt -noijk %s', AltFileprefix{idx}, Filename{idx}))
             end
             writetable(T, sprintf('%s_T.csv', stackstr()));
-        end
-        
-        function build_table_relevant(this)
-            %% builds "Jones2022_table_covariates_1stscan_<study_design>.mat" using all visible baseline_* folders
-
-            pwd0 = pushd(fileparts(this.relevant_file));
-            
-            ld = load(fullfile(this.componentsdir, ...
-                sprintf('NMFCovariates_table_covariates_1stscan_%s.mat', this.study_design)));
-            t = ld.t;
-
-            % buld Components variable from Components_i
-            vars = cellfun(@(x) sprintf('Components_%i', x), num2cell(1:this.N_PATTERNS), UniformOutput=false);
-            mat = nan(size(t, 1), this.N_PATTERNS);
-            for p = 1:this.N_PATTERNS
-                mat(:,p) = t{:, vars{p}};
-            end
-            assert(~any(isnan(mat), 'all'))
-            t = addvars(t, mat, NewVariableNames={'Components'});
-            t = t(t.Cohort ~= categorical("CDR>0,amy-"), :);
-
-            % save to filesystem
-            save(this.relevant_file, 't');
-
-            popd(pwd0);
         end
                 
         function T = table_built_stats(this, varargin)

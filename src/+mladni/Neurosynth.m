@@ -299,65 +299,6 @@ classdef Neurosynth < handle
             popd(pwd0);
         end        
         
-        function T = table_brainsmash_corr(this)
-            arguments
-                this mladni.Neurosynth
-            end
-
-            % FDR correct the corr from external tables
-            T_EB = this.j2022_.table;
-            T_27 = this.ns27_.table;
-            T_120 = this.ns120_.table;
-            T_EB.corr(T_EB.fdr > 0.05) = 0;
-            T_27.corr(T_27.fdr > 0.05) = 0;
-            T_120.corr(T_120.fdr > 0.05) = 0;
-
-            labels_patterns = "P" + (1:24);  % 1:24
-            labels_EB = "EB" + (1:10);  % 25:34
-            labels_27 = string(asrow(this.ns27_.table.term));  % 35:61
-            labels_120 = asrow(this.ns120_.table.term);  % 62:181
-            labels = [labels_patterns, labels_EB, labels_27, labels_120];
-            N = numel(labels);
-            mapping = this.nmfh_.mapping_span_by_suvr;  % reorders patterns to be ranked by their total suvr
-
-            corr = zeros(N, N);
-            corr(25:34, 1:24) = T_EB.corr(:, mapping);
-            corr(35:61, 1:24) = T_27.corr(:, mapping);
-            corr(62:181, 1:24) = T_120.corr(:, mapping);
-
-            T = table(corr, RowNames=asrow(labels));
-            T = splitvars(T, 1, NewVariableNames=asrow(labels));
-
-            writetable(T, "Neurosynth_brainsmash_corr.csv", WriteRowNames=true, Delimiter=" ");
-        end
-        function [T, labels] = table_brainsmash_corr2(this)
-            arguments
-                this mladni.Neurosynth
-            end
-
-            % FDR correct the corr from external tables
-            T_27 = this.ns27_.table;
-            T_120 = this.ns120_.table;
-            T_27.corr(T_27.fdr > 0.05) = 0;
-            T_120.corr(T_120.fdr > 0.05) = 0;
-
-            labels_patterns = "P" + (1:24);  % 1:24
-            labels_27 = string(asrow(this.ns27_.table.term));  % 25:51
-            labels_120 = asrow(this.ns120_.table.term);  % 52:171
-            labels = [labels_patterns, labels_27, labels_120];
-            N = numel(labels);
-            mapping = this.nmfh_.mapping_span_by_suvr;  % reorders patterns to be ranked by their total suvr
-
-            corr = zeros(N, N);
-            corr(25:51, 1:24) = T_27.corr(:, mapping);
-            corr(52:171, 1:24) = T_120.corr(:, mapping);
-            corr = corr';
-
-            T = table(corr, RowNames=asrow(labels));
-            T = splitvars(T, 1, NewVariableNames=asrow(labels));
-
-            writetable(T, "Neurosynth_brainsmash_corr2.csv", WriteRowNames=true, Delimiter=" ");
-        end
         function T = table3(this)
 
             T = table(this.TERMS, this.ORDERING);
@@ -405,7 +346,7 @@ classdef Neurosynth < handle
             for idx = 1:this.N_PATTERNS
                 mat = [mat, this.sim_all_topics(sprintf('Basis_%i.nii', idx))]; %#ok<AGROW> 
             end
-            cd('/Volumes/PrecunealSSD/Singularity/ADNI/neurovault.org/gradient_1_cortical_')
+             
             this.mask = 'volume.cort.0.nii.gz';
             mat = [mat, this.sim_all_topics('volume.cort.0.nii.gz')];
 

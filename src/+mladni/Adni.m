@@ -62,39 +62,48 @@ classdef Adni < mladni.DataCuration & handle
         end
 
         function call(this)
+
+            %% spatial normalizations
+
             % mladni.AdniBidsT1w ~ generates T1w in bids
             % mladni.AdniBidsFdg ~ generates FDG in bids
             % mladni.FDG ~ computes brain mask (dlicv), warps T1w & FDG to MNI, computes PVE, applies brain mask
 
-            % generate table with filelist for NMF
+            %% generate table with filelist for NMF
+            
             % call(this.demogr);
 
-            % create summary images of other baseline cohorts
+            %% create summary images of other baseline cohorts
+            
             % call2(this.demogr)
             
-            % NMF on cluster
+            %% NMF on cluster
+            
             % $SINGULARITY_HOME/ADNI/VolBin/submit_20230526.sh
 
-            % create anticlust filelists with RStudio, then run on cluster
+            %% create anticlust filelists with RStudio, then run on cluster
+            
             % this.anticlust_cn_repeat();
             % $SINGULARITY_HOME/ADNI/VolBin/submit_anticlust_20230526.sh
 
-            % write cache "X.mat", then calculate reconstruction errors
+            %% write cache "X.mat", calculate reconstruction errors, calculate component-weighted averages
+            
             % call(this.nmf)
-
-            % calculate component-weighted averages
             % call2(this.nmf)
-
-            % build argmax maps
-            % for b = 2:2:24
-            %     nmfc = mladni.NMFCovariates(selectedNumBases=b);
-            %     nmfc.table_covariates_1stscan();
-            % end
-            % this.nmfh.build_argmax_maps;
 
             % check completeness
             % fdg5 = this.demogr.table_fdg5;
             % assert(sum(cellfun(@isempty, fdg5.Filelist)) == 0, stackstr())
+
+            %% build tables for diagnostic groups
+
+            this.nmfc.writetables();
+
+            %% build argmax maps
+
+            % this.nmfh.build_argmax_maps();
+            % this.nmfh.build_table_for_ggalluvial2();
+            % run alluvial_across_ranks_tom2.Rmd
 
             % create images of means, var, std, median, iqr of baseline_cn, longitudinal_*
             subgroups = [ ...
@@ -123,6 +132,9 @@ classdef Adni < mladni.DataCuration & handle
             % this.nmf.build_surfaces()
 
             % GAM(M4) regressions with RStudio
+
+
+
 
         end
 

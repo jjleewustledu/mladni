@@ -28,7 +28,7 @@ classdef NMFRadar < handle
         mergeDx = { ...
             'CDR=0,amy-' 'CDR=0,amy+' 'CDR=0.5,amy+' 'CDR>0.5,amy+'}
         
-        matfile0 = 'NMFCovariates_table_covariates_1stscan_longitudinal.mat'
+        matfile0 = 'NMFCovariates_table_cn_1stscan_longitudinal.mat'
         matfile_cohort = 'CohortCoefficients_20230928.mat' 
         % Output from R: Singularity/ADNI/NMF_FDG/patterns_of_neurodegeneration_20230921.Rmd
         % b2 <- gam(list(
@@ -335,21 +335,21 @@ classdef NMFRadar < handle
                 AxesMin=dipmin(mu-sigma), AxesMax=dipmax(mu+sigma), ...
                 legend=this.mergeDx(1), ...
                 ti='Pattern-weighted FDG (SUVR)');
-            saveFigures(this.figdir, closeFigure=true, prefix='patt_weighted_fdg_mu_sigma');
+            %saveFigures(this.figdir, closeFigure=true, prefix='patt_weighted_fdg_mu_sigma');
 
             figure
             plot(this, snr, ...
                 AxesMin = dipmin(snr), AxesMax = dipmax(snr), ...
                 legend=this.mergeDx(1), ...
                 ti='\mu/\sigma Pattern-Weighted FDG (SUVR)')
-            saveFigures(this.figdir, closeFigure=true, prefix='patt_weighted_fdg_snr');
+            %saveFigures(this.figdir, closeFigure=true, prefix='patt_weighted_fdg_snr');
 
             figure
             plot(this, cov, ...    
                 AxesMin = dipmin(cov), AxesMax = dipmax(cov), ...
                 legend=this.mergeDx(1), ...
                 ti='\sigma/\mu Pattern-Weighted FDG (SUVR)')
-            saveFigures(this.figdir, closeFigure=true, prefix='patt_weighted_fdg_cov');
+            %saveFigures(this.figdir, closeFigure=true, prefix='patt_weighted_fdg_cov');
         end
         
         function s = plot(this, P, opts)
@@ -716,58 +716,8 @@ classdef NMFRadar < handle
         end
         function T = table_patt_weighted_fdg(this)
 
-            % a.nmfr.table_patt_weighted_fdg
-            %
-            % ans =
-            %
-            %   24×3 table
-            %
-            %     indices_bases      mu        sigma
-            %     _____________    _______    ________
-            %
-            %          22           1.3149     0.12809
-            %          10           1.2628     0.13907
-            %          11           1.2406     0.15168
-            %          15           1.2227     0.13558
-            %           5            1.206     0.12444
-            %          17           1.2051     0.12955
-            %          13           1.1859     0.14648
-            %           9           1.1639     0.13782
-            %           3           1.1386     0.14355
-            %          24           1.1309     0.11426
-            %          16           1.1286     0.10461
-            %           2           1.1146     0.12517
-            %           4           1.0951     0.10383
-            %           8           1.0474    0.075412
-            %          14           1.0423     0.10174
-            %          20           1.0375    0.036501
-            %           7           1.0082    0.099031
-            %          12           1.0022     0.12901
-            %          18          0.99447     0.15053
-            %          23          0.96043    0.067123
-            %           1          0.95748    0.097545
-            %          19          0.91651    0.067689
-            %          21          0.77652     0.10514
-            %           6          0.72945    0.060317
-            
-            c = 1;
-            ld = load(fullfile(this.workdir, ...
-                sprintf('baseline_%s', this.groups0{c}), ...
-                sprintf('NumBases%i', this.N_bases_target), ...
-                'components', this.matfile0));
-
-            indices_bases = 1:this.N_bases_target; %#ok<PROP>
-            mu = nan(1, this.N_bases_target);
-            sigma = nan(1, this.N_bases_target);
-            for idx = 1:this.N_bases_target
-                comp = ld.t.(sprintf("Components_%i", idx));
-                mu(idx) = mean(comp, 1);
-                sigma(idx) = std(comp, 1);
-            end
-
-            T = table(indices_bases', mu', sigma', VariableNames={'indices_bases', 'mu', 'sigma'}); %#ok<PROP>
-            T = sortrows(T, 2, "descend");
-            this.sorted_bases_ = T.indices_bases;
+            nmfh = mladni.NMFHierarchies();
+            T = nmfh.table_patt_weighted_fdg();
         end
 
         function this = NMFRadar(varargin)
