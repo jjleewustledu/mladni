@@ -97,13 +97,13 @@ classdef Adni < mladni.DataCuration & handle
 
             %% build tables for diagnostic groups
 
-            this.nmfc.writetables();
+            % this.nmfc.writetables();
 
             %% build argmax maps
 
             % this.nmfh.build_argmax_maps();
             % this.nmfh.build_table_for_ggalluvial2();
-            % run alluvial_across_ranks_tom2.Rmd
+            % run alluvial_across_ranks_tom2.Rmd in RStudio
 
             % create images of means, var, std, median, iqr of baseline_cn, longitudinal_*
             subgroups = [ ...
@@ -121,12 +121,23 @@ classdef Adni < mladni.DataCuration & handle
 
             % this.plot_model_selections()
 
-            % radar plots
-            % plot_beta0_to_beta1(this.nmfr);
-            % call_patt_weighted_fdg(this.nmfr);
+            %% radar plots, unwrapped radar plots, preparations for chord plots
+
+            % call_intercept(this.nmfr);
             % call_groups(this.nmfr);
             % call_sex(this.nmfr);
             % call_apoe4(this.nmfr);
+            % plot_beta0_to_beta1(this.nmfr);
+
+            %% chord plots
+
+            % run chords_for_neurosynth.qmd
+
+            %% GPPMN
+
+            % run pycharm
+
+            %% more QC
 
             % create surfaces
             % this.nmf.build_surfaces()

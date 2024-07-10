@@ -10,26 +10,35 @@ classdef NMFRadar < handle
     %  Developed on Matlab 9.12.0.2170939 (R2022a) Update 6 for MACI64.  Copyright 2023 John J. Lee.
     
     properties (Constant)
+        AXES_COLOR = [0.9 0.9 0.9];
         N_PATTERNS = mladni.NMF.N_PATTERNS
-        GROUP_COLORS = [0.85,0.325,0.098;0,0,0;0.929,0.674,0.125;0.494,0.184,0.556]
-        GROUP_LINEWIDTHS = [2,0.5,2,2]
+        ERR_COLOR = [0.9 0.9 0.9]
+        ERR_ALPHA = 0.08
+        GROUP_COLORS = [
+            0.134633333333333 0.240916666666667 0.425183333333333;
+            0.338566666666667 0.361233333333333 0.4268;
+            0.4879 0.4841 0.47105;
+            0.654266666666667 0.616366666666667 0.4597;
+            0.833733333333333 0.7609 0.393416666666667]  % cividis(5)
+        GROUP_LINEWIDTHS = [1,1,1,1,1]
     end
 
     properties
         groups = { ...
-            'CDR=0,amy+' 'CDR=0.5,amy+' 'CDR>0.5,amy+'} 
+            '' 'CDR=0,amy+' 'CDR>0,amy-' 'CDR=0.5,amy+' 'CDR>0.5,amy+'} 
         groupLabels = {...
-            'CDR=0,amy+' 'CDR=0.5,amy+' 'CDR>0.5,amy+'}
+            '' 'CDR=0,amy+' 'CDR>0,amy-' 'CDR=0.5,amy+' 'CDR>0.5,amy+'}
         groups0 = { ...
-            'cn', 'preclinical', ...
+            'cn', ...
+            'cdr_gt_0_aneg', ...
+            'preclinical', ...
             'cdr_0p5_apos', ...
-            'cdr_gt_0p5_apos', ...
-            'cdr_gt_0_aneg'}
+            'cdr_gt_0p5_apos'}
         mergeDx = { ...
-            'CDR=0,amy-' 'CDR=0,amy+' 'CDR=0.5,amy+' 'CDR>0.5,amy+'}
+            'CDR=0,amy-' 'CDR>0,amy-' 'CDR=0,amy+' 'CDR=0.5,amy+' 'CDR>0.5,amy+'}
         
         matfile0 = 'NMFCovariates_table_cn_1stscan_longitudinal.mat'
-        matfile_cohort = 'CohortCoefficients_20230928.mat' 
+        matfile_cohort = 'patterns_of_neurodegeneration_20240630_for_import.mat' 
         % Output from R: Singularity/ADNI/NMF_FDG/patterns_of_neurodegeneration_20230921.Rmd
         % b2 <- gam(list(
         % y0~s(age,k=20,by=interaction(sex))+sex+apoe4+cohort, y1~s(age,k=20,by=interaction(sex))+sex+apoe4+cohort, y2~s(age,k=20,by=interaction(sex))+sex+apoe4+cohort, ...
@@ -45,7 +54,6 @@ classdef NMFRadar < handle
         AxesLabels
         AxesLabelsNull
         figdir
-        label_permute
         N_bases_target
         N_groups
         sorted_bases % indexing from VolBin -> indexing sorted by pattern-weighted FDG SUvR; 
@@ -57,12 +65,12 @@ classdef NMFRadar < handle
             g = {'', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''};
         end
         function g = get.AxesLabels(this)
-            g = {'P1', 'P2', 'P3', 'P4', ...
-                 'P5', 'P6', 'P7', 'P8', ...
-                 'P9', 'P10', 'P11', 'P12', ...
-                 'P13', 'P14', 'P15', 'P16', ...
-                 'P17', 'P18', 'P19', 'P20', ...
-                 'P21', 'P22', 'P23', 'P24'};
+            g = {'p_1', 'p_2', 'p_3', 'p_4', ...
+                 'p_5', 'p_6', 'p_7', 'p_8', ...
+                 'p_9', 'p_{10}', 'p_{11}', 'p_{12}', ...
+                 'p_{13}', 'p_{14}', 'p_{15}', 'p_{16}', ...
+                 'p_{17}', 'p_{18}', 'p_{19}', 'p_{20}', ...
+                 'p_{21}', 'p_{22}', 'p_{23}', 'p_{24}'};
             g = g(this.sorted_bases);
         end
         function g = get.sorted_bases(this)
@@ -75,19 +83,7 @@ classdef NMFRadar < handle
         end
         function g = get.figdir(this)
             g = fullfile(this.workdir, 'baseline_cn', 'results');
-        end
-        function g = get.label_permute(this)
-            switch this.N_PATTERNS
-                case 16
-                    g = [1 2 13 16 3 4 5 6 7 8 9 10 11 12 14 15]; % ParamCoeff indices are 0, 1, 10, 11, 12, ...                    
-                case 22
-                    g = [1 2 13 16 17 18 19 20 21 22 3 4 5 6 7 8 9 10 11 12 14 15]; % ParamCoeff indices are 0, 1, 10, 11, 12, ...
-                case 24
-                    g = [1 2 13 16 17 18 19 20 21 22 23 24 3 4 5 6 7 8 9 10 11 12 14 15]; % ParamCoeff indices are 0, 1, 10, 11, 12, ...
-                otherwise
-                    error("mladni:ValueError", "%s: N_PATTERNS->%i", stackstr(), mladni.NMF.N_PATTERNS);
-            end
-        end
+        end        
         function g = get.N_bases_target(this)
             g = this.N_PATTERNS;
         end
@@ -101,11 +97,11 @@ classdef NMFRadar < handle
             arguments
                 this mladni.NMFRadar
                 opts.show logical = false
-                opts.pvalues logical = true
+                opts.pvalues logical = false
             end
 
             ld = load(fullfile(this.workdir, this.matfile_cohort));
-            PC = ld.CohortCoefficients20230928;
+            PC = ld.patternsofneurodegeneration20240630forimport;
             intercept = PC(contains(PC.ParamCoefficients, "Intercept"), :);
             if opts.show
                 disp(intercept)
@@ -116,10 +112,10 @@ classdef NMFRadar < handle
             SE = intercept.StdErr';
             amin = min(P-SE, [], 'all');
             amax = max(P+SE, [], 'all');
-            figure
+            h = figure;
             s1 = plot_with_stderr(this, P, SE, AxesMin=amin, AxesMax=amax, ...
                 legend={'CDR=0, amy-'}, ti='');
-            saveFigures(this.figdir, closeFigure=true, prefix='GAM beta_intercept');
+            saveFigure2(h, fullfile(this.figdir, 'GAM beta_intercept'));
     
             if opts.pvalues
                 % PValue
@@ -138,18 +134,18 @@ classdef NMFRadar < handle
                 axes_scaling = repmat({'log'}, [1 this.N_PATTERNS]);
                 s2 = plot(this, Padj, AxesMin=amin, AxesMax=amax, ...
                     legend={'CDR=0, amy-'}, ti='FDR p-value \beta_{Intercept}', AxesScaling=axes_scaling);
-                saveFigures(this.figdir, closeFigure=true, prefix='FDR p-value beta_intercept');
+                % saveFigures(this.figdir, closeFigure=false, prefix='FDR p-value beta_intercept');
             end
         end
         function [s1,s2] = call_apoe4(this, opts)
             arguments
                 this mladni.NMFRadar
                 opts.show logical = false
-                opts.pvalues logical = true
+                opts.pvalues logical = false
             end
 
             ld = load(fullfile(this.workdir, this.matfile_cohort));
-            PC = ld.CohortCoefficients20230928;
+            PC = ld.patternsofneurodegeneration20240630forimport;
             apoe4 = PC(contains(PC.ParamCoefficients, "apoe4"), :);
             if opts.show
                 disp(apoe4)
@@ -164,7 +160,7 @@ classdef NMFRadar < handle
             amax = max(P+SE, [], 'all');
             figure
             s1 = plot_with_stderr(this, P, SE, AxesMin=amin, AxesMax=amax, ...
-                legend={'CDR=0, amy-'}, ti='');
+                legend={'APOEe4'}, ti='');
             saveFigures(this.figdir, closeFigure=true, prefix='GAM beta_apoe4');
     
             if opts.pvalues
@@ -184,26 +180,20 @@ classdef NMFRadar < handle
                 axes_scaling = repmat({'log'}, [1 this.N_PATTERNS]);
                 s2 = plot(this, Padj, AxesMin=amin, AxesMax=amax, ...
                     legend={'CDR=0, amy-'}, ti='FDR p-value \beta_{ApoE4}', AxesScaling=axes_scaling);
-                saveFigures(this.figdir, closeFigure=true, prefix='FDR p-value beta_apoe4');
+                %saveFigures(this.figdir, closeFigure=true, prefix='FDR p-value beta_apoe4');
             end
         end
         function [s1,s2] = call_sex(this, opts)
             arguments
                 this mladni.NMFRadar
                 opts.show logical = false
-                opts.pvalues logical = true
+                opts.pvalues logical = false
             end
 
             ld = load(fullfile(this.workdir, this.matfile_cohort));
-            PC = ld.CohortCoefficients20230928;
+            PC = ld.patternsofneurodegeneration20240630forimport;
 
             male = PC(contains(PC.ParamCoefficients, "sexM"), :);
-            %male = sortrows(male, "ParamCoefficients");
-            %male = male(this.label_permute, :);
-
-            if opts.show
-                disp(male)
-            end
 
             % Estimate
             P = male.Estimate';
@@ -212,7 +202,7 @@ classdef NMFRadar < handle
             amax = max(P+SE, [], 'all');
             figure
             s1 = plot_with_stderr(this, P, SE, AxesMin=amin, AxesMax=amax, ...
-                legend={'CDR=0, amy-'}, ti='');
+                legend={'Sex'}, ti='');
             saveFigures(this.figdir, closeFigure=true, prefix='GAM beta_sex');
 
             if opts.pvalues
@@ -229,31 +219,30 @@ classdef NMFRadar < handle
                 axes_scaling = repmat({'log'}, [1 this.N_PATTERNS]);
                 s2 = plot(this, Padj, AxesMin=amin, AxesMax=amax, ...
                     legend={'CDR=0, amy-'}, ti='FDR p-value \beta_{sex}', AxesScaling=axes_scaling);
-                saveFigures(this.figdir, closeFigure=true, prefix='FDR p-value beta_sex');
+                %saveFigures(this.figdir, closeFigure=true, prefix='FDR p-value beta_sex');
             end
         end      
         function [s1,s2] = call_groups(this, opts)
             arguments
                 this mladni.NMFRadar
                 opts.show logical = false
-                opts.pvalues logical = true
+                opts.pvalues logical = false
             end
 
             ld = load(fullfile(this.workdir, this.matfile_cohort));
-            CC = ld.CohortCoefficients20230928;
+            CC = ld.patternsofneurodegeneration20240630forimport;
 
             assert(length(this.groups) == length(this.groupLabels))
-            P = zeros(this.N_groups+1, this.N_PATTERNS);
-            SE = zeros(this.N_groups+1, this.N_PATTERNS);
+            P = zeros(this.N_groups, this.N_PATTERNS);
+            SE = zeros(this.N_groups, this.N_PATTERNS);
             h = nan(this.N_groups, this.N_PATTERNS);
             crit_p = nan(this.N_groups, 1);
             adj_ci_cvrg = nan(this.N_groups, 1);
             Padj = nan(this.N_groups, this.N_PATTERNS);
-            for ig = 1:length(this.groups) % cn is reference cohort/category
+            selected = 2:length(this.groups);
+            for ig = selected % cn is reference cohort/category
                 try
-                    T = CC(contains(CC.ParamCoefficients, this.groups{ig}), :);
-                    %T = sortrows(T, "ParamCoefficients");
-                    %T = T(this.label_permute, :);        
+                    T = CC(contains(CC.ParamCoefficients, this.groups{ig}), :);       
                     if opts.show
                         disp(T)
                     end
@@ -277,19 +266,19 @@ classdef NMFRadar < handle
                 end
             end
         
-            figure
+            h = figure;
             amin = min(P-SE, [], "all");
             amax = max(P+SE, [], "all");
             fprintf("%s: P: amin->%g, amax->%g\n", stackstr(), amin, amax)
-            s1 = plot_groups_with_stderr(this, P([1,4,2,3],:), SE([1,4,2,3],:), ...
+            s1 = plot_groups_with_stderr(this, P(selected,:), SE(selected,:), ...
                 AxesMin=-0.3, AxesMax=0.05, ...
                 AxesInterval=7, ...
-                Color=this.GROUP_COLORS, ...
-                LineWidth=this.GROUP_LINEWIDTHS, ...
+                Color=this.GROUP_COLORS(selected, :), ...
+                LineWidth=this.GROUP_LINEWIDTHS(selected), ...
                 MinorGrid="off", MinorGridInterval=[], ...
-                legend=[this.groupLabels{1}, '\beta=0',this.groupLabels(2:3)], ...
+                legend=this.groupLabels(selected), ...
                 ti="");
-            saveFigures(this.figdir, closeFigure=true, prefix='GAM beta_groups');
+            saveFigure2(h, fullfile(this.figdir, 'GAM beta_groups'));
 
             if opts.pvalues
                 % PValue
@@ -298,7 +287,8 @@ classdef NMFRadar < handle
                     ascol(Padj(1,:)), ...
                     ascol(Padj(2,:)), ...
                     ascol(Padj(3,:)), ...
-                    VariableNames={'sorted_bases', 'pval_preclin', 'pval_mci', 'pval_ad'});
+                    ascol(Padj(4,:)), ...
+                    VariableNames={'sorted_bases', 'pval_preclin', 'pval_mci', 'pval_ad', 'pval_other'});
                 disp(U)
                 amin = min(Padj, [], "all");
                 amax = max(Padj, [], "all");
@@ -307,7 +297,7 @@ classdef NMFRadar < handle
                 axes_scaling = repmat({'log'}, [1, this.N_PATTERNS]);
                 s2 = plot_groups(this, Padj, ...
                     AxesMin=amin, AxesMax=amax, ...
-                    legend=this.groupLabels, ...
+                    legend=this.groupLabels(selected), ...
                     ti="FDR p-value \beta_groups", ...
                     AxesScaling=axes_scaling);
                 saveFigures(this.figdir, closeFigure=true, prefix='FDR p-value beta_groups');
@@ -334,21 +324,21 @@ classdef NMFRadar < handle
             plot_with_stderr(this, mu, sigma, ...
                 AxesMin=dipmin(mu-sigma), AxesMax=dipmax(mu+sigma), ...
                 legend=this.mergeDx(1), ...
-                ti='Pattern-weighted FDG (SUVR)');
+                ti='Pattern-weighted FDG)');
             %saveFigures(this.figdir, closeFigure=true, prefix='patt_weighted_fdg_mu_sigma');
 
             figure
             plot(this, snr, ...
                 AxesMin = dipmin(snr), AxesMax = dipmax(snr), ...
                 legend=this.mergeDx(1), ...
-                ti='\mu/\sigma Pattern-Weighted FDG (SUVR)')
+                ti='\mu/\sigma Patterns of Covariance of FDG')
             %saveFigures(this.figdir, closeFigure=true, prefix='patt_weighted_fdg_snr');
 
             figure
             plot(this, cov, ...    
                 AxesMin = dipmin(cov), AxesMax = dipmax(cov), ...
                 legend=this.mergeDx(1), ...
-                ti='\sigma/\mu Pattern-Weighted FDG (SUVR)')
+                ti='\sigma/\mu Pattern of Covariance of FDG')
             %saveFigures(this.figdir, closeFigure=true, prefix='patt_weighted_fdg_cov');
         end
         
@@ -365,6 +355,8 @@ classdef NMFRadar < handle
                 opts.AxesInterval double = []
                 opts.AxesScaling cell = {}
                 opts.AxesLabels = this.AxesLabels
+                opts.Color double = this.GROUP_COLORS(1,:)
+                opts.LineWidth double = 2
             end
             P = P(this.sorted_bases);
             Nbases = size(P,2);
@@ -389,12 +381,12 @@ classdef NMFRadar < handle
             end
             %s.FillOption = 'on';
             %s.FillTransparency = 0.1;
-            s.Color = [139, 0, 0; 240, 128, 128]/255;
-            s.LineWidth = 2;
+            s.Color = opts.Color;
+            s.LineWidth = opts.LineWidth;
             s.Marker = 'none';
             s.AxesFontSize = 11;
             s.LabelFontSize = 12;
-            s.AxesColor = [0.8, 0.8, 0.8];
+            s.AxesColor = this.AXES_COLOR;
             s.AxesLabelsEdge = 'none';
             s.AxesLabelsRotate = 'on';
             s.AxesRadial = 'off';
@@ -423,6 +415,8 @@ classdef NMFRadar < handle
                 opts.AxesInterval double = []
                 opts.AxesScaling cell = {}
                 opts.AxesLabels = this.AxesLabelsNull
+                opts.Color double = [this.GROUP_COLORS(1,:); this.GROUP_COLORS(1,:)]
+                opts.LineWidth double = 1
             end
             P = P(this.sorted_bases);
             SE = SE(this.sorted_bases);
@@ -453,18 +447,18 @@ classdef NMFRadar < handle
             s.AxesLabels = opts.AxesLabels;
             s.AxesShaded = 'on';
             s.AxesShadedLimits = axes_shaded_limits;
-            s.AxesShadedColor = 'b';
-            s.AxesShadedTransparency = 0.1;
+            s.AxesShadedColor = {this.GROUP_COLORS(1,:)};
+            s.AxesShadedTransparency = this.ERR_ALPHA;
             s.AxesPrecision = 2;
             s.AxesDisplay = 'one';
             %s.FillOption = 'on';
             %s.FillTransparency = 0.1;
-            %s.Color = [0, 0, 139; 128, 128, 240]/255;
-            s.LineWidth = 2;
+            s.Color = opts.Color;
+            s.LineWidth = opts.LineWidth;
             s.Marker = 'none';
             s.AxesFontSize = 11;
             s.LabelFontSize = 12;
-            s.AxesColor = [0.8, 0.8, 0.8];
+            s.AxesColor = this.AXES_COLOR;
             s.AxesLabelsEdge = 'none';
             s.AxesLabelsRotate = 'on';
             s.AxesRadial = 'off';
@@ -489,9 +483,9 @@ classdef NMFRadar < handle
                 opts.AxesMax double = []
                 opts.AxesInterval double = []
                 opts.AxesScaling cell = {}
-                opts.Color double = []
+                opts.Color double = this.GROUP_COLORS(1,:)
                 opts.LineStyle {mustBeText} = '-'
-                opts.LineWidth double = 2
+                opts.LineWidth double = 1
                 opts.AxesLabels = this.AxesLabels
                 opts.MinorGrid = "on"
                 opts.MinorGridInterval double = [];
@@ -508,12 +502,6 @@ classdef NMFRadar < handle
             s = spider_plot_class(P);
             
             % Spider plot properties
-            if ~isempty(opts.Color)
-                s.Color = opts.Color;
-            end
-            if ~isempty(opts.LineStyle)
-                s.LineStyle = opts.LineStyle;
-            end
             if ~isempty(opts.AxesMin) && ~isempty(opts.AxesMax)
                 s.AxesLimits = [opts.AxesMin*ones(1,Nbases); opts.AxesMax*ones(1,Nbases)];
             end
@@ -525,12 +513,13 @@ classdef NMFRadar < handle
             s.AxesDisplay = 'one';
             %s.FillOption = 'on';
             %s.FillTransparency = 0.1;
-            s.Color = [139, 0, 0; 240, 128, 128]/255;
-            s.LineWidth = 2;
+            s.Color = opts.Color;
+            s.LineStyle = opts.LineStyle;
+            s.LineWidth = opts.LineWidth;
             s.Marker = 'none';
             s.AxesFontSize = 11;
             s.LabelFontSize = 12;
-            s.AxesColor = [0.8, 0.8, 0.8];
+            s.AxesColor = this.AXES_COLOR;
             s.AxesLabelsEdge = 'none';
             s.AxesLabelsRotate = 'on';
             s.AxesRadial = 'off';
@@ -558,9 +547,9 @@ classdef NMFRadar < handle
                 opts.AxesMax double = []
                 opts.AxesInterval double = []
                 opts.AxesScaling cell = {}
-                opts.Color double = []
+                opts.Color double = [this.GROUP_COLORS(1,:); this.GROUP_COLORS(1,:)]
                 opts.LineStyle {mustBeText} = '-'
-                opts.LineWidth double = 2
+                opts.LineWidth double = 1
                 opts.AxesLabels = this.AxesLabelsNull
                 opts.MinorGrid = "on"
                 opts.MinorGridInterval double = [];
@@ -571,7 +560,10 @@ classdef NMFRadar < handle
             axes_shaded_limits = { ...
                 [P(1,:) - SE(1,:); P(1,:) + SE(1,:)], ...
                 [P(2,:) - SE(2,:); P(2,:) + SE(2,:)], ...
-                [P(3,:) - SE(3,:); P(3,:) + SE(3,:)]};
+                [P(3,:) - SE(3,:); P(3,:) + SE(3,:)], ...
+                [P(4,:) - SE(4,:); P(4,:) + SE(4,:)]};  % KLUDGE
+            axes_shaded_colors = { ...
+                opts.Color(1,:), opts.Color(2,:), opts.Color(3,:), opts.Color(4,:)};  % KLUDGE
             Nbases = size(P,2);
             
             % Delete variable in workspace if exists
@@ -587,12 +579,6 @@ classdef NMFRadar < handle
             end
             
             % Spider plot properties
-            if ~isempty(opts.Color)
-                s.Color = opts.Color;
-            end
-            if ~isempty(opts.LineStyle)
-                s.LineStyle = opts.LineStyle;
-            end
             if ~isempty(opts.AxesMin) && ~isempty(opts.AxesMax)
                 s.AxesLimits = [opts.AxesMin*ones(1,Nbases); opts.AxesMax*ones(1,Nbases)];
             end
@@ -606,18 +592,19 @@ classdef NMFRadar < handle
             s.AxesLabels = opts.AxesLabels;
             s.AxesShaded = 'on';
             s.AxesShadedLimits = axes_shaded_limits;
-            s.AxesShadedColor = 'b';
-            s.AxesShadedTransparency = 0.1;
+            s.AxesShadedColor = axes_shaded_colors;
+            s.AxesShadedTransparency = this.ERR_ALPHA;
             s.AxesPrecision = 2;
             s.AxesDisplay = 'one';
             %s.FillOption = 'on';
             %s.FillTransparency = 0.1;
-            %s.Color = [0, 0, 139; 128, 128, 240]/255;
+            s.Color = opts.Color;
+            s.LineStyle = opts.LineStyle;
             s.LineWidth = opts.LineWidth;
             s.Marker = 'none';
             s.AxesFontSize = 11;
             s.LabelFontSize = 12;
-            s.AxesColor = [0.8, 0.8, 0.8];
+            s.AxesColor = this.AXES_COLOR;
             s.AxesLabelsEdge = 'none';
             s.AxesLabelsRotate = 'on';
             s.AxesRadial = 'off';
@@ -630,86 +617,125 @@ classdef NMFRadar < handle
             s.LegendHandle.FontSize = 13;
             title(opts.ti, 'FontSize', 14);
         end
-        function h = plot_beta0_to_beta1(this)
+        function h = plot_beta0_to_beta1(this, opts)
+            arguments
+                this mladni.NMFRadar
+                opts.show_labels logical = true
+            end
+
+            %% unwraps the radar plots to show panels of maps of beta0 -> beta1_{Dx group}
             NP = this.N_PATTERNS;
             ld = load(this.matfile_cohort);
-            CC = ld.CohortCoefficients20230928;
+            CC = ld.patternsofneurodegeneration20240630forimport;
+            CC = natsortrows(CC);
             CC(contains(CC.ParamCoefficients, "apoe4"),:) = [];
             CC(contains(CC.ParamCoefficients, "sexM"),:) = [];
-            CC(contains(CC.ParamCoefficients, "cohortCDR>0,amy-"),:) = [];
+            % CC(contains(CC.ParamCoefficients, "cohortCDR>0,amy-"),:) = [];
             indices = nan(1, NP);
             %for idx = 1:NP
             %    indices(this.sorted_bases(idx)) = idx;
             %end
             indices(this.sorted_bases) = 1:NP;
             indices = num2cell(indices);
-            labels = cellfun(@(x) sprintf('P%i', x), indices, UniformOutput=false);
+            if opts.show_labels
+                labels = cellfun(@(x) sprintf('p%i', x), indices, UniformOutput=false);
+                filesuffix = '_labelled';
+            else
+                labels = cellfun(@(x) '', indices);
+                filesuffix = '';
+            end            
+            position = [1,1,1045,1692];
+            mc = this.GROUP_COLORS;
 
             figure        
-            plot(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), LineStyle="none", Marker="none", MarkerSize=24)            
-            labelpoints(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), labels, 'C')
+            plot(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), LineStyle="none", Marker=".", Color=mc(1,:), MarkerSize=32)            
+            labelpoints(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), labels, 'E')
             xlim([0.7 1.4])
-            ylim([-0.3 0.015])
+            ylim([-0.3 0.02])
             % xlabel("\beta_{CDR=0,amy-}", FontSize=14)
             % ylabel("\beta_{CDR=0,amy+}", FontSize=14)
             fontsize(gcf, scale=2)
             grid on
-            pbaspect([1 1.618 1])
-            set(gcf, position=[1,1,1045,1692])
-            saveFigure2(gcf, fullfile(this.figdir, "cdr0_amy+"))
+            pbaspect([1 3 1])
+            set(gcf, position=position)
+            saveFigure2(gcf, fullfile(this.figdir, "cdr=0_amy+" + filesuffix))
+
+            figure        
+            plot(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), LineStyle="none", Marker=".", Color=mc(2,:), MarkerSize=32)            
+            labelpoints(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), labels, 'E')
+            xlim([0.7 1.4])
+            ylim([-0.3 0.02])
+            % yticklabels([])
+            % xlabel("\beta_{CDR=0,amy-}", FontSize=14)
+            % ylabel("\beta_{CDR>0,amy-}", FontSize=14)
+            fontsize(gcf, scale=2)
+            grid on
+            pbaspect([1 3 1])
+            set(gcf, position=position)
+            saveFigure2(gcf, fullfile(this.figdir, "cdr_gt_0_amy-" + filesuffix))
 
             figure
-            plot(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), LineStyle="none", Marker="none", MarkerSize=24)
-            labelpoints(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), labels, 'C')
+            plot(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), LineStyle="none", Marker=".", Color=mc(3,:), MarkerSize=32)
+            labelpoints(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), labels, 'E')
             xlim([0.7 1.4])
-            ylim([-0.3 0.015])
+            ylim([-0.3 0.02])
+            % yticklabels([])
             % xlabel("\beta_{CDR=0,amy-}", FontSize=14)
             % ylabel("\beta_{CDR=0.5,amy+}", FontSize=14)
             fontsize(gcf, scale=2)
             grid on
-            pbaspect([1 1.618 1])
-            set(gcf, position=[1,1,1045,1692])
-            saveFigure2(gcf, fullfile(this.figdir, "cdr0p5_amy+"))
+            pbaspect([1 3 1])
+            set(gcf, position=position)
+            saveFigure2(gcf, fullfile(this.figdir, "cdr=0p5_amy+" + filesuffix))
 
             figure
-            plot(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), LineStyle="none", Marker="none", MarkerSize=24)
-            labelpoints(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), labels, 'C')
+            plot(CC.Estimate(1:NP), CC.Estimate(4*NP+1:5*NP), LineStyle="none", Marker=".", Color=mc(4,:), MarkerSize=32)
+            labelpoints(CC.Estimate(1:NP), CC.Estimate(4*NP+1:5*NP), labels, 'E')
             xlim([0.7 1.4])
-            ylim([-0.3 0.015])
+            ylim([-0.3 0.02])
+            % yticklabels([])
             % xlabel("\beta_{CDR=0,amy-}", FontSize=14)
             % ylabel("\beta_{CDR>0.5,amy+}", FontSize=14)
             fontsize(gcf, scale=2)
             grid on
-            pbaspect([1 1.618 1])
-            set(gcf, position=[1,1,1045,1692])
-            saveFigure2(gcf, fullfile(this.figdir, "cdrgt0p5_amy+"))
-        end
-        
-        function h = plot_beta0_for_groups(this)
-        end
-        function h = plot_beta1_for_groups(this)
+            pbaspect([1 3 1])
+            set(gcf, position=position)
+            saveFigure2(gcf, fullfile(this.figdir, "cdr_gt_0p5_amy+" + filesuffix))
         end
 
         function T = table_cohort_coefficients_sorted(this)
             %% sorts this.matfile_cohort and writes this.matfile_cohort_sorted, along with corresponding csv.
 
+            patterns_are_adjacent = false;
+
             ld = load(fullfile(this.workdir, this.matfile_cohort));
-            T0 = ld.CohortCoefficients20230928;
+            T0 = ld.patternsofneurodegeneration20240630forimport;
             T = T0;
 
-            N_bundle = size(T0, 1) / 24;
+            N_bundle = size(T0, 1) / 24;  % bundle of covariates:  Intercept, SexM, apoe4, chohortCDR*, ...
             assert(rem(size(T0, 1), 24) == 0)
-            for b = 1:N_bundle
-                rows = (b - 1)*24 + (1:24);
-                U0 = T0(rows, :);
-                U1 = U0(this.sorted_bases, :);
-                U1.ParamCoefficients = U0.ParamCoefficients;
-                T(rows,:) = U1;
+            if patterns_are_adjacent
+                for b = 1:N_bundle
+                    rows = (b - 1)*24 + (1:24);
+                    U0 = T0(rows, :);
+                    U1 = U0(this.sorted_bases, :);
+                    U1.ParamCoefficients = U0.ParamCoefficients;
+                    T(rows,:) = U1;
+                end
+            else
+                for b = 1:N_bundle
+                    rows = ascol(b + (0:23)*N_bundle);
+                    U0 = T0(rows, :);
+                    U1 = U0(this.sorted_bases, :);
+                    U1.ParamCoefficients = U0.ParamCoefficients;  % sort the Estimates, then replace the ParamCoeff labels
+                    T(rows,:) = U1;
+                end
             end
 
             % FDR by Benjamini-Hochberg
             [~,~,~,FdrPValue] = fdr_bh(T.PValue, 0.05, 'dep', 'yes');
             T = addvars(T, FdrPValue);
+            T = natsortrows(T);
             
             save(fullfile(this.workdir, this.matfile_cohort_sorted), "T");
             writetable(T, fullfile(this.workdir, myfileprefix(this.matfile_cohort_sorted) + ".csv"));
@@ -722,6 +748,10 @@ classdef NMFRadar < handle
 
         function this = NMFRadar(varargin)
             this.workdir = fullfile(getenv('ADNI_HOME'), 'NMF_FDG');
+            
+            if ~isfile(fullfile(this.workdir, this.matfile_cohort_sorted))
+                this.table_cohort_coefficients_sorted();
+            end
         end
     end
 
