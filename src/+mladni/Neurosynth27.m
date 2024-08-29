@@ -8,6 +8,7 @@ classdef Neurosynth27 < handle
     properties
         nbases
         neurosynthdir
+        brainsmash_outdir
         workdir
     end
 
@@ -18,7 +19,9 @@ classdef Neurosynth27 < handle
             end
             this.nbases = nbases;
             this.neurosynthdir = fullfile(getenv('ADNI_HOME'), 'neurosynth.org', 'v4-topics-50');
+            this.brainsmash_outdir = fullfile(getenv('ADNI_HOME'), 'brainsmash_output');
             this.workdir = fullfile(getenv('ADNI_HOME'), 'NMF_FDG');
+            this.nmfh_ = mladni.NMFHierarchies();
         end
 
         function h = heatmap(this, mat, clbls, rlbls, opts)
@@ -176,6 +179,7 @@ classdef Neurosynth27 < handle
     %% PRIVATE
 
     properties (Access = private)
+        nmfh_
         table_
         table_built_stats_
         table_termlist_

@@ -8,6 +8,7 @@ classdef Neurosynth120 < handle
     properties
         nbases
         neurosynthdir
+        brainsmash_outdir
         workdir
     end
 
@@ -21,9 +22,11 @@ classdef Neurosynth120 < handle
             end
             this.nbases = nbases;
             this.neurosynthdir = fullfile(getenv('ADNI_HOME'), 'neurosynth.org');
+            this.brainsmash_outdir = fullfile(getenv('ADNI_HOME'), 'brainsmash_output');
             this.workdir = fullfile(getenv('ADNI_HOME'), 'NMF_FDG');
+            this.nmfh_ = mladni.NMFHierarchies();
         end
-
+        
         function disp_even_labels(this)
             T = this.table();
             disp(T.term(mod(T.index1,2) == 0))
@@ -67,7 +70,7 @@ classdef Neurosynth120 < handle
                 CellLabelFormat=opts.CellLabelFormat, ...
                 Colormap=opts.Colormap, ColorScaling=opts.ColorScaling, ...
                 FontSize=opts.FontSize);
-            h.Title = "Pearson correlation of 104 Neurosynth terms and ADNI patterns";
+            h.Title = "Pearson correlation of 103 Neurosynth terms and ADNI patterns";
         end
         function patterns_for_term(this, term)
             T = this.table();
@@ -194,6 +197,7 @@ classdef Neurosynth120 < handle
     %% PRIVATE
 
     properties (Access = private)
+        nmfh_
         table_
         table_built_stats_
         table_termlist_

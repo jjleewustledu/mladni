@@ -211,7 +211,7 @@
         %% 
 
         function ic = build_basis_argmax(this)
-            %%
+            %% Exploratory func is now DEPRECATED
 
             pwd0 = pushd(this.niiImgDir);
 

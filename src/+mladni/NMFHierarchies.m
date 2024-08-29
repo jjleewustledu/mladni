@@ -10,7 +10,6 @@ classdef NMFHierarchies < handle
     properties (Constant)
         EPS = 1e-6
         N_PATTERNS = mladni.NMF.N_PATTERNS
-        selected_spans = [2, 6, 8, 10, 12, 14, 24]
     end
 
     properties    
@@ -18,6 +17,7 @@ classdef NMFHierarchies < handle
         home
         matfile0 = 'NMFCovariates_table_cn_1stscan_longitudinal.mat'
         Nforeground = 228483  % mask has 228483 foreground voxels in 2mm, 67019 voxels in 3mm
+        selected_spans = [2, 6, 8, 10, 12, 14, 24]
     end
 
     properties (Dependent)
@@ -142,8 +142,153 @@ classdef NMFHierarchies < handle
             ic = out;
         end
 
+        function build_maps_for_ggalluvial2(this)
+            %% builds pattern maps for each of the spanning spaces for a cohort, e.g., baseline_cn.
+
+            pwd0 = pushd(this.home);
+            for s = asrow(flip(this.selected_spans))
+                pwd1 = pushd(fullfile("NumBases"+s, "OPNMF", "niiImg")); 
+                this.build_map_for_ggalluvial2(s); 
+                popd(pwd1); 
+            end
+            popd(pwd0);
+        end
+
+        function build_map_for_ggalluvial2(this, span)
+            %% Identifies time index with rank of basis in the spanning model.
+
+            arguments
+                this mladni.NMFHierarchies
+                span {mustBeNumeric}
+            end
+            
+            ic = mlfourd.ImagingContext2('Basis_1.nii');
+            ic = ic.zeros;
+            ifc = ic.nifti;
+            for b = 1:span
+                ifc1 = mlfourd.ImagingFormatContext2(sprintf('Basis_%i.nii', b));
+                ifc.img(:,:,:,b) = ifc1.img;
+            end
+            
+            % identify patterns, arrange to be consistent with table for ggalluvial2
+            ifc_argmax = mlfourd.ImagingFormatContext2('Basis_argmax_brain_mask_reordered_patterns.nii.gz');
+            ps = unique(ifc_argmax.img);  % pattern ids from 24-model
+            ps = ps(ps ~= 0);
+            ps = sort(ps);  % ascending
+            b = 0;
+            for p = asrow(ps)
+                b = b + 1;
+                hard_cluster = ifc_argmax.img == p;  % max ~ 1
+                hard_cluster = reshape(hard_cluster, [1, numel(hard_cluster)]);
+
+                for b1 = 1:span
+                    soft_cluster = ifc.img(:,:,:,b1)/max(ifc.img(:,:,:,b1), [], "all");  % max ~ 1
+                    soft_cluster = reshape(soft_cluster, [1, numel(soft_cluster)]);
+                    similarities(b1) = this.cosine_similarity([hard_cluster; soft_cluster]); %#ok<AGROW>
+                end
+
+                [~,selected(b)] = max(similarities); %#ok<AGROW>
+            end
+
+            % rearrange ifc
+            ifc_final = copy(ifc);
+            for b = 1:span
+                ifc_final.img(:,:,:,b) = ifc.img(:,:,:,selected(b));
+            end
+            ifc_final.fileprefix = 'Basis_alluvial'; % composite nifti of bases
+            ifc_final.save();
+            
+            brain_mask = mlfourd.ImagingContext2(fullfile(this.standard_dir, 'MNI152_T1_2mm_brain_mask.nii.gz'));  % tight mask
+            ic_final = mlfourd.ImagingContext2(ifc_final);
+            ic_final = ic_final .* brain_mask.binarized();
+            ic_final.fileprefix = strcat(ifc_final.fileprefix, '_brain_mask');
+            ic_final.save();  
+        end
+
         function T = build_table_for_ggalluvial2(this)
             %% maintain voxel identities across pattern-models
+            %
+            % unique(t.N_Patterns_2)
+            %
+            % ans =
+            %
+            %     11
+            %     20
+            %
+            % unique(t.N_Patterns_6)
+            %
+            % ans =
+            %
+            %      3
+            %     11
+            %     13
+            %     15
+            %     16
+            %     20
+            %
+            % unique(t.N_Patterns_8)
+            %
+            % ans =
+            %
+            %      2
+            %      3
+            %     11
+            %     13
+            %     15
+            %     16
+            %     20
+            %     24
+            %
+            % unique(t.N_Patterns_10)
+            %
+            % ans =
+            %
+            %      4
+            %      5
+            %      6
+            %      8
+            %      9
+            %     11
+            %     13
+            %     16
+            %     20
+            %     24
+            %
+            % unique(t.N_Patterns_12)
+            %
+            % ans =
+            %
+            %      4
+            %      5
+            %      6
+            %      8
+            %      9
+            %     11
+            %     13
+            %     16
+            %     18
+            %     20
+            %     22
+            %     24
+            %
+            % unique(t.N_Patterns_14)
+            %
+            % ans =
+            %
+            %      2
+            %      3
+            %      4
+            %      5
+            %      6
+            %      8
+            %      9
+            %     11
+            %     13
+            %     14
+            %     16
+            %     17
+            %     20
+            %     24
 
             pwd0 = pushd(this.home);
 
@@ -184,6 +329,12 @@ classdef NMFHierarchies < handle
             writetable(T, stackstr()+".csv")
 
             popd(pwd0)
+        end
+
+        function heatmap_similarity_vs_yeo7(this)
+        end
+
+        function heatmap_similarity_vs_yeo17(this)
         end
 
         function sim = cosine_similarity(~, A)
@@ -244,70 +395,129 @@ classdef NMFHierarchies < handle
         end
 
         function T = table_patt_weighted_fdg(this, opts)
-            %% reorder bases so that for CN FDG scans, mean(suvr) is sorted high to low
+            %% reorder bases so that for CN FDG scans, mean(suvr) from component-weighted averaging of sampled scans
+            %  is sorted high to low
+            %
+            % current ans from N=269 :
+            %
+            % 24×4 table
+            %
+            %   indices_bases      mu        sigma      rank
+            %   _____________    _______    ________    ____
+            %
+            %        22           1.3443     0.12034      1
+            %        10           1.3293     0.11549      2
+            %        11           1.3031     0.12068      3
+            %        15           1.2762     0.10983      4
+            %        13           1.2599     0.10673      5
+            %         5           1.2535     0.10701      6
+            %        17           1.2461     0.10985      7
+            %         9            1.204     0.11401      8
+            %         3           1.1831     0.13087      9
+            %        16           1.1709    0.094711     10
+            %         2           1.1624     0.11145     11
+            %        24            1.158    0.097288     12
+            %         4           1.1314    0.091663     13
+            %        14           1.0844    0.089932     14
+            %         8           1.0661    0.071617     15
+            %         7           1.0578     0.07942     16
+            %        20           1.0444     0.03563     17
+            %        12           1.0323     0.12004     18
+            %        18           1.0292     0.13535     19
+            %         1          0.99408    0.093491     20
+            %        23          0.96954     0.06748     21
+            %        19          0.93851    0.065269     22
+            %        21           0.8152    0.091816     23
+            %         6          0.75447    0.048727     24
+            %
+            % 14×4 table
+            %
+            %   indices_bases      mu        sigma      rank
+            %   _____________    _______    ________    ____
+            %
+            %         6           1.3253     0.11228      1
+            %        10            1.299     0.10874      2
+            %         4           1.2347     0.10205      3
+            %         3           1.2016       0.124      4
+            %        13           1.1986     0.10821      5
+            %         2           1.1833    0.097242      6
+            %        14           1.1377    0.087597      7
+            %         9           1.0418     0.13386      8
+            %         7           1.0332     0.11369      9
+            %         8           1.0215    0.046537     10
+            %         1          0.99491    0.090665     11
+            %        11          0.94472     0.06226     12
+            %        12          0.87253    0.090973     13
+            %         5          0.84685    0.052167     14
+            %
+            % 12×4 table
+            %
+            %   indices_bases      mu        sigma      rank
+            %   _____________    _______    ________    ____
+            %
+            %         3           1.3236      0.1146      1
+            %        10           1.2893     0.10684      2
+            %        11           1.2552     0.10686      3
+            %        12           1.1783    0.096855      4
+            %         2           1.1772    0.092725      5
+            %         7           1.0815      0.1273      6
+            %         5           1.0373     0.11823      7
+            %         1           0.9917    0.089691      8
+            %         6          0.98867    0.041822      9
+            %         4          0.95064    0.068452     10
+            %         9          0.95016    0.062515     11
+            %         8          0.89613    0.086296     12
+            %
+            % 10×4 table
+            %
+            %   indices_bases      mu        sigma      rank
+            %   _____________    _______    ________    ____
+            %
+            %         7           1.2936     0.10614      1
+            %         9           1.2491     0.10442      2
+            %        10           1.2262     0.10252      3
+            %         2           1.1429    0.087769      4
+            %         5           1.0847     0.12769      5
+            %         3           1.0396     0.11667      6
+            %         1          0.99766     0.08933      7
+            %         4          0.97337    0.041006      8
+            %         8          0.95278    0.062537      9
+            %         6          0.90491    0.084665     10
+            %
+            % 8×4 table
+            %
+            %   indices_bases      mu        sigma      rank
+            %   _____________    _______    ________    ____
+            %
+            %         5           1.2685     0.10098     1
+            %         6           1.2294     0.10164     2
+            %         4           1.2014     0.11161     3
+            %         2           1.0329      0.1192     4
+            %         1           1.0299    0.088758     5
+            %         3          0.97798    0.042721     6
+            %         7          0.96639    0.063746     7
+            %         8          0.89032    0.083103     8
+            %
+            % 6×4 table
+            %
+            %   indices_bases      mu        sigma      rank
+            %   _____________    _______    ________    ____
+            %
+            %         4           1.2573    0.098568     1
+            %         6           1.2052      0.1091     2
+            %         2           1.0591     0.11281     3
+            %         5           1.0075    0.067739     4
+            %         1          0.99994    0.084931     5
+            %         3          0.95985    0.041322     6
+            %
+            % 2×4 table
+            %
+            %   indices_bases      mu       sigma      rank
+            %   _____________    ______    ________    ____
+            %
+            %         2          1.1019    0.093929     1
+            %         1          1.0348    0.069714     2
 
-            % previous ans =
-            %   24×3 table
-            %
-            %  rank  indices_bases    mu        sigma
-            %  ____  _____________  _______    ________
-            %
-            %  1        22           1.3149     0.12809
-            %  2        10           1.2628     0.13907
-            %  3        11           1.2406     0.15168
-            %  4        15           1.2227     0.13558
-            %  5         5            1.206     0.12444
-            %  6        17           1.2051     0.12955
-            %  7        13           1.1859     0.14648
-            %  8         9           1.1639     0.13782
-            %  9         3           1.1386     0.14355
-            %  10       24           1.1309     0.11426
-            %  11       16           1.1286     0.10461
-            %  12        2           1.1146     0.12517
-            %  13        4           1.0951     0.10383
-            %  14        8           1.0474    0.075412
-            %  15       14           1.0423     0.10174
-            %  16       20           1.0375    0.036501
-            %  17        7           1.0082    0.099031
-            %  18       12           1.0022     0.12901
-            %  19       18          0.99447     0.15053
-            %  20       23          0.96043    0.067123
-            %  21        1          0.95748    0.097545
-            %  22       19          0.91651    0.067689
-            %  23       21          0.77652     0.10514
-            %  24        6          0.72945    0.060317
-            %
-            % current ans from N=269 =
-            %   24×4 table
-            %
-            % indices_bases      mu        sigma      rank
-            % _____________    _______    ________    ____
-            %
-            %      22           1.3443     0.12034      1
-            %      10           1.3293     0.11549      2
-            %      11           1.3031     0.12068      3
-            %      15           1.2762     0.10983      4
-            %      13           1.2599     0.10673      5
-            %       5           1.2535     0.10701      6
-            %      17           1.2461     0.10985      7
-            %       9            1.204     0.11401      8
-            %       3           1.1831     0.13087      9
-            %      16           1.1709    0.094711     10
-            %       2           1.1624     0.11145     11
-            %      24            1.158    0.097288     12
-            %       4           1.1314    0.091663     13
-            %      14           1.0844    0.089932     14
-            %       8           1.0661    0.071617     15
-            %       7           1.0578     0.07942     16
-            %      20           1.0444     0.03563     17
-            %      12           1.0323     0.12004     18
-            %      18           1.0292     0.13535     19
-            %       1          0.99408    0.093491     20
-            %      23          0.96954     0.06748     21
-            %      19          0.93851    0.065269     22
-            %      21           0.8152    0.091816     23
-            %       6          0.75447    0.048727     24
-            
             arguments
                 this mladni.NMFHierarchies
                 opts.span = this.N_PATTERNS

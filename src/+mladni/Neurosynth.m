@@ -147,6 +147,9 @@ classdef Neurosynth < handle
             end
             mg = natsort(mg);
 
+            % how many of 120 expected neurosynth maps do we truly have?
+            fprintf("%s:  size(mg): %s\n", stackstr(), mat2str(size(char(mg))))
+
             % parse globbed files, lines from files, then assemble the table
             r = [];
             p = [];
@@ -155,14 +158,19 @@ classdef Neurosynth < handle
             for globbed = asrow(mg)
                 lines = readlines(globbed(1));
                 for a_line = asrow(lines)
-                    if isemptytext(a_line(1)) || contains(a_line(1), "Pearson r: nan")
+                    if isemptytext(a_line(1))
+                        fprintf("%s:  a_line(1) was empty\n", stackstr());
+                        continue
+                    end
+                    if contains(a_line(1), "Pearson r: nan")
+                        fprintf("%s:  %s\n", stackstr(), a_line(1));  % psychosis
                         continue
                     end
                     try
                         re = regexp(a_line(1), "Pearson r: (?<r>(|-)\d.\d+(|e-\d+))\(p = (?<p>\d.\d+(|e-\d+))\) for (?<term>\S+) basis (?<basis>\d+)", "names");
                         r = [r; str2double(re.r)]; %#ok<*AGROW>
                         p = [p; str2double(re.p)];
-                        term = [term; string(re.term)];
+                        term = [term; string(re.term)];                        
                         basis = [basis; str2double(re.basis)];
                     catch 
                         fprintf("File %s failed parsing:  %s\n", globbed(1), a_line(1))
@@ -170,9 +178,23 @@ classdef Neurosynth < handle
                 end
             end
             term = term(term ~= "");
-            T = table(r, p, term, basis);
+            T = table(r, p, term, basis);            
+            mat = "neurodegeneration2_5k_"+opts.tag+".mat";
+            if ~isfile(mat)
+                save(mat, "T");  % legacy mat; N(bases) == 103
+            end
 
-            save("neurodegeneration2_5k_"+opts.tag+".mat", "T")
+            % add fdr, relabel bases
+            [~,~,~,fdrp] = fdr_bh(T.p, 0.05, 'dep', 'yes');
+            T = addvars(T, fdrp);     
+            span = this.nmfh_.N_PATTERNS;
+            for row = 1:size(T, 1)
+                T.basis(row) = this.nmfh_.pattern_num_from(span, T.basis(row));
+            end
+            T = sortrows(T, ["term", "basis"]);            
+            save(opts.tag + ".mat", "T");
+            writetable(T, opts.tag + ".csv");
+
             popd(pwd0)
         end
         function [rho,pval] = corr(this, ic, topic, opts)

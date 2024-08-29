@@ -209,6 +209,12 @@ classdef NMFCovariates < handle
             arguments
                 this mladni.NMFCovariates
                 opts.permissive_qc logical = false
+                opts.adjusted logical = false
+            end
+
+            if opts.adjusted
+                f = fullfile(this.componentDir, sprintf("NMFCovariates_table_covariates_%s_adjpatterns.mat", this.study_design));
+                return
             end
 
             if opts.permissive_qc
@@ -318,6 +324,7 @@ classdef NMFCovariates < handle
                 this mladni.NMFCovariates
                 opts.save_1comp logical = false
                 opts.permissive_qc logical = false
+                opts.adjusted logical = true
             end
 
             if ~isempty(this.table_covariates_cache_)
@@ -325,11 +332,11 @@ classdef NMFCovariates < handle
                 t = this.table_covariates_cache_;
                 return
             end
-            cache_file = this.covariates_file(permissive_qc=opts.permissive_qc);
+            cache_file = this.covariates_file(permissive_qc=opts.permissive_qc, adjusted=opts.adjusted);
             if isfile(cache_file)
                 fprintf("%s: using cached from filesystem\n", stackstr())
                 ld = load(cache_file);
-                this.table_covariates_cache_ = ld.t;
+                this.table_covariates_cache_ = ld.t1;
                 t = this.table_covariates_cache_;
                 return
             end
@@ -445,7 +452,7 @@ classdef NMFCovariates < handle
         function t = table_gppm_metarois(this)
             %% t ~ 1890x16 table
 
-            t_ = this.table_covariates(permissive_qc=false);
+            t_ = this.table_covariates(permissive_qc=false, adjusted=true);
 
             % build vars for gppm 
             RID = nan(size(t_, 1), 1);  % imputes missing MergeRid
@@ -461,12 +468,14 @@ classdef NMFCovariates < handle
                  "Metaroi", "Age", "MergeMmse", "NpBraak", "MergeCdrsb", ...
                  "META_TEMPORAL_SUVR", "BRAAK1_SUVR", "BRAAK34_SUVR", "BRAAK56_SUVR", ...
                  "MergeHippocampus", "Sex", ...
+                 "AmyloidStatusLong", ...
                  "SUMMARYSUVR_WHOLECEREBNORM", ...
                  "ApoE4", "CDGLOBAL"];
             new_vars = [ ...
                  "FDG_AD", "Age", "MMSE", "Braak_NFT", "MergeCdrsb", ...
                  "Tau_PET", "BRAAK1_SUVR", "BRAAK34_SUVR", "BRAAK56_SUVR", ...
                  "Hippo_Vol", "Sex", ...
+                 "Amyloid_status", ...
                  "Amyloid_PET", ...
                  "ApoE4", "CDR"];
 
@@ -474,7 +483,7 @@ classdef NMFCovariates < handle
             t = table(RID, Time);
             for vidx = 1:length(vars)
                 t = addvars(t, t_.(vars(vidx)), NewVariableNames=new_vars(vidx));
-            end
+            end 
             t.Sex = double(strcmp(t.Sex, 'F'));
 
             save(fullfile(this.componentDir, "NMFCovariates_table_gppm_metarois.mat"), "t")
@@ -483,8 +492,8 @@ classdef NMFCovariates < handle
         function t = table_gppm_patterns(this)
             %% t ~ 1890x28 table
 
-            t_ = this.table_covariates(permissive_qc=false);
-            t_ = mergevars(t_, "Components_" + (1:24));  % new varname is "Var141"
+            t_ = this.table_covariates(permissive_qc=false, adjusted=true);
+            t_ = mergevars(t_, "AdjPattern_" + (1:24), NewVariableName="AdjPattern");  % new varname is "Var141"
 
             % build vars for gppm 
             RID = nan(size(t_, 1), 1);  % imputes missing MergeRid
@@ -496,12 +505,12 @@ classdef NMFCovariates < handle
             end
 
             % build table t
-            t = table(RID, Time, t_.Var141, t_.CDGLOBAL, t_.MergeCdrsb, ...
-                VariableNames=["RID", "Time", "Pattern", "CDR", "MergeCdrsb"]);
+            t = table(RID, Time, t_.AdjPattern, t_.CDGLOBAL, t_.MergeCdrsb, ...
+                VariableNames=["RID", "Time", "AdjPattern", "CDR", "MergeCdrsb"]);
 
             % split the patterns
-            t = splitvars(t, "Pattern");
-            t.Properties.VariableNames = strrep(t.Properties.VariableNames, "Pattern_", "Pattern");
+            t = splitvars(t, "AdjPattern");
+            t.Properties.VariableNames = strrep(t.Properties.VariableNames, "AdjPattern_", "Pattern");
             
             save(fullfile(this.componentDir, "NMFCovariates_table_gppm_patterns.mat"), "t")
             writetable(t, fullfile(this.componentDir, "NMFCovariates_table_gppm_patterns.csv"))
@@ -515,15 +524,15 @@ classdef NMFCovariates < handle
             %  N(CDR == 2) ~ 18
             %  N(CDR == 3) ~ 3
 
-            ld2 = load('NMFCovariates_table_gppm_metarois.mat');
-            ld1 = load('NMFCovariates_table_gppm_patterns.mat');
-            t1 = addvars(ld1.t, ld2.t.Amyloid_PET, ld2.t.FDG_AD, Before="CDR", NewVariableNames=["AmyloidSuvr", "Metaroi"]);
+            ld2 = load(fullfile(this.componentDir, 'NMFCovariates_table_gppm_metarois.mat'));
+            ld1 = load(fullfile(this.componentDir, 'NMFCovariates_table_gppm_patterns.mat'));
+            t1 = addvars(ld1.t, ld2.t.Amyloid_status, ld2.t.Amyloid_PET, ld2.t.FDG_AD, Before="CDR", NewVariableNames=["AmyloidStatus", "AmyloidSuvr", "Metaroi"]);
             t1.Properties.VariableNames = strrep(t1.Properties.VariableNames, "Pattern_", "Pattern");
             save(fullfile(this.componentDir, "NMFCovariates_table_gppm_patterns_metaroi.mat"), "t1")
             writetable(t1, fullfile(this.componentDir, "NMFCovariates_table_gppm_patterns_metaroi.csv"))
         end
-        function t = table_gppm_patterns_1403(this)
-            %% t ~ 1403x28 table
+        function t = table_gppm_patterns_1403(this, opts)
+            %% t ~ 1403x28 table, including atypicals.  Best to remove atypicals.
             %
             % NMFCovariates_table_gppm_patterns_1403:  distribution of cdrsb:
             % cdrsb->10, n->21
@@ -540,11 +549,28 @@ classdef NMFCovariates < handle
             % cdrsb->0, n->110
             % for 872 subjects with RIDs.
 
+            arguments
+                this mladni.NMFCovariates
+                opts.remove_atypical logical = true
+            end
+
             ld = load(fullfile(this.componentDir, "NMFCovariates_table_gppm_patterns_metaroi.mat"));
             t1 = ld.t1;
+
+            % remove atypical dementias
+            if opts.remove_atypical
+                atypical = ~logical(t1.AmyloidStatus) & t1.MergeCdrsb > 0;
+                t1 = t1(~atypical, :);
+            end
+            
+            % clean variables
+            t1 = removevars(t1, "AmyloidStatus");
             t1 = removevars(t1, "CDR");
+            t1 = removevars(t1, "Metaroi");
             t1 = t1(~isnan(t1.MergeCdrsb), :);
-            t1.MergeCdrsb(t1.MergeCdrsb > 7) = 7;  % regroup cdrsb > 7
+
+            % regroup cdrsb > 7 for balanced disease phenotypes
+            t1.MergeCdrsb(t1.MergeCdrsb > 7) = 7;  
             t1.MergeCdrsb(t1.MergeCdrsb == 6.5) = 6;
             t1.MergeCdrsb(t1.MergeCdrsb == 5.5) = 5;
             t1.MergeCdrsb(t1.MergeCdrsb == 4.5) = 4;
@@ -552,27 +578,31 @@ classdef NMFCovariates < handle
             t1.MergeCdrsb(t1.MergeCdrsb == 2.5) = 2;
             t1.MergeCdrsb(t1.MergeCdrsb == 1.5) = 1;
             
-            % find repeaters
             unique_cdrsb = sort(unique(t1.MergeCdrsb), 'descend');
             unique_cdrsb = unique_cdrsb(1:(end-1));
-            repeaters = false(size(t1, 1), 1);
-            for cdrsb_ = asrow(unique_cdrsb)
-                for rid_ = asrow(t1.RID(t1.MergeCdrsb == cdrsb_))
-                    repeaters = repeaters | (t1.RID == rid_);
-                end
-            end
 
-            % apply pruning filter
-            t = t1(repeaters, :);  % N = 1403
-            t.Properties.VariableNames = strrep(t.Properties.VariableNames, "Pattern_", "Pattern");
+            %% find repeaters with cdrsb > 0            
+            % repeaters = false(size(t1, 1), 1);
+            % for cdrsb_ = asrow(unique_cdrsb)
+            %     for rid_ = asrow(t1.RID(t1.MergeCdrsb == cdrsb_))
+            %         repeaters = repeaters | (t1.RID == rid_);
+            %     end
+            % end
+            % t = t1(repeaters, :);  % apply pruning filter
+
+            t = t1;
+
+            t.Properties.VariableNames = strrep(t.Properties.VariableNames, "Pattern", "p");
+            t.Properties.VariableNames = strrep(t.Properties.VariableNames, "AmyloidSuvr", "amyloid");
             fprintf("%s:  distribution of cdrsb:\n", stackstr());
             for u_ = [asrow(unique_cdrsb), 0]
                 fprintf("cdrsb->%g, n->%g\n", u_, sum(t.MergeCdrsb == u_)); 
             end
             fprintf("for %g subjects with RIDs.\n", length(unique(t.RID))); 
 
-            save("NMFCovariates_table_gppm_patterns_1403.mat", "t")
-            writetable(t, "NMFCovariates_table_gppm_patterns_1403.csv")
+            Nrows = size(t, 1);
+            save(fullfile(this.componentDir, "NMFCovariates_table_gppm_patterns_"+Nrows+".mat"), "t")
+            writetable(t, fullfile(this.componentDir, "NMFCovariates_table_gppm_patterns_"+Nrows+".csv"));
         end
         function t = table_imagedataIDs(this)
             %% Finds imagedataIDs;

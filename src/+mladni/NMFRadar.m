@@ -25,17 +25,16 @@ classdef NMFRadar < handle
 
     properties
         groups = { ...
-            '' 'CDR=0,amy+' 'CDR>0,amy-' 'CDR=0.5,amy+' 'CDR>0.5,amy+'} 
+            '' 'CDR=0,amy+' 'CDR=0.5,amy+' 'CDR>0.5,amy+'} 
         groupLabels = {...
-            '' 'CDR=0,amy+' 'CDR>0,amy-' 'CDR=0.5,amy+' 'CDR>0.5,amy+'}
+            '' 'CDR=0,amy+' 'CDR=0.5,amy+' 'CDR>0.5,amy+'}
         groups0 = { ...
             'cn', ...
-            'cdr_gt_0_aneg', ...
             'preclinical', ...
             'cdr_0p5_apos', ...
             'cdr_gt_0p5_apos'}
         mergeDx = { ...
-            'CDR=0,amy-' 'CDR>0,amy-' 'CDR=0,amy+' 'CDR=0.5,amy+' 'CDR>0.5,amy+'}
+            'CDR=0,amy-' 'CDR=0,amy+' 'CDR=0.5,amy+' 'CDR>0.5,amy+'}
         
         matfile0 = 'NMFCovariates_table_cn_1stscan_longitudinal.mat'
         matfile_cohort = 'patterns_of_neurodegeneration_20240630_for_import.mat' 
@@ -46,7 +45,6 @@ classdef NMFRadar < handle
         % b2
         % summary(b2)  
         matfile_cohort_sorted = 'CohortCoefficientsSorted.mat'  % P1 has highest SUVR, P24 has lowest SUVR
-
         workdir
     end
 
@@ -113,9 +111,9 @@ classdef NMFRadar < handle
             amin = min(P-SE, [], 'all');
             amax = max(P+SE, [], 'all');
             h = figure;
-            s1 = plot_with_stderr(this, P, SE, AxesMin=amin, AxesMax=amax, ...
-                legend={'CDR=0, amy-'}, ti='');
-            saveFigure2(h, fullfile(this.figdir, 'GAM beta_intercept'));
+            c = this.suvr2viridis(0.76, suvr_max=1.35, suvr_min=0.76);
+            s1 = plot_with_stderr(this, P, SE, AxesMin=amin, AxesMax=amax, Color=c);
+            saveFigure2(h, fullfile(this.figdir, 'call_intercept_GAM_beta_intercept'));
     
             if opts.pvalues
                 % PValue
@@ -134,9 +132,10 @@ classdef NMFRadar < handle
                 axes_scaling = repmat({'log'}, [1 this.N_PATTERNS]);
                 s2 = plot(this, Padj, AxesMin=amin, AxesMax=amax, ...
                     legend={'CDR=0, amy-'}, ti='FDR p-value \beta_{Intercept}', AxesScaling=axes_scaling);
-                % saveFigures(this.figdir, closeFigure=false, prefix='FDR p-value beta_intercept');
+                % saveFigures(this.figdir, closeFigure=false, prefix='call_intercept_FDR_p-value_beta_intercept');
             end
         end
+
         function [s1,s2] = call_apoe4(this, opts)
             arguments
                 this mladni.NMFRadar
@@ -159,9 +158,8 @@ classdef NMFRadar < handle
             amin = min(P-SE, [], 'all');
             amax = max(P+SE, [], 'all');
             figure
-            s1 = plot_with_stderr(this, P, SE, AxesMin=amin, AxesMax=amax, ...
-                legend={'APOEe4'}, ti='');
-            saveFigures(this.figdir, closeFigure=true, prefix='GAM beta_apoe4');
+            s1 = plot_with_stderr(this, P, SE, AxesMin=amin, AxesMax=amax);
+            saveFigures(this.figdir, closeFigure=true, prefix='call_apoe4_GAM_beta_apoe4');
     
             if opts.pvalues
                 % PValue
@@ -180,9 +178,10 @@ classdef NMFRadar < handle
                 axes_scaling = repmat({'log'}, [1 this.N_PATTERNS]);
                 s2 = plot(this, Padj, AxesMin=amin, AxesMax=amax, ...
                     legend={'CDR=0, amy-'}, ti='FDR p-value \beta_{ApoE4}', AxesScaling=axes_scaling);
-                %saveFigures(this.figdir, closeFigure=true, prefix='FDR p-value beta_apoe4');
+                %saveFigures(this.figdir, closeFigure=true, prefix='call_apoe4_FDR_p-value_beta_apoe4');
             end
         end
+
         function [s1,s2] = call_sex(this, opts)
             arguments
                 this mladni.NMFRadar
@@ -201,9 +200,8 @@ classdef NMFRadar < handle
             amin = min(P-SE, [], 'all');
             amax = max(P+SE, [], 'all');
             figure
-            s1 = plot_with_stderr(this, P, SE, AxesMin=amin, AxesMax=amax, ...
-                legend={'Sex'}, ti='');
-            saveFigures(this.figdir, closeFigure=true, prefix='GAM beta_sex');
+            s1 = plot_with_stderr(this, P, SE, AxesMin=amin, AxesMax=amax);
+            saveFigures(this.figdir, closeFigure=true, prefix='call_sex_GAM_beta_sex');
 
             if opts.pvalues
                 % PValue
@@ -219,9 +217,10 @@ classdef NMFRadar < handle
                 axes_scaling = repmat({'log'}, [1 this.N_PATTERNS]);
                 s2 = plot(this, Padj, AxesMin=amin, AxesMax=amax, ...
                     legend={'CDR=0, amy-'}, ti='FDR p-value \beta_{sex}', AxesScaling=axes_scaling);
-                %saveFigures(this.figdir, closeFigure=true, prefix='FDR p-value beta_sex');
+                %saveFigures(this.figdir, closeFigure=true, prefix='call_sex_FDR_p-value_beta_sex');
             end
         end      
+
         function [s1,s2] = call_groups(this, opts)
             arguments
                 this mladni.NMFRadar
@@ -273,12 +272,11 @@ classdef NMFRadar < handle
             s1 = plot_groups_with_stderr(this, P(selected,:), SE(selected,:), ...
                 AxesMin=-0.3, AxesMax=0.05, ...
                 AxesInterval=7, ...
-                Color=this.GROUP_COLORS(selected, :), ...
                 LineWidth=this.GROUP_LINEWIDTHS(selected), ...
                 MinorGrid="off", MinorGridInterval=[], ...
                 legend=this.groupLabels(selected), ...
                 ti="");
-            saveFigure2(h, fullfile(this.figdir, 'GAM beta_groups'));
+            saveFigure2(h, fullfile(this.figdir, 'call_groups_GAM_beta_groups'));
 
             if opts.pvalues
                 % PValue
@@ -300,9 +298,10 @@ classdef NMFRadar < handle
                     legend=this.groupLabels(selected), ...
                     ti="FDR p-value \beta_groups", ...
                     AxesScaling=axes_scaling);
-                saveFigures(this.figdir, closeFigure=true, prefix='FDR p-value beta_groups');
+                saveFigures(this.figdir, closeFigure=true, prefix='call_groups_FDR_p-value_beta_groups');
             end
         end  
+
         function this = call_patt_weighted_fdg(this)
             c = 1;
             ld = load(fullfile(this.workdir, ...
@@ -348,15 +347,18 @@ classdef NMFRadar < handle
             arguments
                 this mladni.NMFRadar %#ok<INUSA> 
                 P double
-                opts.legend {mustBeText} = this.mergeDx(1)
-                opts.ti {mustBeTextScalar}
+                opts.legend {mustBeText} = {''}
+                opts.ti {mustBeTextScalar} = ''
                 opts.AxesMin double = []
                 opts.AxesMax double = []
                 opts.AxesInterval double = []
                 opts.AxesScaling cell = {}
                 opts.AxesLabels = this.AxesLabels
-                opts.Color double = this.GROUP_COLORS(1,:)
+                opts.Color double = []
                 opts.LineWidth double = 2
+            end
+            if isempty(opts.Color)
+                opts.Color = this.suvr2viridis(min(P, [], "all"));
             end
             P = P(this.sorted_bases);
             Nbases = size(P,2);
@@ -394,11 +396,16 @@ classdef NMFRadar < handle
                 s.AxesScaling = opts.AxesScaling;
             end
             
-            s.LegendLabels = opts.legend;
-            s.LegendHandle.Location = 'northeastoutside';
-            s.LegendHandle.FontSize = 13;
-            title(opts.ti, 'FontSize', 14);
+            if ~isemptytext(opts.legend)
+                s.LegendLabels = opts.legend;
+                s.LegendHandle.Location = 'northeastoutside';
+                s.LegendHandle.FontSize = 13;
+            end
+            if ~isemptytext(opts.ti)
+                title(opts.ti, 'FontSize', 14);
+            end
         end
+
         function s = plot_with_stderr(this, P, SE, opts)
             %% spider_plot_class_examples.m 
             %  Example 5 with Excel-like radar charts and
@@ -408,15 +415,18 @@ classdef NMFRadar < handle
                 this mladni.NMFRadar %#ok<INUSA> 
                 P double
                 SE double
-                opts.legend {mustBeText} = this.mergeDx(1)
-                opts.ti {mustBeTextScalar}
+                opts.legend {mustBeText} = {''}
+                opts.ti {mustBeTextScalar} = ''
                 opts.AxesMin double = []
                 opts.AxesMax double = []
                 opts.AxesInterval double = []
                 opts.AxesScaling cell = {}
                 opts.AxesLabels = this.AxesLabelsNull
-                opts.Color double = [this.GROUP_COLORS(1,:); this.GROUP_COLORS(1,:)]
+                opts.Color double = []
                 opts.LineWidth double = 1
+            end
+            if isempty(opts.Color)
+                opts.Color = this.suvr2viridis(min(P, [], "all"));
             end
             P = P(this.sorted_bases);
             SE = SE(this.sorted_bases);
@@ -447,7 +457,7 @@ classdef NMFRadar < handle
             s.AxesLabels = opts.AxesLabels;
             s.AxesShaded = 'on';
             s.AxesShadedLimits = axes_shaded_limits;
-            s.AxesShadedColor = {this.GROUP_COLORS(1,:)};
+            s.AxesShadedColor = {opts.Color};
             s.AxesShadedTransparency = this.ERR_ALPHA;
             s.AxesPrecision = 2;
             s.AxesDisplay = 'one';
@@ -466,29 +476,37 @@ classdef NMFRadar < handle
                 s.AxesScaling = opts.AxesScaling;
             end
             
-            s.LegendLabels = opts.legend;
-            s.LegendHandle.Location = 'northeastoutside';
-            s.LegendHandle.FontSize = 13;
-            title(opts.ti, 'FontSize', 14);
+            if ~isemptytext(opts.legend)
+                s.LegendLabels = opts.legend;
+                s.LegendHandle.Location = 'northeastoutside';
+                s.LegendHandle.FontSize = 13;
+            end
+            if ~isemptytext(opts.ti)
+                title(opts.ti, 'FontSize', 14);
+            end
         end
+
         function s = plot_groups(this, P, opts)
             %% spider_plot_class_examples.m Example 5: Excel-like radar charts.
 
             arguments
                 this mladni.NMFRadar %#ok<INUSA> 
                 P double
-                opts.legend {mustBeText} = this.mergeDx(2:end)
-                opts.ti {mustBeTextScalar}
+                opts.legend {mustBeText} = {''}
+                opts.ti {mustBeTextScalar} = ''
                 opts.AxesMin double = []
                 opts.AxesMax double = []
                 opts.AxesInterval double = []
                 opts.AxesScaling cell = {}
-                opts.Color double = this.GROUP_COLORS(1,:)
+                opts.Color double = []
                 opts.LineStyle {mustBeText} = '-'
                 opts.LineWidth double = 1
                 opts.AxesLabels = this.AxesLabels
                 opts.MinorGrid = "on"
                 opts.MinorGridInterval double = [];
+            end
+            if isempty(opts.Color)
+                opts.Color = this.suvr2viridis(min(P, [], "all"));
             end
             P = P(:, this.sorted_bases);
             Nbases = size(P,2);
@@ -527,10 +545,14 @@ classdef NMFRadar < handle
                 s.AxesScaling = opts.AxesScaling;
             end
             
-            s.LegendLabels = opts.legend;
-            s.LegendHandle.Location = 'northeastoutside';
-            s.LegendHandle.FontSize = 13;
-            title(opts.ti, 'FontSize', 14);
+            if ~isemptytext(opts.legend)
+                s.LegendLabels = opts.legend;
+                s.LegendHandle.Location = 'northeastoutside';
+                s.LegendHandle.FontSize = 13;
+            end
+            if ~isemptytext(opts.ti)
+                title(opts.ti, 'FontSize', 14);
+            end
         end
         function s = plot_groups_with_stderr(this, P, SE, opts)
             %% spider_plot_class_examples.m 
@@ -541,29 +563,30 @@ classdef NMFRadar < handle
                 this mladni.NMFRadar %#ok<INUSA> 
                 P double
                 SE double
-                opts.legend {mustBeText} = this.mergeDx(2:end)
-                opts.ti {mustBeTextScalar}
+                opts.legend {mustBeText} = {''}
+                opts.ti {mustBeTextScalar} = ''
                 opts.AxesMin double = []
                 opts.AxesMax double = []
                 opts.AxesInterval double = []
                 opts.AxesScaling cell = {}
-                opts.Color double = [this.GROUP_COLORS(1,:); this.GROUP_COLORS(1,:)]
+                opts.Color double = []
                 opts.LineStyle {mustBeText} = '-'
                 opts.LineWidth double = 1
                 opts.AxesLabels = this.AxesLabelsNull
                 opts.MinorGrid = "on"
                 opts.MinorGridInterval double = [];
             end
+            if isempty(opts.Color)
+                opts.Color = this.suvr2viridis(min(P, [], 2));
+            end
             P = P(:, this.sorted_bases);
             SE = SE(:, this.sorted_bases);
-
             axes_shaded_limits = { ...
                 [P(1,:) - SE(1,:); P(1,:) + SE(1,:)], ...
                 [P(2,:) - SE(2,:); P(2,:) + SE(2,:)], ...
-                [P(3,:) - SE(3,:); P(3,:) + SE(3,:)], ...
-                [P(4,:) - SE(4,:); P(4,:) + SE(4,:)]};  % KLUDGE
+                [P(3,:) - SE(3,:); P(3,:) + SE(3,:)]};  % KLUDGE
             axes_shaded_colors = { ...
-                opts.Color(1,:), opts.Color(2,:), opts.Color(3,:), opts.Color(4,:)};  % KLUDGE
+                opts.Color(1,:), opts.Color(2,:), opts.Color(3,:)};  % KLUDGE
             Nbases = size(P,2);
             
             % Delete variable in workspace if exists
@@ -612,16 +635,22 @@ classdef NMFRadar < handle
                 s.AxesScaling = opts.AxesScaling;
             end
             
-            s.LegendLabels = opts.legend;
-            s.LegendHandle.Location = 'northeastoutside';
-            s.LegendHandle.FontSize = 13;
-            title(opts.ti, 'FontSize', 14);
+            if ~isemptytext(opts.legend)
+                s.LegendLabels = opts.legend;
+                s.LegendHandle.Location = 'northeastoutside';
+                s.LegendHandle.FontSize = 13;
+            end
+            if ~isemptytext(opts.ti)
+                title(opts.ti, 'FontSize', 14);
+            end
         end
         function h = plot_beta0_to_beta1(this, opts)
             arguments
                 this mladni.NMFRadar
                 opts.show_labels logical = true
             end
+
+            pwd0 = pushd(this.workdir);
 
             %% unwraps the radar plots to show panels of maps of beta0 -> beta1_{Dx group}
             NP = this.N_PATTERNS;
@@ -645,62 +674,92 @@ classdef NMFRadar < handle
                 filesuffix = '';
             end            
             position = [1,1,1045,1692];
-            mc = this.GROUP_COLORS;
+            cmin = -0.254;
+            cmax = 0.0108;
+            marker_size = 100;
+            fscale = 3;
 
             figure        
-            plot(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), LineStyle="none", Marker=".", Color=mc(1,:), MarkerSize=32)            
-            labelpoints(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), labels, 'E')
+            scatter(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), marker_size, CC.Estimate(  NP+1:2*NP), "filled");
+            colormap(viridis);
+            clim([cmin, cmax]);
+            % labelpoints(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), labels, 'E')
             xlim([0.7 1.4])
             ylim([-0.3 0.02])
             % xlabel("\beta_{CDR=0,amy-}", FontSize=14)
             % ylabel("\beta_{CDR=0,amy+}", FontSize=14)
-            fontsize(gcf, scale=2)
+            fontsize(gcf, scale=fscale)
             grid on
             pbaspect([1 3 1])
             set(gcf, position=position)
-            saveFigure2(gcf, fullfile(this.figdir, "cdr=0_amy+" + filesuffix))
+            saveFigure2(gcf, fullfile(this.figdir, "plot_beta0_to_beta1_cdr=0_amy+" + filesuffix))
 
             figure        
-            plot(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), LineStyle="none", Marker=".", Color=mc(2,:), MarkerSize=32)            
-            labelpoints(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), labels, 'E')
+            scatter(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), marker_size, CC.Estimate(3*NP+1:4*NP), "filled")    
+            colormap(viridis);   
+            clim([cmin, cmax]);     
+            % labelpoints(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), labels, 'E')
             xlim([0.7 1.4])
             ylim([-0.3 0.02])
             % yticklabels([])
             % xlabel("\beta_{CDR=0,amy-}", FontSize=14)
             % ylabel("\beta_{CDR>0,amy-}", FontSize=14)
-            fontsize(gcf, scale=2)
+            fontsize(gcf, scale=fscale)
             grid on
             pbaspect([1 3 1])
             set(gcf, position=position)
-            saveFigure2(gcf, fullfile(this.figdir, "cdr_gt_0_amy-" + filesuffix))
+            saveFigure2(gcf, fullfile(this.figdir, "plot_beta0_to_beta1_cdr_gt_0_amy-" + filesuffix))
 
             figure
-            plot(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), LineStyle="none", Marker=".", Color=mc(3,:), MarkerSize=32)
-            labelpoints(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), labels, 'E')
+            scatter(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), marker_size, CC.Estimate(2*NP+1:3*NP), "filled")
+            colormap(viridis);
+            clim([cmin, cmax]);
+            % labelpoints(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), labels, 'E')
             xlim([0.7 1.4])
             ylim([-0.3 0.02])
             % yticklabels([])
             % xlabel("\beta_{CDR=0,amy-}", FontSize=14)
             % ylabel("\beta_{CDR=0.5,amy+}", FontSize=14)
-            fontsize(gcf, scale=2)
+            fontsize(gcf, scale=fscale)
             grid on
             pbaspect([1 3 1])
             set(gcf, position=position)
-            saveFigure2(gcf, fullfile(this.figdir, "cdr=0p5_amy+" + filesuffix))
+            saveFigure2(gcf, fullfile(this.figdir, "plot_beta0_to_beta1_cdr=0p5_amy+" + filesuffix))
 
             figure
-            plot(CC.Estimate(1:NP), CC.Estimate(4*NP+1:5*NP), LineStyle="none", Marker=".", Color=mc(4,:), MarkerSize=32)
-            labelpoints(CC.Estimate(1:NP), CC.Estimate(4*NP+1:5*NP), labels, 'E')
+            scatter(CC.Estimate(1:NP), CC.Estimate(4*NP+1:5*NP), marker_size, CC.Estimate(4*NP+1:5*NP), "filled")
+            colormap(viridis);
+            clim([cmin, cmax]);
+            % labelpoints(CC.Estimate(1:NP), CC.Estimate(4*NP+1:5*NP), labels, 'E')
             xlim([0.7 1.4])
             ylim([-0.3 0.02])
             % yticklabels([])
             % xlabel("\beta_{CDR=0,amy-}", FontSize=14)
             % ylabel("\beta_{CDR>0.5,amy+}", FontSize=14)
-            fontsize(gcf, scale=2)
+            fontsize(gcf, scale=fscale)
             grid on
             pbaspect([1 3 1])
             set(gcf, position=position)
-            saveFigure2(gcf, fullfile(this.figdir, "cdr_gt_0p5_amy+" + filesuffix))
+            saveFigure2(gcf, fullfile(this.figdir, "plot_beta0_to_beta1_cdr_gt_0p5_amy+" + filesuffix))
+
+            popd(pwd0);
+        end
+
+        function c = suvr2viridis(this, suvr, opts)
+            arguments
+                this mladni.NMFRadar
+                suvr double = 0
+                opts.suvr_max = 0.0108
+                opts.suvr_min = -0.254
+            end
+
+            v = viridis(1000);
+            suvr_range = opts.suvr_max - opts.suvr_min;
+            suvr_frac = (suvr - opts.suvr_min)/suvr_range;
+            idx = round((1 - suvr_frac) + 1000*suvr_frac);
+            idx(idx < 1) = 1;
+            idx(idx > 1000) = 1000;
+            c = v(idx, :);
         end
 
         function T = table_cohort_coefficients_sorted(this)

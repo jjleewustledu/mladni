@@ -131,11 +131,25 @@ classdef Adni < mladni.DataCuration & handle
 
             %% chord plots
 
+            % ns = mladni.Neurosynth();
+            % ns.build_stats_from_logs(tag="Neurosynth120");
+            % ns.build_stats_from_logs(tag="Neurosynth27");
+            
             % run chords_for_neurosynth.qmd
 
-            %% GPPMN
+            %% GPPM
 
-            % run pycharm
+            % covariates_mat = this.nmfc.covariates_file(adjusted=false)
+            % this.nmfh.addvars_patterns(covariates_file, rewrite=true)
+
+            % RStudio ADNI/NMF/patterns_for_gppm.Rmd; 
+            % builds components/NMFCovariates_table_covariates_longitudinal_adjpatterns.csv
+
+            % table_gppm_metarois(this.nmfc)
+            % table_gppm_patterns(this.nmfc)
+            % table_gppm_patterns_metaroi(this.nmfc)
+            % table_gppm_patterns_1403(this.nmfc)
+            % run pycharm packages
 
             %% more QC
 
