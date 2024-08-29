@@ -1,0 +1,468 @@
+---
+title: "Patterns of Neurodegeneration 20230317"
+author: "J. J. Lee"
+date: "2023 May 5"
+output:
+  html_document:
+    keep_md: yes
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code.
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*.
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+```{r setup-chunk, include=FALSE}
+knitr::opts_chunk$set(dev = c("png", "tiff"),
+                      dpi = 1200,
+                      echo = FALSE,
+                      cache = TRUE)
+```
+
+```{r}
+library(readr)
+library(tibble)
+library(dplyr) # provides filter
+library(mgcv)
+library(ggplot2)
+library(scales)
+library(viridis)
+library(reshape2)
+library(corrplot)
+library(voxel)
+library(ppcor)
+library(stats)
+library(pracma) # Matlab emulations
+```
+
+Load previously concentrated data, originating from ADNIMerge, my Matlab package mladni, and data located at login3.chpc.wustl.edu:/scratch/jjlee/Singularity/ADNI/NMF_FDG.
+
+```{r}
+setwd("/Volumes/PrecunealSSD/Singularity/ADNI/NMF_FDG")
+tib_cohorts <- read_csv("mladni_FDGDemographics_table_covariates_on_cn_relevant_cohorts.csv")
+tib_cohorts
+```
+
+```{r}
+getwd()
+```
+
+Following examples from <https://rdrr.io/cran/mgcv/man/mvn.html>.
+
+```{r}
+nrow_coh <- nrow(tib_cohorts)
+ncol_coh <- ncol(tib_cohorts)
+tib_cohorts$cohort <- recode_factor(tib_cohorts$cohort, 
+                                    baseline_cn="Normal", 
+                                    baseline_preclinical="Pre-clinical",
+                                    baseline_emci="Early MCI", 
+                                    baseline_lmci="Late MCI",
+                                    baseline_cdr_gt_0p5_apos="Dementia")
+tib_comps <- dplyr::select(tib_cohorts, Components_1:Components_16)
+Y <- as.matrix(tib_comps)
+age <- tib_cohorts$MergeAge
+sex <- tib_cohorts$Sex
+apoe4 <- tib_cohorts$MergeApoE4
+cohort <- tib_cohorts$cohort
+y0 <- Y[,1]
+y1 <- Y[,2]
+y2 <- Y[,3]
+y3 <- Y[,4]
+y4 <- Y[,5]
+y5 <- Y[,6]
+y6 <- Y[,7]
+y7 <- Y[,8]
+y8 <- Y[,9]
+y9 <- Y[,10]
+y10 <- Y[,11]
+y11 <- Y[,12]
+y12 <- Y[,13]
+y13 <- Y[,14]
+y14 <- Y[,15]
+y15 <- Y[,16]
+tib_gam <- tibble(y0, y1, y2, y3, y4, y5, y6, y7, y8, y9, y10, y11, y12, y13, y14, y15, age, sex, apoe4, cohort)
+tib_gam$sex <- relevel(factor(tib_gam$sex), ref="F")
+tib_gam$cohort <- relevel(factor(tib_gam$cohort), ref="Normal")
+tib_gam
+summary(tib_gam)
+```
+
+```{r dev=c("png", "tiff")}
+b <- gam(list(y0~s(age)+sex+apoe4+cohort, y1~s(age)+sex+apoe4+cohort, y2~s(age)+sex+apoe4+cohort, y3~s(age)+sex+apoe4+cohort, y4~s(age)+sex+apoe4+cohort, y5~s(age)+sex+apoe4+cohort, y6~s(age)+sex+apoe4+cohort, y7~s(age)+sex+apoe4+cohort, y8~s(age)+sex+apoe4+cohort, y9~s(age)+sex+apoe4+cohort, y10~s(age)+sex+apoe4+cohort, y11~s(age)+sex+apoe4+cohort, y12~s(age)+sex+apoe4+cohort, y13~s(age)+sex+apoe4+cohort, y14~s(age)+sex+apoe4+cohort, y15~s(age)+sex+apoe4+cohort), family=mvn(d=16), data=tib_gam)
+b
+summary(b)
+plot(b, page=1)
+covariance <- solve(crossprod(b$family$data$R))
+AIC(b, k=2)
+BIC(b)
+gam.check(b)
+```
+
+Analog of Fig. 2D, Nazeri et al. Neuron 2022. {Age -\> Component_i}\_i
+
+```{r dev=c("png", "tiff")}
+for (idx in 1:16) {
+
+  # gather variables
+  y_i <- Y[,idx]
+  tib_y_i <- tibble(y_i, age, sex, apoe4, cohort)
+  tib_y_i$sex <- relevel(factor(tib_y_i$sex), ref="F")
+  tib_y_i$cohort <- relevel(factor(tib_y_i$cohort), ref="Normal")
+  tib_y_i
+  summary(tib_y_i)
+  
+  # build gam, univariate
+  b_i <- gam(y_i~s(age)+sex+apoe4+cohort, data=tib_y_i)
+  #b_i
+  #summary(b_i)
+  #plot(b_i, page=1)
+  AIC(b_i, k=2)
+  BIC(b_i)
+  #gam.check(b_i)
+  
+  # ggplot2, no groupCovs
+  plotGAM(b_i, "age", 
+          groupCovs=NULL, orderedAsFactor=T, rawOrFitted="raw", plotCI=T) +
+    labs(title="", x="Age (y)", y=sprintf("Pattern %i\nweighted-average (SUVR)", idx)) +
+    theme(axis.title=element_text(size=18), 
+          axis.text.x=element_text(size=18), 
+          axis.text.y=element_text(size=18), 
+          legend.text=element_text(size=14),
+          legend.title=element_text(size=14))
+  ggsave(sprintf("Pattern %i vs Age (no groupCovs).png", idx), 
+         width=2.5, height=2, units="in", scale=3, dpi=800)
+}
+```
+```{r dev=c("png", "tiff")}
+for (idx in 1:16) {
+
+  # gather variables
+  y_i <- Y[,idx]
+  tib_y_i <- tibble(y_i, age, sex, apoe4, cohort)
+  tib_y_i$sex <- relevel(factor(tib_y_i$sex), ref="F")
+  tib_y_i$cohort <- relevel(factor(tib_y_i$cohort), ref="Normal")
+  tib_y_i
+  summary(tib_y_i)
+  
+  # build gam, univariate
+  b_i <- gam(y_i~s(age)+sex+apoe4+cohort, data=tib_y_i)
+  #b_i
+  #summary(b_i)
+  #plot(b_i, page=1)
+  AIC(b_i, k=2)
+  BIC(b_i)
+  #gam.check(b_i)
+  
+  # ggplot2, no groupCovs
+  plotGAM(b_i, "age", 
+          groupCovs="cohort", orderedAsFactor=T, rawOrFitted="raw", plotCI=T) +
+    labs(title="", x="", y="") +
+    theme(axis.title=element_text(size=18), 
+          axis.text.x=element_text(size=18), 
+          axis.text.y=element_text(size=18), 
+          legend.text=element_text(size=14),
+          legend.title=element_text(size=14)) +
+  scale_colour_manual(
+    name="",
+    values=c("#FDE725FF", "#5DC863FF", "#21908CFF", "#3B528BFF", "#440154FF"), 
+    breaks=c("Normal", "Pre-clinical", "Early MCI", "Late MCI", "Dementia"))
+  ggsave(sprintf("Pattern %i vs Age (groupCovs, no labs).png", idx), 
+         width=2.5, height=2, units="in", scale=3, dpi=800)
+}
+```
+
+```{r}
+```
+
+Analog of Fig. 1A, Nazeri et al. Neuron 2022. Age -\> Meta-ROI
+
+```{r dev=c("png", "tiff")}
+# gather variables
+metaroi <- tib_cohorts$Metaroi
+tib_metaroi <- tibble(metaroi, age, sex, apoe4, cohort)
+tib_metaroi$sex <- relevel(factor(tib_metaroi$sex), ref="F")
+tib_metaroi$cohort <- relevel(factor(tib_metaroi$cohort), ref="Normal")
+tib_metaroi
+summary(tib_metaroi)
+
+# build gam
+b_metaroi <- gam(metaroi~s(age)+sex+apoe4+cohort, data=tib_metaroi)
+b_metaroi
+summary(b_metaroi)
+plot(b_metaroi, page=1)
+AIC(b_metaroi, k=2)
+BIC(b_metaroi)
+gam.check(b_metaroi)
+
+# ggplot2, no groupCovs
+plotGAM(b_metaroi, "age", 
+        groupCovs=NULL, orderedAsFactor=T, rawOrFitted="raw", plotCI=T) +
+  labs(title="", x="Age (y)", y="Meta-ROI (SUVR)") +
+  theme(axis.title=element_text(size=18), 
+        axis.text.x=element_text(size=18), 
+        axis.text.y=element_text(size=18), 
+        legend.text=element_text(size=14),
+        legend.title=element_text(size=14)) 
+ggsave("Meta-ROI vs Age (no groupCovs).png", 
+       width=2.5, height=2, units="in", scale=3, dpi=800)
+
+```
+```{r dev=c("png", "tiff")}
+# ggplot2, groupCov
+plotGAM(b_metaroi, "age", 
+        groupCovs="cohort", orderedAsFactor=T, rawOrFitted="raw", plotCI=T) +
+  labs(title="", x="Age (y)", y="Meta-ROI (SUVR)") +
+  theme(axis.title=element_text(size=18), 
+        axis.text.x=element_text(size=18), 
+        axis.text.y=element_text(size=18), 
+        legend.text=element_text(size=14),
+        legend.title=element_text(size=14)) +
+  scale_colour_manual(
+    name="Cohort",
+    values=c("#FDE725FF", "#5DC863FF", "#21908CFF", "#3B528BFF", "#440154FF"), 
+    breaks=c("Normal", "Pre-clinical", "Early MCI", "Late MCI", "Dementia"))
+ggsave("Meta-ROI vs Age (groupCovs).png", 
+       width=2.5, height=2, units="in", scale=3, dpi=800)
+```
+
+Analog of Fig. 1A, Nazeri et al. Neuron 2022. Age -\> FDG/PonsVermis
+
+```{r dev=c("png", "tiff")}
+# gather variables
+fdg_pv <- tib_cohorts$MergeFdg / tib_cohorts$PonsVermis
+tib_fdg_pv <- tibble(fdg_pv, age, sex, apoe4, cohort)
+tib_fdg_pv$sex <- relevel(factor(tib_fdg_pv$sex), ref="F")
+tib_fdg_pv$cohort <- relevel(factor(tib_fdg_pv$cohort), ref="Normal")
+tib_fdg_pv
+summary(tib_fdg_pv)
+
+# build gam
+b_fdg_pv <- gam(fdg_pv~s(age)+sex+apoe4+cohort, data=tib_fdg_pv)
+b_fdg_pv
+summary(b_fdg_pv)
+plot(b_fdg_pv, page=1)
+AIC(b_fdg_pv, k=2)
+BIC(b_fdg_pv)
+gam.check(b_fdg_pv)
+
+# ggplot2, no groupCovs
+plotGAM(b_fdg_pv, "age", 
+        groupCovs=NULL, orderedAsFactor=T, rawOrFitted="raw", plotCI=T) +
+  labs(title="", x="Age (y)", y="FDG (SUVR)") +
+  theme(axis.title=element_text(size=18), 
+        axis.text.x=element_text(size=18), 
+        axis.text.y=element_text(size=18), 
+        legend.text=element_text(size=14),
+        legend.title=element_text(size=14))
+ggsave("FDG vs Age (no groupCovs).png", 
+       width=2.5, height=2, units="in", scale=3, dpi=800)
+```
+```{r dev=c("png", "tiff")}
+# ggplot2, groupCov
+plotGAM(b_fdg_pv, "age", 
+        groupCovs="cohort", orderedAsFactor=T, rawOrFitted="raw", plotCI=T) +
+  labs(title="", x="Age (y)", y="FDG (SUVR)") +
+  theme(axis.title=element_text(size=18), 
+        axis.text.x=element_text(size=18), 
+        axis.text.y=element_text(size=18), 
+        legend.text=element_text(size=14),
+        legend.title=element_text(size=14)) +
+  scale_colour_manual(
+    name="Cohort",
+    values=c("#FDE725FF", "#5DC863FF", "#21908CFF", "#3B528BFF", "#440154FF"), 
+    breaks=c("Normal", "Pre-clinical", "Early MCI", "Late MCI", "Dementia"))
+ggsave("FDG vs Age (groupCovs).png", 
+       width=2.5, height=2, units="in", scale=3, dpi=800)
+```
+
+Analog of Fig. 1B, Nazeri et al. Neuron 2022. Dx -\> FDG/PonsVermis.  See mladni.NMFRegressions2 for boxcharts.
+
+--
+
+Analog of Fig. 2F, Nazeri et al. Neuron 2022.
+
+--
+
+Bases and other signal variations with mean cortical Abeta, identifying good predictors. Cross-sectional must use SUMMARYSUVR_WHOLECEREBNORM.  Longitudinal must use SUMMARYSUVR_COMPOSITE_REFNORM.
+
+```{r dev=c("png", "tiff")}
+metaroi <- tib_cohorts$Metaroi
+amyloid <- tib_cohorts$SUMMARYSUVR_WHOLECEREBNORM
+tib_amy <- tibble(metaroi, amyloid, age, sex, apoe4, cohort)
+tib_amy$sex <- relevel(factor(tib_amy$sex), ref="F")
+tib_amy$cohort <- relevel(factor(tib_amy$cohort), ref="Normal")
+tib_amy
+summary(tib_amy)
+
+# build gam
+b_amy <- gam(metaroi~s(amyloid)+s(age)+sex+apoe4+cohort, data=tib_amy)
+b_amy
+summary(b_amy)
+plot(b_amy, page=1)
+AIC(b_amy, k=2)
+BIC(b_amy)
+gam.check(b_amy)
+
+# ggplot2, no groupCovs
+plotGAM(b_amy, "amyloid", 
+        groupCovs=NULL, orderedAsFactor=T, rawOrFitted="raw", plotCI=T) +
+  labs(title="", x="Amyloid (SUVR)", y="Meta-ROI (SUVR)") +
+  theme(axis.title=element_text(size=18), 
+        axis.text.x=element_text(size=18), 
+        axis.text.y=element_text(size=18), 
+        legend.text=element_text(size=14),
+        legend.title=element_text(size=14)) 
+ggsave("Meta-ROI vs Amyloid (no groupCovs).png", 
+       width=2.5, height=2, units="in", scale=3, dpi=800)
+```
+```{r dev=c("png", "tiff")}
+# ggplot2, groupCov
+plotGAM(b_amy, "amyloid", 
+        groupCovs="cohort", orderedAsFactor=T, rawOrFitted="raw", plotCI=T) +
+  labs(title="", x="Amyloid (SUVR)", y="Meta-ROI (SUVR)") +
+  theme(axis.title=element_text(size=18), 
+        axis.text.x=element_text(size=18), 
+        axis.text.y=element_text(size=18), 
+        legend.text=element_text(size=14),
+        legend.title=element_text(size=14)) +
+  scale_colour_manual(
+    name="Cohort",
+    values=c("#FDE725FF", "#5DC863FF", "#21908CFF", "#3B528BFF", "#440154FF"), 
+    breaks=c("Normal", "Pre-clinical", "Early MCI", "Late MCI", "Dementia"))
+ggsave("Meta-ROI vs Amyloid (groupCovs).png", 
+       width=2.5, height=2, units="in", scale=3, dpi=800)
+```
+
+```{r dev=c("png", "tiff")}
+for (idx in 1:16) {
+
+  # gather variables
+  y_i <- Y[,idx]
+  tib_y_i <- tibble(y_i, amyloid, age, sex, apoe4, cohort)
+  tib_y_i$sex <- relevel(factor(tib_y_i$sex), ref="F")
+  tib_y_i$cohort <- relevel(factor(tib_y_i$cohort), ref="Normal")
+  tib_y_i
+  summary(tib_y_i)
+  
+  # build gam, univariate
+  b_i <- gam(y_i~s(amyloid)+s(age)+sex+apoe4+cohort, data=tib_y_i)
+  #b_i
+  #summary(b_i)
+  #plot(b_i, page=1)
+  AIC(b_i, k=2)
+  BIC(b_i)
+  #gam.check(b_i)
+  
+  # ggplot2, no groupCovs
+  plotGAM(b_i, "amyloid", 
+          groupCovs="cohort", orderedAsFactor=T, rawOrFitted="raw", plotCI=T) +
+    labs(title="", x="", y="") +
+    theme(axis.title=element_text(size=18), 
+          axis.text.x=element_text(size=18), 
+          axis.text.y=element_text(size=18), 
+          legend.text=element_text(size=14),
+          legend.title=element_text(size=14)) +
+  scale_colour_manual(
+    name="",
+    values=c("#FDE725FF", "#5DC863FF", "#21908CFF", "#3B528BFF", "#440154FF"), 
+    breaks=c("Normal", "Pre-clinical", "Early MCI", "Late MCI", "Dementia"))
+  ggsave(sprintf("Pattern %i vs Amyloid (groupCovs, no labs).png", idx), 
+         width=2.5, height=2, units="in", scale=3, dpi=800)
+}
+```
+
+Bases and other signal variations with CDMEMORY, CDORIENT, CDJUDGE, CDCOMMUN, CDHOME, CDCARE, CDGLOBAL, MergeCdrsb, identifying good predictors. 
+
+```{r dev=c("png", "tiff")}
+metaroi <- tib_cohorts$Metaroi
+cdglobal <- tib_cohorts$CDGLOBAL
+tib_cdr <- tibble(metaroi, cdglobal, age, sex, apoe4, cohort)
+tib_cdr$sex <- relevel(factor(tib_cdr$sex), ref="F")
+tib_cdr$cohort <- relevel(factor(tib_cdr$cohort), ref="Normal")
+tib_cdr
+summary(tib_cdr)
+
+# build gam
+b_cdr <- gam(metaroi~s(cdglobal)+s(age)+sex+apoe4+cohort, data=tib_cdr)
+b_cdr
+summary(b_cdr)
+plot(b_cdr, page=1)
+AIC(b_cdr, k=2)
+BIC(b_cdr)
+gam.check(b_cdr)
+
+# ggplot2, no groupCovs
+plotGAM(b_cdr, "cdglobal", 
+        groupCovs=NULL, orderedAsFactor=T, rawOrFitted="raw", plotCI=T) +
+  labs(title="", x="CDR", y="Meta-ROI (SUVR)") +
+  theme(axis.title=element_text(size=18), 
+        axis.text.x=element_text(size=18), 
+        axis.text.y=element_text(size=18), 
+        legend.text=element_text(size=14),
+        legend.title=element_text(size=14)) 
+ggsave("Meta-ROI vs CDR (no groupCovs).png", 
+       width=2.5, height=2, units="in", scale=3, dpi=800)
+```
+```{r dev=c("png", "tiff")}
+# ggplot2, groupCov
+plotGAM(b_cdr, "cdglobal", 
+        groupCovs="cohort", orderedAsFactor=T, rawOrFitted="raw", plotCI=T) +
+  labs(title="", x="CDR", y="Meta-ROI (SUVR)") +
+  theme(axis.title=element_text(size=18), 
+        axis.text.x=element_text(size=18), 
+        axis.text.y=element_text(size=18), 
+        legend.text=element_text(size=14),
+        legend.title=element_text(size=14)) +
+  scale_colour_manual(
+    name="Cohort",
+    values=c("#FDE725FF", "#5DC863FF", "#21908CFF", "#3B528BFF", "#440154FF"), 
+    breaks=c("Normal", "Pre-clinical", "Early MCI", "Late MCI", "Dementia"))
+ggsave("Meta-ROI vs CDR (groupCovs).png", 
+       width=2.5, height=2, units="in", scale=3, dpi=800)
+```
+
+```{r dev=c("png", "tiff")}
+for (idx in 1:16) {
+
+  # gather variables
+  y_i <- Y[,idx]
+  tib_y_i <- tibble(y_i, cdglobal, age, sex, apoe4, cohort)
+  tib_y_i$sex <- relevel(factor(tib_y_i$sex), ref="F")
+  tib_y_i$cohort <- relevel(factor(tib_y_i$cohort), ref="Normal")
+  tib_y_i
+  summary(tib_y_i)
+  
+  # build gam, univariate
+  b_i <- gam(y_i~s(cdglobal)+s(age)+sex+apoe4+cohort, data=tib_y_i)
+  #b_i
+  #summary(b_i)
+  #plot(b_i, page=1)
+  AIC(b_i, k=2)
+  BIC(b_i)
+  #gam.check(b_i)
+  
+  # ggplot2, no groupCovs
+  plotGAM(b_i, "cdglobal", 
+          groupCovs="cohort", orderedAsFactor=T, rawOrFitted="raw", plotCI=T) +
+    labs(title="", x="", y="") +
+    theme(axis.title=element_text(size=18), 
+          axis.text.x=element_text(size=18), 
+          axis.text.y=element_text(size=18), 
+          legend.text=element_text(size=14),
+          legend.title=element_text(size=14)) +
+  scale_colour_manual(
+    name="",
+    values=c("#FDE725FF", "#5DC863FF", "#21908CFF", "#3B528BFF", "#440154FF"), 
+    breaks=c("Normal", "Pre-clinical", "Early MCI", "Late MCI", "Dementia"))
+  ggsave(sprintf("Pattern %i vs CDR (groupCovs).png", idx), 
+         width=2.5, height=2, units="in", scale=3, dpi=800)
+}
+```

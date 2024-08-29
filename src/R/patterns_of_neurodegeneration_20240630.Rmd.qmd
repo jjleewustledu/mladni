@@ -1,0 +1,553 @@
+---
+title: "Patterns of Neurodegeneration 20240630"
+author: "J. J. Lee"
+date: "2024 June 30"
+output:
+  html_document:
+    keep_md: yes
+    fig_path: "figure/"
+editor: 
+  markdown: 
+    wrap: 120
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results
+appear beneath the code.
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing
+*Cmd+Shift+Enter*.
+
+```{r start-up test}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview*
+button or press *Cmd+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does
+not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+```{r setup-chunk, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	cache = TRUE,
+	dev = c("png", "tiff"),
+	dpi = 1200
+)
+```
+
+```{r import libraries}
+library(readr)
+library(tibble)
+library(dplyr) # provides filter
+library(mgcv)
+library(ggplot2)
+library(scales)
+library(viridis)
+library(reshape2)
+library(corrplot)
+library(voxel)
+library(ppcor)
+library(stats)
+library(pracma) # Matlab emulations
+library(lubridate) # char -> date object
+# library(mgcViz)
+library(gamm4)
+library(tidygam)
+library(knitr)
+```
+
+# Read previously concentrated data, originating from ADNIMerge, my Matlab package mladni, and data located at login3.chpc.wustl.edu:/scratch/jjlee/Singularity/ADNI/NMF_FDG.
+
+```{r}
+setwd("/Volumes/PrecunealSSD/Singularity/ADNI/NMF_FDG")
+getwd()
+tib_cn <- read_csv("baseline_cn/NumBases24/components/NMFCovariates_table_cn_1stscan_longitudinal.csv")
+tib_preclinical <- read_csv("baseline_cn/NumBases24/components/NMFCovariates_table_preclinical_1stscan_longitudinal.csv")
+tib_mci <- read_csv("baseline_cn/NumBases24/components/NMFCovariates_table_mci_1stscan_longitudinal.csv")
+tib_ad <- read_csv("baseline_cn/NumBases24/components/NMFCovariates_table_ad_1stscan_longitudinal.csv")
+tib_other <- read_csv("baseline_cn/NumBases24/components/NMFCovariates_table_other_1stscan_longitudinal.csv")
+tib_covariates <- read_csv("baseline_cn/NumBases24/components/NMFCovariates_table_covariates_1stscan_longitudinal.csv")
+```
+
+Following examples from <https://rdrr.io/cran/mgcv/man/mvn.html> and <https://cnuge.github.io/post/multi_variable/>.
+AcqDuration \~ years.
+
+# Define split_components(), split_patterns()
+
+```{r split_components function}
+split_components <- function(tib_in) {
+  components <- dplyr::select(tib_in, Components_1:Components_24)
+  Y_ <- as.matrix(components)
+  y0 <- Y_[,1]
+  y1 <- Y_[,2]
+  y2 <- Y_[,3]
+  y3 <- Y_[,4]
+  y4 <- Y_[,5]
+  y5 <- Y_[,6]
+  y6 <- Y_[,7]
+  y7 <- Y_[,8]
+  y8 <- Y_[,9]
+  y9 <- Y_[,10]
+  y10 <- Y_[,11]
+  y11 <- Y_[,12]
+  y12 <- Y_[,13]
+  y13 <- Y_[,14]
+  y14 <- Y_[,15]
+  y15 <- Y_[,16]
+  y16 <- Y_[,17]
+  y17 <- Y_[,18]
+  y18 <- Y_[,19]
+  y19 <- Y_[,20]
+  y20 <- Y_[,21]
+  y21 <- Y_[,22]
+  y22 <- Y_[,23]
+  y23 <- Y_[,24]
+  age <- tib_in$Age
+  sex <- tib_in$Sex
+  apoe4 <- tib_in$ApoE4
+  cohort <- tib_in$Cohort
+  subject <- tib_in$Subject
+  acqduration <- tib_in$AcqDuration
+  tib_out_ <- tibble(y0, y1, y2, y3, y4, y5, y6, y7, y8, y9, y10, y11, y12, y13, y14, y15, y16, y17, y18, y19, y20, y21, y22, y23, age, sex, apoe4, cohort, subject, acqduration)
+  tib_out_$sex <- relevel(factor(tib_out_$sex), ref="F")
+  tib_out_$subject <- factor(tib_out_$subject)
+  return(list(tib_out=tib_out_, Y=Y_))
+}
+
+split_patterns <- function(tib_in) {
+  patterns <- dplyr::select(tib_in, Pattern_1:Pattern_24)
+  Y_ <- as.matrix(patterns)
+  y0 <- Y_[,1]
+  y1 <- Y_[,2]
+  y2 <- Y_[,3]
+  y3 <- Y_[,4]
+  y4 <- Y_[,5]
+  y5 <- Y_[,6]
+  y6 <- Y_[,7]
+  y7 <- Y_[,8]
+  y8 <- Y_[,9]
+  y9 <- Y_[,10]
+  y10 <- Y_[,11]
+  y11 <- Y_[,12]
+  y12 <- Y_[,13]
+  y13 <- Y_[,14]
+  y14 <- Y_[,15]
+  y15 <- Y_[,16]
+  y16 <- Y_[,17]
+  y17 <- Y_[,18]
+  y18 <- Y_[,19]
+  y19 <- Y_[,20]
+  y20 <- Y_[,21]
+  y21 <- Y_[,22]
+  y22 <- Y_[,23]
+  y23 <- Y_[,24]
+  age <- tib_in$Age
+  sex <- tib_in$Sex
+  apoe4 <- tib_in$ApoE4
+  cohort <- tib_in$Cohort
+  subject <- tib_in$Subject
+  acqduration <- tib_in$AcqDuration
+  tib_out_ <- tibble(y0, y1, y2, y3, y4, y5, y6, y7, y8, y9, y10, y11, y12, y13, y14, y15, y16, y17, y18, y19, y20, y21, y22, y23, age, sex, apoe4, cohort, subject, acqduration)
+  tib_out_$sex <- relevel(factor(tib_out_$sex), ref="F")
+  tib_out_$subject <- factor(tib_out_$subject)
+  return(list(tib_out=tib_out_, Y=Y_))
+}
+```
+
+Invoke split_components & split_patterns for subtable with Cohort=="CDR=0,amy-", etc., and AcqDuration==0 for
+cross-sectional analyses, following <https://stackoverflow.com/questions/29540658/r-how-to-make-a-subtable>.
+
+```{r invoke split_components, dev=c("png", "tiff")}
+split_out <- split_components(tib_covariates)
+split_out$tib_out$cohort <- relevel(factor(split_out$tib_out$cohort), ref="CDR=0,amy-")
+summary(split_out$tib_out) # for gam
+```
+
+# Form y\* and Y for cross-sectional or longitudinal analyses. soto is a sub-tibble generated by function split_patterns().
+
+```{r y-star and Y, dev=c("png", "tiff")}
+
+soto <- split_out$tib_out
+y0 <- soto$y0
+y1 <- soto$y1
+y2 <- soto$y2
+y3 <- soto$y3
+y4 <- soto$y4
+y5 <- soto$y5
+y6 <- soto$y6
+y7 <- soto$y7
+y8 <- soto$y8
+y9 <- soto$y9
+y10 <- soto$y10
+y11 <- soto$y11
+y12 <- soto$y12
+y13 <- soto$y13
+y14 <- soto$y14
+y15 <- soto$y15
+y16 <- soto$y16
+y17 <- soto$y17
+y18 <- soto$y18
+y19 <- soto$y19
+y20 <- soto$y20
+y21 <- soto$y21
+y22 <- soto$y22
+y23 <- soto$y23
+age <- soto$age
+sex <- soto$sex
+apoe4 <- soto$apoe4
+cohort <- soto$cohort
+subject <- soto$subject
+acqduration <- soto$acqduration
+Y <- split_out$Y
+```
+
+## Number of thin-plate spline knots needs a degree of freedom for model intercept, a constant basis always required.
+
+See also <https://stats.stackexchange.com/questions/359568/choosing-k-in-mgcvs-gam>.
+
+```{r number of spline knots, dev=c("png", "tiff")}
+K<-21
+```
+
+## Multivariate LMs, no interactions
+
+```{r}
+b0 <- gam(list(
+y0~age+sex+apoe4+cohort, y1~age+sex+apoe4+cohort, y2~age+sex+apoe4+cohort, 
+y3~age+sex+apoe4+cohort, y4~age+sex+apoe4+cohort, y5~age+sex+apoe4+cohort, 
+y6~age+sex+apoe4+cohort, y7~age+sex+apoe4+cohort, y8~age+sex+apoe4+cohort, 
+y9~age+sex+apoe4+cohort, y10~age+sex+apoe4+cohort, y11~age+sex+apoe4+cohort, 
+y12~age+sex+apoe4+cohort, y13~age+sex+apoe4+cohort, y14~age+sex+apoe4+cohort, 
+y15~age+sex+apoe4+cohort, y16~age+sex+apoe4+cohort, y17~age+sex+apoe4+cohort, 
+y18~age+sex+apoe4+cohort, y19~age+sex+apoe4+cohort, y20~age+sex+apoe4+cohort, 
+y21~age+sex+apoe4+cohort, y22~age+sex+apoe4+cohort, y23~age+sex+apoe4+cohort), 
+family=mvn(d=24), data=soto)
+b0
+summary(b0)
+```
+
+## Multivariate LMs, with interactions
+
+```{r dev=c("png", "tiff")}
+b1 <- gam(list(
+y0~age*sex+age+sex+apoe4+cohort, y1~age*sex+sex+apoe4+cohort, y2~age*sex+sex+apoe4+cohort, 
+y3~age*sex+age+sex+apoe4+cohort, y4~age*sex+sex+apoe4+cohort, y5~age*sex+sex+apoe4+cohort, 
+y6~age*sex+age+sex+apoe4+cohort, y7~age*sex+sex+apoe4+cohort, y8~age*sex+sex+apoe4+cohort, 
+y9~age*sex+age+sex+apoe4+cohort, y10~age*sex+sex+apoe4+cohort, y11~age*sex+sex+apoe4+cohort, 
+y12~age*sex+age+sex+apoe4+cohort, y13~age*sex+sex+apoe4+cohort, y14~age*sex+sex+apoe4+cohort, 
+y15~age*sex+age+sex+apoe4+cohort, y16~age*sex+sex+apoe4+cohort, y17~age*sex+sex+apoe4+cohort, 
+y18~age*sex+age+sex+apoe4+cohort, y19~age*sex+sex+apoe4+cohort, y20~age*sex+sex+apoe4+cohort, 
+y21~age*sex+age+sex+apoe4+cohort, y22~age*sex+sex+apoe4+cohort, y23~age*sex+sex+apoe4+cohort), 
+family=mvn(d=24), data=soto)
+b1
+summary(b1)
+```
+
+## Multivariate GAMs, with interactions.
+
+```{r dev=c("png", "tiff")}
+b2 <- gam(list(
+y0~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, y1~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, y2~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, 
+y3~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, y4~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, y5~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, 
+y6~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, y7~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, y8~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, 
+y9~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, y10~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, y11~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, 
+y12~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, y13~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, y14~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, 
+y15~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, y16~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, y17~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, 
+y18~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, y19~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, y20~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, 
+y21~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, y22~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort, y23~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort), 
+family=mvn(d=24), data=soto)
+b2
+summary(b2)
+```
+
+```{r plot; AIC; BIC; gam.check, echo=TRUE, dev=c("png", "tiff")}
+#adjust plot margins
+par(mar = c(1, 1, 1, 1))
+plot(b2, page=1)
+#covariance <- solve(crossprod(b$family$data$R))
+anova(b0, b1)
+anova(b1, b2)
+BIC(b0, b1)
+BIC(b1, b2)
+gam.check(b0)
+gam.check(b1)
+gam.check(b2)
+save(b2, file="patterns_of_neurodegneration_b2.Rdata")
+saveRDS(b2, file="patterns_of_neurodegneration_b2.Rds")
+```
+
+## Uncomment the following to load saved b2.
+
+```{r read b2}
+#b2 <- readRDS("b2.Rds")
+```
+
+# Above, inferences used Components\_\*.
+
+# Below, inferences will preferentially use Pattern\_\*.
+
+```{r split_out_list}
+
+str_cohort <- list(
+  "CDR=0,amy-", "CDR=0,amy+", "CDR=0.5,amy+", "CDR>0.5,amy+"
+)  # "CDR>0,amy-", 
+len_cohort <- list(
+  269, 119, 399, 108
+)  # 270, 
+split_out_list <- list()
+for (icoh in 1:length(str_cohort)) {
+  split_out_list[[icoh]] <- split_patterns(filter(tib_covariates, Cohort==str_cohort[[icoh]]))
+  if (nrow(split_out_list[[icoh]]$tib_out) != len_cohort[[icoh]]) {
+    stop(paste("Expected", len_cohort[[icoh]], "rows, but found", nrow(split_out_list[[icoh]]$tib_out), "rows."))
+  }
+  
+  # cross-check tib_out as they are assigned to split_out_list
+  
+  s <- capture.output(
+    summary(split_out_list[[icoh]]$tib_out)) # for gam
+  cat("Summary for", str_cohort[[icoh]], ":\n")
+  cat(paste(s, collapse = "\n"))
+  cat("\n\n")
+}
+```
+
+## Cross-sectional data, set by chunk "Form y\* and Y" Analog of Fig. 2D, Nazeri et al. Neuron 2022.
+
+{Age -\> Component_i}\_i for CN, preclinical, MCI, AD, atypical
+
+```{r cross-sectional Nazeri fig2, dev=c("png", "tiff")}
+library(patchwork)
+
+
+plotted <- list()
+
+ipatt0 = 1  # KLUDGE
+ipattF = 12  # KLUDGE
+for (ipatt in ipatt0:ipattF) {
+  for (icoh in 1:length(str_cohort)) {
+  
+    # gather variables
+    
+    Y_cohort <- split_out_list[[icoh]]$Y  # synch with str_cohort above
+    tib_cohort <- split_out_list[[icoh]]$tib_out  # synch with str_cohort above
+    age_cohort <- tib_cohort$age
+    sex_cohort <- tib_cohort$sex
+    # apoe4_cohort <- tib_cohort$apoe4
+  
+    y_i <- Y_cohort[,ipatt]
+    tib_y_i <- tibble(y_i, age_cohort, sex_cohort)
+    # summary(tib_y_i)
+    
+    # build gam, univariate
+    
+    b_i <- gam(y_i ~ s(age_cohort, k=K, by=interaction(sex_cohort)) + sex_cohort, 
+               data=tib_y_i, 
+               method="REML")  
+    # gam.check(b_i)
+    # summary(b_i)
+    
+    # data frames for predictions
+    
+    df <- data.frame(y_i = y_i, age_cohort = age_cohort, sex_cohort = sex_cohort)
+    new_df <- expand.grid(
+      age_cohort = seq(min(age_cohort), max(age_cohort), length.out = 300), 
+      sex_cohort = unique(sex_cohort))
+    preds <- predict(b_i, newdata = new_df, se.fit = TRUE)
+    preds$lower <- preds$fit - 1.96 * preds$se.fit
+    preds$upper <- preds$fit + 1.96 * preds$se.fit
+    plot_df <- new_df %>% 
+      bind_cols(preds)
+  
+    plotted[[length(plotted) + 1]] <- ggplot(plot_df, aes(x = age_cohort, y = fit, col = sex_cohort)) +
+      geom_line(linewidth = 1) +
+      geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0, linetype = "dashed") +
+      geom_point(data = df, aes(y = y_i), size = 4, alpha = 0.4) +
+      coord_cartesian(ylim = c(0, 1.7)) +
+      labs(x = NULL, y = NULL) +
+      theme_classic(base_size = 18) +
+      theme(axis.text.x=element_text(size=18),
+            axis.text.y=element_text(size=18),
+            legend.text=element_text(size=14),
+            legend.title=element_text(size=14),
+            legend.position = "none")
+  }
+}
+
+combined_plot <- wrap_plots(plotted) +
+  plot_layout(ncol = length(str_cohort))
+print(combined_plot)
+
+ggsave(sprintf("Patterns %i-%i vs Age and Dx.png", ipatt0, ipattF), width=12, height=18, units="in", scale=3, dpi=600, limitsize=FALSE)
+
+# see also https://stackoverflow.com/questions/35618260/remove-legend-ggplot-2-2 
+# see also https://waldyrious.net/viridis-palette-generator/
+# see also https://claude.ai/chat/7637f6e2-1054-40ea-853a-3190a9a63c41
+```
+
+## Gather gam summaries into a data frame, then identify significant parameter coeffs and smooths.
+
+```{r}
+library(stringr)
+
+summarize_gam <- function(model, model_name) {
+  sum <- summary(model)
+  
+  # Extract parametric coefficients
+  parametric <- as.data.frame(sum$p.table) %>%
+    rownames_to_column("term") %>%
+    mutate(type = "parametric",
+           raw_p = `Pr(>|t|)`)
+  
+  # Extract smooth terms
+  smooth <- as.data.frame(sum$s.table) %>%
+    rownames_to_column("term") %>%
+    mutate(type = "smooth",
+           raw_p = `p-value`)
+  
+  # Combine and add model information
+  bind_rows(parametric, smooth) %>%
+    mutate(
+      model = model_name,
+      R_squared = sum$r.sq,
+      Dev_explained = sum$dev.expl,
+      GCV = sum$sp.criterion,
+      Scale_est = sum$scale,
+      n = sum$n
+    )
+}
+
+
+ipatt0 = 1  # KLUDGE
+ipattF = 24  # KLUDGE
+# reminder:  str_cohort <- list("CDR=0,amy-", "CDR=0,amy+", "CDR>0,amy-", "CDR=0.5,amy+", "CDR>0.5,amy+")
+
+# Create a 2D list to store summaries
+summaries <- vector("list", length(ipatt0:ipattF))
+for(i in ipatt0:ipattF) {
+  summaries[[i]] <- vector("list", length(str_cohort))
+}
+for (icoh in 1:length(str_cohort)) {
+  for (ipatt in ipatt0:ipattF) {
+  
+    # gather variables
+    
+    Y_cohort <- split_out_list[[icoh]]$Y  # synch with str_cohort above
+    tib_cohort <- split_out_list[[icoh]]$tib_out  # synch with str_cohort above
+    age_cohort <- tib_cohort$age
+    sex_cohort <- tib_cohort$sex
+    # apoe4_cohort <- tib_cohort$apoe4
+  
+    y_i <- Y_cohort[,ipatt]
+    tib_y_i <- tibble(y_i, age_cohort, sex_cohort)
+    # summary(tib_y_i)
+    
+    # build gam, univariate
+    
+    b_i <- gam(y_i ~ s(age_cohort, k=K, by=interaction(sex_cohort)) + sex_cohort, 
+               data=tib_y_i, 
+               method="REML")  
+    # gam.check(b_i)
+    summaries[[icoh]][[ipatt]] <- summarize_gam(b_i, sprintf("%s_p%i", str_cohort[[icoh]], ipatt))
+  }
+}
+
+# After the loops, combine all summaries into one data frame
+all_summaries <- bind_rows(lapply(unlist(summaries, recursive = FALSE), identity))
+
+# Do Benjamini-Hochberg FDR correction across all patterns
+all_summaries_with_fdr <- all_summaries %>%
+  mutate(outer_loop = str_extract(model, "^CDR\\S+_")) %>%
+  group_by(outer_loop) %>%
+  mutate(adj_p = p.adjust(raw_p, method = "BH")) %>%
+  ungroup()
+```
+
+## Query all_summaries
+
+```{r}
+# filter significant results
+significant_results <- all_summaries_with_fdr %>%
+  filter(raw_p < 0.05) %>%
+  mutate(significant_after_fdr = adj_p < 0.05)
+
+# summarize
+fdr_summary <- significant_results %>%
+  group_by(outer_loop) %>%
+  summarize(
+    total_significant_raw = n(),
+    total_significant_fdr = sum(significant_after_fdr),
+    proportion_remained_significant = total_significant_fdr / total_significant_raw
+  )
+print(fdr_summary)
+
+# filter insignificant results
+significant_results_to_view <- significant_results %>%
+  filter(str_detect(term, "age_cohort")) %>%
+  filter(significant_after_fdr == TRUE)
+print(significant_results_to_view)
+```
+
+# Mixed models for longitudinal data, set by chunk "Form y\* and Y" Analog of Fig. 2D, Nazeri et al. Neuron 2022.
+
+{Age -\> Component_i}\_i
+
+```{r longitudinal Nazeri fig2, dev=c("png", "tiff")}
+for (ipatt in 1:1) {
+
+  # gather variables
+  y_i <- Y[,ipatt]
+  tib_y_i <- tibble(y_i, age, sex, apoe4)
+  #summary(tib_y_i)
+  
+  # build gamm4, univariate
+  b_i <- gamm4(y_i~s(age,by=interaction(sex)) + sex + apoe4, random=~(1|subject), data=tib_y_i) 
+  # https://www.sciencedirect.com/science/article/pii/S1053811920310818#sec0016
+  # https://stats.stackexchange.com/questions/344195/model-comparison-of-gams-using-gamm4
+  # https://stats.stackexchange.com/questions/565460/is-my-gam-modeling-longitudinal-change-appropriately
+  # https://www.nature.com/articles/s41380-019-0360-1#Sec2
+  # https://rdrr.io/cran/gamm4/man/gamm4.html
+  #summary(b_i)
+  #AIC(b_i, k=2)
+  #BIC(b_i)
+  #gamm4.check(b_i)
+  
+  # ggplot2
+  df <- data.frame(age = age, y_i = y_i, sex = sex)
+  ndf <- expand.grid(
+    age = seq(min(tib_y_i$age), max(tib_y_i$age), length.out=100), 
+    sex = unique(tib_y_i$sex))
+  ndf$FDG <- predict(b_i, newdata = ndf, type = "response")
+
+  plotted <- ggplot(ndf, aes(x = age, y = FDG, col = sex)) +
+    geom_line(linewidth = 2) +
+    geom_point(data = df, aes(y = y_i), size = 4, alpha = 0.3) +
+    geom_rug(mapping = aes(y = FDG), alpha = 0.3) + 
+    coord_cartesian(ylim = c(0, 1.8)) +
+    labs(x = NULL, y = NULL) + 
+    theme_classic(base_size = 18) +
+    theme(axis.text.x=element_text(size=18), 
+          axis.text.y=element_text(size=18), 
+          legend.text=element_text(size=14),
+          legend.title=element_text(size=14))
+  #if (ipatt < 24) {
+  plotted <- plotted + theme(legend.position = "none")
+  #}
+  print(plotted)
+  
+  # mgcViz
+  #viz <- getViz(b_i)
+  #plotted <- plot(sm(viz,1))
+  #print(plotted + l_fitLine(colour = "#f1605d") + l_rug(mapping = aes(x=x, y=y), alpha = 0.3) +
+  #  l_ciLine(mul = 5, colour = "#721f81", linetype = 2) + 
+  #  l_points(shape = 19, size = 1, alpha = 0.2) + labs(title=sprintf("ADNI P%i (SUVR)", idx)) + theme_classic())
+  
+  #ggsave(sprintf("Pattern %i vs Age (CDR=0,amy-).png", idx), width=2.5, height=1.56, units="in", scale=3, dpi=800)
+  
+  # https://stackoverflow.com/questions/35618260/remove-legend-ggplot-2-2 
+  # https://stackoverflow.com/questions/49471300/gam-plots-with-ggplot
+  # https://waldyrious.net/viridis-palette-generator/
+}
+```
