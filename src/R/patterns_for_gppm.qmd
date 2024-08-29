@@ -1,0 +1,341 @@
+---
+title: "Patterns for GPPM"
+format: html
+editor: visual
+author: "J. J. Lee"
+date: "2024 Aug 24"
+output:
+  html_document:
+    keep_md: yes
+    fig_path: "figures_for_gppm/"
+editor_options: 
+  chunk_output_type: inline
+---
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+```{r setup-chunk, include=FALSE}
+
+knitr::opts_chunk$set(
+	echo = FALSE,
+	cache = TRUE,
+	dev = c("png", "tiff"),
+	dpi = 1200
+)
+```
+
+```{r import libraries}
+
+library(readr)
+library(tibble)
+library(dplyr) # provides filter
+library(mgcv)
+library(ggplot2)
+library(scales)
+library(viridis)
+library(reshape2)
+library(corrplot)
+library(voxel)
+library(ppcor)
+library(stats)
+library(pracma) # Matlab emulations
+library(lubridate) # char -> date object
+# library(mgcViz)
+library(gamm4)
+library(tidygam)
+library(knitr)
+library(patchwork)
+```
+
+# Read previously concentrated data,
+
+originating from ADNIMerge, Matlab package mladni, and data located at login3.chpc.wustl.edu:/scratch/jjlee/Singularity/ADNI/NMF_FDG.
+
+```{r read data}
+
+setwd("/Volumes/PrecunealSSD/Singularity/ADNI/NMF_FDG")
+getwd()
+tib_covariates <- read_csv("baseline_cn/NumBases24/components/NMFCovariates_table_covariates_1stscan_longitudinal.csv")
+tib_covariates_long <- read_csv("baseline_cn/NumBases24/components/NMFCovariates_table_covariates_longitudinal.csv")
+```
+
+# Definitions
+
+Following examples from <https://rdrr.io/cran/mgcv/man/mvn.html> and <https://cnuge.github.io/post/multi_variable/>. AcqDuration \~ years.
+
+## split_patterns()
+
+N.B. use of variables Pattern\_\* \~ decodings of FDG SUVR in the space of patterns of metabolic covariance
+
+Pattern\_\* are ordered by weighted averages of spatial regions over all FDG imaging
+
+Components\_\* have indices produced by NMF generators
+
+```{r split_patterns function}
+
+split_patterns <- function(tib_in) {
+  patterns <- dplyr::select(tib_in, Pattern_1:Pattern_24)
+  Y_ <- as.matrix(patterns)
+  y0 <- Y_[,1]
+  y1 <- Y_[,2]
+  y2 <- Y_[,3]
+  y3 <- Y_[,4]
+  y4 <- Y_[,5]
+  y5 <- Y_[,6]
+  y6 <- Y_[,7]
+  y7 <- Y_[,8]
+  y8 <- Y_[,9]
+  y9 <- Y_[,10]
+  y10 <- Y_[,11]
+  y11 <- Y_[,12]
+  y12 <- Y_[,13]
+  y13 <- Y_[,14]
+  y14 <- Y_[,15]
+  y15 <- Y_[,16]
+  y16 <- Y_[,17]
+  y17 <- Y_[,18]
+  y18 <- Y_[,19]
+  y19 <- Y_[,20]
+  y20 <- Y_[,21]
+  y21 <- Y_[,22]
+  y22 <- Y_[,23]
+  y23 <- Y_[,24]
+  age <- tib_in$Age
+  sex <- tib_in$Sex
+  apoe4 <- tib_in$ApoE4
+  cohort <- tib_in$Cohort
+  subject <- tib_in$Subject
+  acqduration <- tib_in$AcqDuration
+  tib_out_ <- tibble(y0, y1, y2, y3, y4, y5, y6, y7, y8, y9, y10, y11, y12, y13, y14, y15, y16, y17, y18, y19, y20, y21, y22, y23, age, sex, apoe4, cohort, subject, acqduration)
+  tib_out_$sex <- relevel(factor(tib_out_$sex), ref="F")
+  tib_out_$subject <- factor(tib_out_$subject)
+  return(list(tib_out=tib_out_, Y=Y_))
+}
+```
+
+Number of thin-plate spline knots needs a degree of freedom for model intercept, a constant basis always required. See also <https://stats.stackexchange.com/questions/359568/choosing-k-in-mgcvs-gam>.
+
+```{r number of spline knots, dev=c("png", "tiff")}
+K<-21
+```
+
+## split_patterns_out, all cohorts
+
+```{r split_patterns_out}
+
+split_patterns_out <- split_patterns(tib_covariates_long)
+
+# cross-check tib_out as they are assigned to split_patterns_out_list
+
+s <- capture.output(
+  summary(split_patterns_out$tib_out)) # for gam
+cat("Summary for all cohorts:\n")
+cat(paste(s, collapse = "\n"))
+cat("\n\n")
+```
+
+## split_patterns_out_list <- list(), populated with distinct cohorts
+
+```{r split_patterns_out_list}
+
+str_cohort <- list(
+  "CDR=0,amy-", "CDR=0,amy+", "CDR=0.5,amy+", "CDR>0.5,amy+"
+)  # "CDR>0,amy-", 
+len_cohort <- list(
+  269, 119, 399, 108
+)  # 270, 
+split_patterns_out_list <- list()
+for (icoh in 1:length(str_cohort)) {
+  split_patterns_out_list[[icoh]] <- split_patterns(filter(tib_covariates, Cohort==str_cohort[[icoh]]))
+  if (nrow(split_patterns_out_list[[icoh]]$tib_out) != len_cohort[[icoh]]) {
+    stop(paste("Expected", len_cohort[[icoh]], "rows, but found", nrow(split_patterns_out_list[[icoh]]$tib_out), "rows."))
+  }
+  
+  # cross-check tib_out as they are assigned to split_patterns_out_list
+  
+  s <- capture.output(
+    summary(split_patterns_out_list[[icoh]]$tib_out)) # for gam
+  cat("Summary for", str_cohort[[icoh]], ":\n")
+  cat(paste(s, collapse = "\n"))
+  cat("\n\n")
+}
+```
+
+## summarize_gam():  parametric coeffs, smooth terms, model info.
+
+```{r summarize_gam}
+
+library(stringr)
+
+summarize_gam <- function(model, model_name) {
+  sum <- summary(model)
+  
+  # Extract parametric coefficients
+  parametric <- as.data.frame(sum$p.table) %>%
+    rownames_to_column("term") %>%
+    mutate(type = "parametric",
+           raw_p = `Pr(>|t|)`)
+  
+  # Extract smooth terms
+  smooth <- as.data.frame(sum$s.table) %>%
+    rownames_to_column("term") %>%
+    mutate(type = "smooth",
+           raw_p = `p-value`)
+  
+  # Combine and add model information
+  bind_rows(parametric, smooth) %>%
+    mutate(
+      model = model_name,
+      R_squared = sum$r.sq,
+      Dev_explained = sum$dev.expl,
+      GCV = sum$sp.criterion,
+      Scale_est = sum$scale,
+      n = sum$n
+    )
+}
+```
+
+# Plot adjusted encoding for CDR=0, amy-
+
+See also https://claude.ai/chat/10ff3022-3791-4d82-b29a-6ba227b7e020 
+
+```{r build adjusted encodings, dev=c("png", "tiff")}
+
+plotted <- list()
+
+ipatt0 <- 1  # KLUDGE
+ipattF <- 24  # KLUDGE
+icoh <- 1  # CDR=0, amy-
+for (ipatt in ipatt0:ipattF) {
+
+  # gather variables
+  
+  Y_cohort <- split_patterns_out_list[[icoh]]$Y  # synch with str_cohort above
+  y_cohort_i <- Y_cohort[,ipatt]
+  tib_cohort <- split_patterns_out_list[[icoh]]$tib_out  # synch with str_cohort above
+  age_cohort <- tib_cohort$age
+  sex_cohort <- tib_cohort$sex
+  apoe4_cohort <- tib_cohort$apoe4
+  df_cohort <- tibble(y_cohort_i, age_cohort, sex_cohort, apoe4_cohort) 
+  
+  # build gam, univariate
+  
+  b_i <- gam(y_cohort_i ~ s(age_cohort, k=K, by=interaction(sex_cohort)) + sex_cohort + apoe4_cohort, 
+             data=df_cohort, 
+             method="REML")  
+  
+  # data frames for predictions
+
+  preds <- predict(b_i, newdata = df_cohort, type = "response")
+  y_i_adj <- (y_cohort_i - preds) + mean(b_i$model$y_cohort_i)
+  df_cohort$y_i_adj <- y_i_adj
+
+  plotted[[length(plotted) + 1]] <- ggplot(df_cohort, aes(x = age_cohort, y = fit, col = sex_cohort)) +
+    geom_point(data = df_cohort, aes(y = y_cohort_i), size = 4, alpha = 0.2) +
+    geom_point(data = df_cohort, aes(y = y_i_adj), size = 6, alpha = 1, shape = 3) +
+    coord_cartesian(ylim = c(0, 2)) +
+    labs(x = NULL, y = NULL) +
+    theme_classic(base_size = 18) +
+    theme(axis.text.x=element_text(size=18),
+          axis.text.y=element_text(size=18),
+          legend.text=element_text(size=14),
+          legend.title=element_text(size=14),
+          legend.position = "none")
+}
+
+combined_plot <- wrap_plots(plotted) +
+  plot_layout(ncol = length(str_cohort))
+print(combined_plot)
+
+ggsave(sprintf("Patterns %i-%i for GPPM vs Age and Dx (CDR=0,amy-).png", ipatt0, ipattF), width=12, height=18, units="in", scale=3, dpi=600, limitsize=FALSE)
+
+# see also https://stackoverflow.com/questions/35618260/remove-legend-ggplot-2-2 
+# see also https://waldyrious.net/viridis-palette-generator/
+# see also https://claude.ai/chat/7637f6e2-1054-40ea-853a-3190a9a63c41
+```
+# Plot adjusted encoding for all cohorts, using model from CDR=0, amy-
+
+See also https://claude.ai/chat/10ff3022-3791-4d82-b29a-6ba227b7e020 
+
+```{r build adjusted encodings, dev=c("png", "tiff")}
+
+Y <- split_patterns_out$Y
+age <- split_patterns_out$tib_out$age
+sex <- split_patterns_out$tib_out$sex
+apoe4 <- split_patterns_out$tib_out$apoe4
+
+plotted <- list()
+
+ipatt0 <- 1  # KLUDGE
+ipattF <- 24  # KLUDGE
+icoh <- 1  # CDR=0, amy-
+for (ipatt in ipatt0:ipattF) {
+
+  # gather variables
+  
+  Y_cohort <- split_patterns_out_list[[icoh]]$Y  # synch with str_cohort above
+  y_cohort_i <- Y_cohort[,ipatt]
+  tib_cohort <- split_patterns_out_list[[icoh]]$tib_out  # synch with str_cohort above
+  age_cohort <- tib_cohort$age
+  sex_cohort <- tib_cohort$sex
+  apoe4_cohort <- tib_cohort$apoe4
+  df_cohort <- tibble(y_cohort_i, age_cohort, sex_cohort, apoe4_cohort) 
+  
+  # build gam, univariate
+  
+  b_i <- gam(y_cohort_i ~ s(age_cohort, k=K, by=interaction(sex_cohort)) + sex_cohort + apoe4_cohort, 
+             data=df_cohort, 
+             method="REML")  
+  
+  # data frames for predictions
+  
+  df <- data.frame(y_i = Y[,ipatt], age_cohort = age, sex_cohort = sex, apoe4_cohort = apoe4)
+  preds <- predict(b_i, newdata = df, type = "response")
+  y_i_adj <- (Y[,ipatt] - preds) + mean(b_i$model$y_cohort_i)
+  df$y_i <- Y[,ipatt]
+  df$y_i_adj <- y_i_adj
+  
+  # update tib_covariates
+  
+  tib_covariates_long <- tib_covariates_long %>%
+    mutate(!!paste0("AdjPattern_", ipatt) := y_i_adj)
+
+  plotted[[length(plotted) + 1]] <- ggplot(df, aes(x = age, y = fit, col = sex)) +
+    geom_point(data = df, aes(y = y_i), size = 4, alpha = 0.2) +
+    geom_point(data = df, aes(y = y_i_adj), size = 6, alpha = 1, shape = 3) +
+    coord_cartesian(ylim = c(0, 2)) +
+    labs(x = NULL, y = NULL) +
+    theme_classic(base_size = 18) +
+    theme(axis.text.x=element_text(size=18),
+          axis.text.y=element_text(size=18),
+          legend.text=element_text(size=14),
+          legend.title=element_text(size=14),
+          legend.position = "none")
+}
+
+combined_plot <- wrap_plots(plotted) +
+  plot_layout(ncol = length(str_cohort))
+print(combined_plot)
+
+ggsave(sprintf("Patterns %i-%i for GPPM vs Age and Dx.png", ipatt0, ipattF), width=12, height=18, units="in", scale=3, dpi=600, limitsize=FALSE)
+
+# see also https://stackoverflow.com/questions/35618260/remove-legend-ggplot-2-2 
+# see also https://waldyrious.net/viridis-palette-generator/
+# see also https://claude.ai/chat/7637f6e2-1054-40ea-853a-3190a9a63c41
+```
+
+# Build adjusted encodings -> AdjPattern_* for all cohorts
+# Save updated tib_covariates to csv
+
+```{r save updated tib_covariates}
+
+library(arrow)
+
+write_csv_arrow(tib_covariates_long, "baseline_cn/NumBases24/components/NMFCovariates_table_covariates_longitudinal_adjpatterns.csv")
+```
+
+

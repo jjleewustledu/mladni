@@ -1,0 +1,2687 @@
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.33117    0.01026 129.700   <2e-16 ***
+sex_cohortM  0.02455    0.01428   1.719   0.0867 .  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df      F  p-value    
+s(age_cohort):interaction(sex_cohort)F   1      1 14.449 0.000179 ***
+s(age_cohort):interaction(sex_cohort)M   1      1  3.597 0.058977 .  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0607   Deviance explained = 7.12%
+-REML = -183.09  Scale est. = 0.013655  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.35622    0.01302 104.128   <2e-16 ***
+sex_cohortM -0.04564    0.02188  -2.085   0.0393 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df    F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 2.46   0.120
+s(age_cohort):interaction(sex_cohort)M   1      1 1.73   0.191
+
+R-sq.(adj) =  0.0783   Deviance explained = 10.2%
+-REML = -84.947  Scale est. = 0.011628  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.32969    0.01238 107.425   <2e-16 ***
+sex_cohortM -0.01582    0.01586  -0.997     0.32    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df      F p-value    
+s(age_cohort):interaction(sex_cohort)F   1  1.000  2.568    0.11    
+s(age_cohort):interaction(sex_cohort)M   1  1.001 17.552 3.8e-05 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0689   Deviance explained = 7.93%
+-REML = -165.32  Scale est. = 0.015699  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.324706   0.009482 139.709   <2e-16 ***
+sex_cohortM -0.019668   0.012625  -1.558     0.12    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df      F  p-value    
+s(age_cohort):interaction(sex_cohort)F   1  1.001  3.128   0.0777 .  
+s(age_cohort):interaction(sex_cohort)M   1  1.000 17.040 4.49e-05 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0533   Deviance explained = 6.05%
+-REML = -256.39  Scale est. = 0.015155  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 1.220438   0.017434  70.004   <2e-16 ***
+sex_cohortM 0.003433   0.025211   0.136    0.892    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F 1.073  1.142 0.882   0.391
+s(age_cohort):interaction(sex_cohort)M 1.000  1.000 0.120   0.730
+
+R-sq.(adj) =  -0.0183   Deviance explained = 1.09%
+-REML = -57.531  Scale est. = 0.016615  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.32226    0.01006 131.384   <2e-16 ***
+sex_cohortM  0.01291    0.01400   0.922    0.357    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 6.352  0.0123 *
+s(age_cohort):interaction(sex_cohort)M   1      1 1.297  0.2557  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0193   Deviance explained = 3.02%
+-REML = -188.29  Scale est. = 0.013129  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.31272    0.01354  96.915   <2e-16 ***
+sex_cohortM -0.05434    0.02276  -2.388   0.0186 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 4.619  0.0337 *
+s(age_cohort):interaction(sex_cohort)M   1      1 0.559  0.4562  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0951   Deviance explained = 11.8%
+-REML = -80.442  Scale est. = 0.012575  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.30204    0.01320  98.650   <2e-16 ***
+sex_cohortM -0.03051    0.01690  -1.806   0.0721 .  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df      F  p-value    
+s(age_cohort):interaction(sex_cohort)F 1.769  2.214  4.311   0.0117 *  
+s(age_cohort):interaction(sex_cohort)M 1.000  1.001 19.043 1.86e-05 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.109   Deviance explained = 12.2%
+-REML = -148.46  Scale est. = 0.017752  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.25147    0.00927 135.002   <2e-16 ***
+sex_cohortM -0.02231    0.01235  -1.806   0.0716 .  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F 1.000  1.001 4.020  0.0456 *
+s(age_cohort):interaction(sex_cohort)M 1.997  2.523 2.891  0.0417 *
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.034   Deviance explained = 4.37%
+-REML = -264.6  Scale est. = 0.014485  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.11100    0.01685  65.918   <2e-16 ***
+sex_cohortM -0.02515    0.02440  -1.031    0.305    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                        edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F 1.00  1.000 0.871   0.353
+s(age_cohort):interaction(sex_cohort)M 1.41  1.713 1.110   0.431
+
+R-sq.(adj) =  0.00123   Deviance explained = 3.31%
+-REML = -60.829  Scale est. = 0.015533  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.304874   0.010283 126.898   <2e-16 ***
+sex_cohortM -0.004401   0.014303  -0.308    0.759    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df      F  p-value    
+s(age_cohort):interaction(sex_cohort)F 1.168  1.321 13.530 0.000194 ***
+s(age_cohort):interaction(sex_cohort)M 1.000  1.000  3.846 0.050917 .  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0629   Deviance explained = 7.39%
+-REML = -182.58  Scale est. = 0.013698  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.29501    0.01649  78.555   <2e-16 ***
+sex_cohortM -0.06764    0.02766  -2.446    0.016 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                        edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F 1.21  1.393 5.325  0.0108 *
+s(age_cohort):interaction(sex_cohort)M 1.00  1.000 1.285  0.2593  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =   0.14   Deviance explained = 16.3%
+-REML = -57.996  Scale est. = 0.018544  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.28947    0.01470  87.711   <2e-16 ***
+sex_cohortM -0.04176    0.01884  -2.216   0.0275 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df      F  p-value    
+s(age_cohort):interaction(sex_cohort)F   1      1  6.044 0.014588 *  
+s(age_cohort):interaction(sex_cohort)M   1      1 15.265 0.000119 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0925   Deviance explained = 10.3%
+-REML = -119.55  Scale est. = 0.022147  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.24088    0.01010 122.800  < 2e-16 ***
+sex_cohortM -0.04066    0.01347  -3.018  0.00271 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value   
+s(age_cohort):interaction(sex_cohort)F 1.000  1.001 1.896 0.16927   
+s(age_cohort):interaction(sex_cohort)M 2.673  3.364 3.836 0.00765 **
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0557   Deviance explained = 6.68%
+-REML = -229.8  Scale est. = 0.017211  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.076712   0.019790  54.407   <2e-16 ***
+sex_cohortM -0.005014   0.028620  -0.175    0.861    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 1.515   0.221
+s(age_cohort):interaction(sex_cohort)M   1      1 1.622   0.206
+
+R-sq.(adj) =  0.00144   Deviance explained = 2.94%
+-REML = -44.369  Scale est. = 0.021416  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 1.267229   0.009514 133.198   <2e-16 ***
+sex_cohortM 0.017037   0.013235   1.287    0.199    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value   
+s(age_cohort):interaction(sex_cohort)F   1      1 7.106 0.00815 **
+s(age_cohort):interaction(sex_cohort)M   1      1 3.173 0.07601 . 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0309   Deviance explained = 4.17%
+-REML = -203.19  Scale est. = 0.011733  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.28150    0.01692  75.728  < 2e-16 ***
+sex_cohortM -0.07932    0.02843  -2.789  0.00618 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 3.402  0.0677 .
+s(age_cohort):interaction(sex_cohort)M   1      1 0.079  0.7797  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0932   Deviance explained = 11.6%
+-REML = -54.84  Scale est. = 0.019628  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.24252    0.01355  91.704   <2e-16 ***
+sex_cohortM -0.01212    0.01736  -0.698    0.486    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df      F  p-value    
+s(age_cohort):interaction(sex_cohort)F   1      1  5.275 0.022410 *  
+s(age_cohort):interaction(sex_cohort)M   1      1 12.852 0.000401 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0599   Deviance explained = 7.04%
+-REML = -141.26  Scale est. = 0.018811  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.223866   0.009086 134.699  < 2e-16 ***
+sex_cohortM -0.034496   0.012108  -2.849  0.00462 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F 1.000  1.001 4.738  0.0301 *
+s(age_cohort):interaction(sex_cohort)M 2.074  2.620 3.819  0.0121 *
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0579   Deviance explained = 6.75%
+-REML = -272.45  Scale est. = 0.013915  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.10414    0.01748  63.177   <2e-16 ***
+sex_cohortM -0.01564    0.02527  -0.619    0.537    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 0.203   0.653
+s(age_cohort):interaction(sex_cohort)M   1      1 0.044   0.833
+
+R-sq.(adj) =  -0.0234   Deviance explained = 0.527%
+-REML = -57.296  Scale est. = 0.016702  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 1.259042   0.009364 134.449   <2e-16 ***
+sex_cohortM 0.001067   0.013028   0.082    0.935    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1  1.001 4.076  0.0445 *
+s(age_cohort):interaction(sex_cohort)M   1  1.000 0.468  0.4946  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.00574   Deviance explained = 1.69%
+-REML = -207.38  Scale est. = 0.011368  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.24896    0.01463  85.396  < 2e-16 ***
+sex_cohortM -0.07744    0.02457  -3.151  0.00207 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 3.070  0.0824 .
+s(age_cohort):interaction(sex_cohort)M   1      1 0.048  0.8273  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.108   Deviance explained = 13.1%
+-REML = -71.616  Scale est. = 0.014662  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.23378    0.01305  94.574   <2e-16 ***
+sex_cohortM -0.03531    0.01672  -2.112   0.0356 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value   
+s(age_cohort):interaction(sex_cohort)F   1      1 2.067 0.15173   
+s(age_cohort):interaction(sex_cohort)M   1      1 7.177 0.00784 **
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0467   Deviance explained = 5.73%
+-REML = -151.34  Scale est. = 0.017439  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.184651   0.009865 120.086  < 2e-16 ***
+sex_cohortM -0.044264   0.013152  -3.365 0.000839 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F 1.000  1.000 0.404  0.5256  
+s(age_cohort):interaction(sex_cohort)M 2.514  3.168 2.237  0.0779 .
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0418   Deviance explained = 5.27%
+-REML = -239.48  Scale est. = 0.016404  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.00289    0.01921  52.218   <2e-16 ***
+sex_cohortM -0.02258    0.02778  -0.813    0.418    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 5.483  0.0211 *
+s(age_cohort):interaction(sex_cohort)M   1      1 5.278  0.0236 *
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0681   Deviance explained = 9.43%
+-REML = -47.485  Scale est. = 0.02017   n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 1.239390   0.009336 132.747   <2e-16 ***
+sex_cohortM 0.027302   0.012989   2.102   0.0365 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 2.157   0.143
+s(age_cohort):interaction(sex_cohort)M   1      1 1.442   0.231
+
+R-sq.(adj) =  0.0169   Deviance explained = 2.79%
+-REML = -208.18  Scale est. = 0.0113    n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.24544    0.01416  87.971   <2e-16 ***
+sex_cohortM -0.05913    0.02379  -2.486   0.0144 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 3.672  0.0578 .
+s(age_cohort):interaction(sex_cohort)M   1      1 0.088  0.7668  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.081   Deviance explained = 10.4%
+-REML = -75.357  Scale est. = 0.013738  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.22807    0.01318  93.155   <2e-16 ***
+sex_cohortM -0.01947    0.01689  -1.152     0.25    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value   
+s(age_cohort):interaction(sex_cohort)F 1.002  1.003 3.937 0.04830 * 
+s(age_cohort):interaction(sex_cohort)M 1.000  1.000 9.863 0.00188 **
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0495   Deviance explained = 6.01%
+-REML = -148.55  Scale est. = 0.017808  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.200848   0.008291 144.833   <2e-16 ***
+sex_cohortM -0.015351   0.011039  -1.391    0.165    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df      F  p-value    
+s(age_cohort):interaction(sex_cohort)F 1.001  1.001  6.046 0.014357 *  
+s(age_cohort):interaction(sex_cohort)M 1.000  1.000 15.276 0.000109 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.055   Deviance explained = 6.21%
+-REML = -309.39  Scale est. = 0.011588  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.103856   0.016028  68.871   <2e-16 ***
+sex_cohortM -0.008657   0.023180  -0.373     0.71    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 0.021   0.885
+s(age_cohort):interaction(sex_cohort)M   1      1 0.009   0.925
+
+R-sq.(adj) =  -0.0271   Deviance explained = 0.169%
+-REML = -66.296  Scale est. = 0.014048  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 1.235294   0.009439 130.875   <2e-16 ***
+sex_cohortM 0.020567   0.013131   1.566    0.118    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value   
+s(age_cohort):interaction(sex_cohort)F   1      1 8.990 0.00297 **
+s(age_cohort):interaction(sex_cohort)M   1      1 5.195 0.02345 * 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0464   Deviance explained = 5.71%
+-REML = -205.29  Scale est. = 0.011549  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.24616    0.01513  82.355   <2e-16 ***
+sex_cohortM -0.05736    0.02543  -2.256   0.0259 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 4.158  0.0437 *
+s(age_cohort):interaction(sex_cohort)M   1      1 0.017  0.8977  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0718   Deviance explained = 9.54%
+-REML = -67.704  Scale est. = 0.015694  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.21969    0.01374  88.764   <2e-16 ***
+sex_cohortM -0.01157    0.01761  -0.657    0.512    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df      F  p-value    
+s(age_cohort):interaction(sex_cohort)F   1      1  5.561 0.019088 *  
+s(age_cohort):interaction(sex_cohort)M   1      1 12.624 0.000451 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0598   Deviance explained = 7.03%
+-REML = -137.53  Scale est. = 0.019347  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.20941    0.00889 136.039   <2e-16 ***
+sex_cohortM -0.02330    0.01184  -1.968   0.0497 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df      F  p-value    
+s(age_cohort):interaction(sex_cohort)F 1.000  1.000  3.306 0.069758 .  
+s(age_cohort):interaction(sex_cohort)M 1.001  1.002 13.481 0.000271 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =   0.05   Deviance explained = 5.71%
+-REML = -281.84  Scale est. = 0.013322  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.10741    0.01752  63.226   <2e-16 ***
+sex_cohortM -0.01587    0.02534  -0.626    0.532    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F 1.000  1.000 0.250   0.618
+s(age_cohort):interaction(sex_cohort)M 1.113  1.218 0.407   0.651
+
+R-sq.(adj) =  -0.0194   Deviance explained = 1.03%
+-REML = -57.009  Scale est. = 0.016775  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.206251   0.009739 123.854   <2e-16 ***
+sex_cohortM -0.004454   0.013544  -0.329    0.743    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value   
+s(age_cohort):interaction(sex_cohort)F 1.408  1.729 7.784 0.00323 **
+s(age_cohort):interaction(sex_cohort)M 1.000  1.001 7.399 0.00695 **
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.059   Deviance explained = 7.09%
+-REML = -196.95  Scale est. = 0.012278  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.21638    0.01735  70.093   <2e-16 ***
+sex_cohortM -0.07383    0.02916  -2.532   0.0127 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1  1.001 4.018  0.0473 *
+s(age_cohort):interaction(sex_cohort)M   1  1.000 0.465  0.4968  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0952   Deviance explained = 11.8%
+-REML = -51.946  Scale est. = 0.020642  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.18162    0.01429  82.697   <2e-16 ***
+sex_cohortM -0.01266    0.01831  -0.691     0.49    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F  p-value    
+s(age_cohort):interaction(sex_cohort)F   1      1  6.69 0.010225 *  
+s(age_cohort):interaction(sex_cohort)M   1      1 13.49 0.000291 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.067   Deviance explained = 7.75%
+-REML = -127.13  Scale est. = 0.02092   n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.174252   0.009541 123.076  < 2e-16 ***
+sex_cohortM -0.041510   0.012715  -3.265  0.00119 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value   
+s(age_cohort):interaction(sex_cohort)F 1.000  1.001 4.283 0.03908 * 
+s(age_cohort):interaction(sex_cohort)M 2.162  2.730 4.656 0.00452 **
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0691   Deviance explained = 7.88%
+-REML = -253.06  Scale est. = 0.015344  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.063922   0.017964  59.225   <2e-16 ***
+sex_cohortM -0.005334   0.025979  -0.205    0.838    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 0.693   0.407
+s(age_cohort):interaction(sex_cohort)M   1      1 0.001   0.972
+
+R-sq.(adj) =  -0.0219   Deviance explained = 0.676%
+-REML = -54.437  Scale est. = 0.017646  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.19604    0.01081 110.594   <2e-16 ***
+sex_cohortM -0.02527    0.01505  -1.679   0.0943 .  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F  p-value    
+s(age_cohort):interaction(sex_cohort)F   1      1 19.66 1.38e-05 ***
+s(age_cohort):interaction(sex_cohort)M   1      1 15.23 0.000121 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.118   Deviance explained = 12.8%
+-REML = -169.23  Scale est. = 0.015161  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.19974    0.01549  77.446  < 2e-16 ***
+sex_cohortM -0.07551    0.02603  -2.901  0.00446 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value   
+s(age_cohort):interaction(sex_cohort)F   1      1 7.078 0.00891 **
+s(age_cohort):interaction(sex_cohort)M   1      1 1.103 0.29573   
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.149   Deviance explained = 17.1%
+-REML = -65.001  Scale est. = 0.016449  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.17546    0.01408  83.470   <2e-16 ***
+sex_cohortM -0.04600    0.01803  -2.552   0.0113 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df      F  p-value    
+s(age_cohort):interaction(sex_cohort)F 1.738  2.174  7.505 0.000484 ***
+s(age_cohort):interaction(sex_cohort)M 1.000  1.001 40.565  < 2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.203   Deviance explained = 21.4%
+-REML = -131.21  Scale est. = 0.020214  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.138214   0.009677 117.618  < 2e-16 ***
+sex_cohortM -0.035477   0.012898  -2.751  0.00622 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df      F  p-value    
+s(age_cohort):interaction(sex_cohort)F 1.000  1.000 14.113 0.000198 ***
+s(age_cohort):interaction(sex_cohort)M 2.237  2.823  6.366 0.000431 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.099   Deviance explained = 10.9%
+-REML = -247.38  Scale est. = 0.015785  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.05807    0.01740  60.801   <2e-16 ***
+sex_cohortM -0.02678    0.02517  -1.064     0.29    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1  1.000 0.060   0.807
+s(age_cohort):interaction(sex_cohort)M   1  1.001 0.674   0.413
+
+R-sq.(adj) =  -0.00845   Deviance explained = 1.98%
+-REML = -57.741  Scale est. = 0.01656   n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.16058    0.00820 141.534   <2e-16 ***
+sex_cohortM  0.01942    0.01141   1.703   0.0898 .  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value   
+s(age_cohort):interaction(sex_cohort)F   1      1 7.847 0.00546 **
+s(age_cohort):interaction(sex_cohort)M   1      1 1.587 0.20883   
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0319   Deviance explained = 4.28%
+-REML = -242.57  Scale est. = 0.0087163  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.16009    0.01063 109.122   <2e-16 ***
+sex_cohortM -0.03923    0.01786  -2.196   0.0301 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 1.806   0.182
+s(age_cohort):interaction(sex_cohort)M   1      1 0.067   0.796
+
+R-sq.(adj) =  0.0489   Deviance explained = 7.31%
+-REML = -108.3  Scale est. = 0.0077467  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.143624   0.009869 115.881   <2e-16 ***
+sex_cohortM -0.008411   0.012647  -0.665    0.507    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value   
+s(age_cohort):interaction(sex_cohort)F 1.001  1.001 4.055   0.045 * 
+s(age_cohort):interaction(sex_cohort)M 1.000  1.000 9.737   0.002 **
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0443   Deviance explained =  5.5%
+-REML = -225.57  Scale est. = 0.0099801  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.128425   0.007396 152.563   <2e-16 ***
+sex_cohortM -0.019872   0.009849  -2.018   0.0443 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value   
+s(age_cohort):interaction(sex_cohort)F 1.000  1.001 3.992 0.04640 * 
+s(age_cohort):interaction(sex_cohort)M 1.059  1.116 8.763 0.00219 **
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0442   Deviance explained = 5.15%
+-REML = -354.47  Scale est. = 0.0092215  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.024218   0.013808  74.175   <2e-16 ***
+sex_cohortM -0.002037   0.020001  -0.102    0.919    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F 1.000  1.000 0.449   0.504
+s(age_cohort):interaction(sex_cohort)M 1.583  1.963 0.687   0.548
+
+R-sq.(adj) =  -0.0102   Deviance explained = 2.36%
+-REML = -81.435  Scale est. = 0.010426  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 1.158735   0.009068 127.783   <2e-16 ***
+sex_cohortM 0.006805   0.012615   0.539     0.59    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F  p-value    
+s(age_cohort):interaction(sex_cohort)F   1      1 28.52 3.12e-07 ***
+s(age_cohort):interaction(sex_cohort)M   1      1 19.91 1.22e-05 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.145   Deviance explained = 15.5%
+-REML = -215.91  Scale est. = 0.010659  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.15196    0.01214  94.901   <2e-16 ***
+sex_cohortM -0.04969    0.02040  -2.436   0.0164 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df      F p-value   
+s(age_cohort):interaction(sex_cohort)F   1      1 10.581  0.0015 **
+s(age_cohort):interaction(sex_cohort)M   1      1  2.987  0.0866 . 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.174   Deviance explained = 19.5%
+-REML = -93.049  Scale est. = 0.010099  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.13775    0.01217  93.487   <2e-16 ***
+sex_cohortM -0.01772    0.01560  -1.136    0.257    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F  p-value    
+s(age_cohort):interaction(sex_cohort)F   1  1.001 23.13 2.95e-06 ***
+s(age_cohort):interaction(sex_cohort)M   1  1.000 49.54  < 2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.221   Deviance explained =   23%
+-REML = -169.82  Scale est. = 0.015177  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.114208   0.007828 142.334  < 2e-16 ***
+sex_cohortM -0.030160   0.010423  -2.894  0.00402 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value    
+s(age_cohort):interaction(sex_cohort)F   1      1 37.20  <2e-16 ***
+s(age_cohort):interaction(sex_cohort)M   1      1 48.39  <2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.207   Deviance explained = 21.3%
+-REML = -332.09  Scale est. = 0.010329  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.01671    0.01341   75.81   <2e-16 ***
+sex_cohortM -0.01845    0.01943   -0.95    0.345    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F 1.000  1.000 1.744  0.1896  
+s(age_cohort):interaction(sex_cohort)M 1.661  2.069 2.843  0.0665 .
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.058   Deviance explained = 9.02%
+-REML = -84.406  Scale est. = 0.0098356  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 1.145451   0.008539 134.138   <2e-16 ***
+sex_cohortM 0.023946   0.011880   2.016   0.0448 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 0.303   0.583
+s(age_cohort):interaction(sex_cohort)M   1      1 0.031   0.860
+
+R-sq.(adj) =  0.00501   Deviance explained = 1.62%
+-REML = -231.83  Scale est. = 0.0094527  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.16389    0.01531  76.008   <2e-16 ***
+sex_cohortM -0.05880    0.02573  -2.285   0.0241 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 0.603   0.439
+s(age_cohort):interaction(sex_cohort)M   1      1 0.065   0.799
+
+R-sq.(adj) =  0.0321   Deviance explained = 5.67%
+-REML = -66.335  Scale est. = 0.016072  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.12828    0.01270  88.867   <2e-16 ***
+sex_cohortM  0.00629    0.01627   0.387    0.699    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F 1.001  1.001 0.126   0.724
+s(age_cohort):interaction(sex_cohort)M 1.000  1.000 1.487   0.224
+
+R-sq.(adj) =  -0.005   Deviance explained = 0.622%
+-REML = -158.56  Scale est. = 0.016517  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.134902   0.008051 140.964   <2e-16 ***
+sex_cohortM -0.013846   0.010720  -1.292    0.197    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F 1.000  1.000 0.385   0.536
+s(age_cohort):interaction(sex_cohort)M 1.001  1.002 2.584   0.108
+
+R-sq.(adj) =  0.00483   Deviance explained = 1.23%
+-REML =   -321  Scale est. = 0.010926  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 1.067016   0.015931  66.976   <2e-16 ***
+sex_cohortM 0.009017   0.023040   0.391    0.696    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 0.602   0.440
+s(age_cohort):interaction(sex_cohort)M   1      1 0.644   0.424
+
+R-sq.(adj) =  -0.0133   Deviance explained = 1.51%
+-REML = -66.926  Scale est. = 0.013879  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 1.127170   0.008065 139.754   <2e-16 ***
+sex_cohortM 0.007469   0.011220   0.666    0.506    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1  1.001 2.584   0.109
+s(age_cohort):interaction(sex_cohort)M   1  1.000 0.074   0.786
+
+R-sq.(adj) =  0.000138   Deviance explained = 1.13%
+-REML = -246.96  Scale est. = 0.0084324  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.13636    0.01012 112.246  < 2e-16 ***
+sex_cohortM -0.04864    0.01701  -2.859  0.00504 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 0.076   0.783
+s(age_cohort):interaction(sex_cohort)M   1      1 0.035   0.852
+
+R-sq.(adj) =  0.0472   Deviance explained = 7.15%
+-REML = -113.92  Scale est. = 0.007025  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.11323    0.00937 118.810   <2e-16 ***
+sex_cohortM -0.01818    0.01201  -1.514    0.131    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 1.313  0.2529  
+s(age_cohort):interaction(sex_cohort)M   1      1 4.049  0.0452 *
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0219   Deviance explained = 3.28%
+-REML = -239.37  Scale est. = 0.0089961  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.106378   0.007799 141.865  < 2e-16 ***
+sex_cohortM -0.031306   0.010392  -3.012  0.00276 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F 1.000  1.001 0.000  0.9941  
+s(age_cohort):interaction(sex_cohort)M 2.004  2.531 2.365  0.0828 .
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0335   Deviance explained = 4.32%
+-REML = -332.86  Scale est. = 0.010252  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.994899   0.014624  68.034   <2e-16 ***
+sex_cohortM -0.004263   0.021124  -0.202     0.84    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F 1.812  2.276 1.480   0.221
+s(age_cohort):interaction(sex_cohort)M 1.000  1.000 1.824   0.180
+
+R-sq.(adj) =  0.0209   Deviance explained = 5.58%
+-REML = -75.515  Scale est. = 0.011642  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 1.075914   0.007728 139.224   <2e-16 ***
+sex_cohortM 0.016254   0.010751   1.512    0.132    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value   
+s(age_cohort):interaction(sex_cohort)F   1      1 8.725 0.00342 **
+s(age_cohort):interaction(sex_cohort)M   1      1 5.586 0.01882 * 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0464   Deviance explained =  5.7%
+-REML = -258.29  Scale est. = 0.0077416  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.06437    0.01064 100.035   <2e-16 ***
+sex_cohortM -0.02541    0.01788  -1.421    0.158    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 3.684  0.0574 .
+s(age_cohort):interaction(sex_cohort)M   1      1 0.758  0.3858  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0493   Deviance explained = 7.35%
+-REML = -108.2  Scale est. = 0.0077596  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.06159    0.01004 105.749   <2e-16 ***
+sex_cohortM -0.01636    0.01286  -1.272    0.204    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df      F p-value    
+s(age_cohort):interaction(sex_cohort)F 1.293  1.529  8.491 0.00296 ** 
+s(age_cohort):interaction(sex_cohort)M 1.000  1.000 30.959 < 2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.144   Deviance explained = 15.4%
+-REML = -221.14  Scale est. = 0.010305  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.030661   0.006528 157.873   <2e-16 ***
+sex_cohortM -0.004407   0.008687  -0.507    0.612    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df      F  p-value    
+s(age_cohort):interaction(sex_cohort)F 2.197  2.794  8.892 2.79e-05 ***
+s(age_cohort):interaction(sex_cohort)M 1.000  1.000 39.563  < 2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.141   Deviance explained =   15%
+-REML = -403.52  Scale est. = 0.0071621  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.94830    0.01261   75.17   <2e-16 ***
+sex_cohortM  0.01532    0.01825    0.84    0.403    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F 1.000    1.0 1.366  0.2451  
+s(age_cohort):interaction(sex_cohort)M 1.051    1.1 5.099  0.0208 *
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0396   Deviance explained =  6.7%
+-REML = -91.173  Scale est. = 0.0087019  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.072385   0.005711  187.78   <2e-16 ***
+sex_cohortM -0.012228   0.007942   -1.54    0.125    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F  p-value    
+s(age_cohort):interaction(sex_cohort)F 1.468  1.824 20.75 3.35e-07 ***
+s(age_cohort):interaction(sex_cohort)M 1.001  1.001 22.41 4.11e-06 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =   0.18   Deviance explained = 19.1%
+-REML = -338.39  Scale est. = 0.0042209  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.069677   0.006731 158.926  < 2e-16 ***
+sex_cohortM -0.040687   0.011309  -3.598 0.000475 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df    F p-value   
+s(age_cohort):interaction(sex_cohort)F   1      1 9.38 0.00273 **
+s(age_cohort):interaction(sex_cohort)M   1      1 1.92 0.16851   
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.214   Deviance explained = 23.4%
+-REML = -160.87  Scale est. = 0.0031051  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.072341   0.006511 164.697  < 2e-16 ***
+sex_cohortM -0.022804   0.008360  -2.728  0.00681 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F  p-value    
+s(age_cohort):interaction(sex_cohort)F 1.000  1.000 22.02 4.91e-06 ***
+s(age_cohort):interaction(sex_cohort)M 2.948  3.723 18.10  < 2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.283   Deviance explained = 29.6%
+-REML = -334.41  Scale est. = 0.004344  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.053890   0.005030 209.518  < 2e-16 ***
+sex_cohortM -0.022463   0.006697  -3.354 0.000874 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F  p-value    
+s(age_cohort):interaction(sex_cohort)F   1  1.001 15.84 8.25e-05 ***
+s(age_cohort):interaction(sex_cohort)M   1  1.000 30.39  < 2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.139   Deviance explained = 14.6%
+-REML = -506.79  Scale est. = 0.0042649  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.992745   0.010189  97.435   <2e-16 ***
+sex_cohortM -0.008294   0.014735  -0.563    0.575    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 1.880  0.1734  
+s(age_cohort):interaction(sex_cohort)M   1      1 4.931  0.0285 *
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0436   Deviance explained = 7.04%
+-REML = -113.41  Scale est. = 0.0056766  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 1.052034   0.006948   151.4   <2e-16 ***
+sex_cohortM 0.010628   0.009666     1.1    0.273    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 4.657  0.0318 *
+s(age_cohort):interaction(sex_cohort)M   1      1 0.490  0.4845  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0115   Deviance explained = 2.26%
+-REML = -286.48  Scale est. = 0.0062579  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.051710   0.009445 111.353   <2e-16 ***
+sex_cohortM -0.040358   0.015870  -2.543   0.0123 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 1.403   0.239
+s(age_cohort):interaction(sex_cohort)M   1      1 0.009   0.924
+
+R-sq.(adj) =  0.0577   Deviance explained = 8.17%
+-REML = -121.9  Scale est. = 0.0061143  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.029085   0.008314 123.784   <2e-16 ***
+sex_cohortM -0.012622   0.010654  -1.185    0.237    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df      F  p-value    
+s(age_cohort):interaction(sex_cohort)F   1  1.001  6.369 0.012190 *  
+s(age_cohort):interaction(sex_cohort)M   1  1.000 12.257 0.000543 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0673   Deviance explained = 7.77%
+-REML = -271.19  Scale est. = 0.0070821  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.001916   0.006939 144.380   <2e-16 ***
+sex_cohortM -0.018352   0.009236  -1.987   0.0476 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df      F p-value   
+s(age_cohort):interaction(sex_cohort)F 1.879  2.386  3.891  0.0166 * 
+s(age_cohort):interaction(sex_cohort)M 1.002  1.004 10.316  0.0014 **
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0582   Deviance explained = 6.74%
+-REML = -379.48  Scale est. = 0.0081013  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 0.875817   0.012229  71.616   <2e-16 ***
+sex_cohortM 0.009024   0.017653   0.511     0.61    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F 2.214  2.781 1.306   0.343
+s(age_cohort):interaction(sex_cohort)M 1.000  1.000 0.044   0.834
+
+R-sq.(adj) =  0.00741   Deviance explained = 4.65%
+-REML = -93.866  Scale est. = 0.0081189  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 1.038944   0.003090 336.204   <2e-16 ***
+sex_cohortM 0.010858   0.004296   2.527   0.0121 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F 1.820  2.336 1.556   0.202
+s(age_cohort):interaction(sex_cohort)M 1.002  1.003 0.791   0.375
+
+R-sq.(adj) =  0.0312   Deviance explained =  4.5%
+-REML = -501.03  Scale est. = 0.0012344  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 1.0387559  0.0038764 267.968   <2e-16 ***
+sex_cohortM 0.0008759  0.0064951   0.135    0.893    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F 1.422  1.744 0.155   0.778
+s(age_cohort):interaction(sex_cohort)M 1.000  1.000 0.257   0.613
+
+R-sq.(adj) =  -0.0171   Deviance explained = 1.24%
+-REML = -224.58  Scale est. = 0.001021  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+              Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.039e+00  3.475e-03 299.091   <2e-16 ***
+sex_cohortM -3.625e-05  4.453e-03  -0.008    0.994    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 3.386  0.0668 .
+s(age_cohort):interaction(sex_cohort)M   1      1 0.149  0.6998  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.00224   Deviance explained = 1.34%
+-REML = -503.21  Scale est. = 0.0012374  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.038127   0.003052 340.157   <2e-16 ***
+sex_cohortM -0.004241   0.004064  -1.044    0.297    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F 1.000  1.000 3.915  0.0485 *
+s(age_cohort):interaction(sex_cohort)M 1.001  1.001 0.019  0.8906  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.00389   Deviance explained = 1.14%
+-REML = -704.16  Scale est. = 0.00157   n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 1.026081   0.004254 241.218   <2e-16 ***
+sex_cohortM 0.002105   0.006152   0.342    0.733    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 4.233  0.0421 *
+s(age_cohort):interaction(sex_cohort)M   1      1 0.274  0.6016  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0176   Deviance explained = 4.52%
+-REML = -204.26  Scale est. = 0.00098944  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.03950    0.01005 103.467   <2e-16 ***
+sex_cohortM -0.01495    0.01398  -1.069    0.286    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df      F p-value    
+s(age_cohort):interaction(sex_cohort)F   1  1.000 22.703 3.6e-06 ***
+s(age_cohort):interaction(sex_cohort)M   1  1.001  6.704  0.0101 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0953   Deviance explained = 10.5%
+-REML = -188.75  Scale est. = 0.013084  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.04473    0.01449  72.103   <2e-16 ***
+sex_cohortM -0.05110    0.02426  -2.107   0.0373 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value   
+s(age_cohort):interaction(sex_cohort)F 1.571  1.969 4.908 0.00766 **
+s(age_cohort):interaction(sex_cohort)M 1.000  1.000 0.937 0.33497   
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.136   Deviance explained = 16.2%
+-REML = -73.01  Scale est. = 0.014225  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.03751    0.01233  84.127   <2e-16 ***
+sex_cohortM -0.02847    0.01584  -1.798   0.0734 .  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df      F  p-value    
+s(age_cohort):interaction(sex_cohort)F 1.000  1.000 14.074 0.000216 ***
+s(age_cohort):interaction(sex_cohort)M 3.459  4.361  4.479 0.001204 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.125   Deviance explained = 14.2%
+-REML = -163.83  Scale est. = 0.015585  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.017265   0.008531 119.239  < 2e-16 ***
+sex_cohortM -0.045374   0.011370  -3.991 7.86e-05 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df      F p-value   
+s(age_cohort):interaction(sex_cohort)F 1.000  1.001 10.912 0.00104 **
+s(age_cohort):interaction(sex_cohort)M 2.169  2.738  4.538 0.00622 **
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0981   Deviance explained = 10.8%
+-REML = -297.23  Scale est. = 0.012268  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 0.876941   0.015248  57.510   <2e-16 ***
+sex_cohortM 0.004087   0.022052   0.185    0.853    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 0.000   0.983
+s(age_cohort):interaction(sex_cohort)M   1      1 0.016   0.899
+
+R-sq.(adj) =  -0.0283   Deviance explained = 0.0558%
+-REML = -71.482  Scale est. = 0.012714  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.030264   0.011141   92.48   <2e-16 ***
+sex_cohortM -0.002792   0.015499   -0.18    0.857    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F  p-value    
+s(age_cohort):interaction(sex_cohort)F   1      1 26.57 6.65e-07 ***
+s(age_cohort):interaction(sex_cohort)M   1      1 14.43 0.000181 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.125   Deviance explained = 13.5%
+-REML = -161.35  Scale est. = 0.016089  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.02551    0.01917  53.489   <2e-16 ***
+sex_cohortM -0.03170    0.03206  -0.989    0.325    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value   
+s(age_cohort):interaction(sex_cohort)F 1.769  2.248 6.036 0.00254 **
+s(age_cohort):interaction(sex_cohort)M 1.000  1.000 0.922 0.33887   
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.119   Deviance explained = 14.7%
+-REML = -40.847  Scale est. = 0.024822  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  1.03017    0.01456  70.757   <2e-16 ***
+sex_cohortM -0.03286    0.01866  -1.761   0.0794 .  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F  p-value    
+s(age_cohort):interaction(sex_cohort)F   1      1 20.46 9.34e-06 ***
+s(age_cohort):interaction(sex_cohort)M   1      1 28.84  < 2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.171   Deviance explained =   18%
+-REML = -122.14  Scale est. = 0.02172   n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.99768    0.01019  97.885   <2e-16 ***
+sex_cohortM -0.03390    0.01358  -2.496    0.013 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df      F  p-value    
+s(age_cohort):interaction(sex_cohort)F 1.000  1.000 21.077 6.44e-06 ***
+s(age_cohort):interaction(sex_cohort)M 2.131  2.691  5.545  0.00212 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.102   Deviance explained = 11.1%
+-REML = -227.01  Scale est. = 0.01751   n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.893203   0.017768  50.272   <2e-16 ***
+sex_cohortM -0.007575   0.025695  -0.295    0.769    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 0.069   0.794
+s(age_cohort):interaction(sex_cohort)M   1      1 0.427   0.515
+
+R-sq.(adj) =  -0.0222   Deviance explained = 0.642%
+-REML = -55.58  Scale est. = 0.017262  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 0.982217   0.008123 120.924   <2e-16 ***
+sex_cohortM 0.023022   0.011300   2.037   0.0426 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 2.998  0.0845 .
+s(age_cohort):interaction(sex_cohort)M   1      1 2.236  0.1360  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0252   Deviance explained = 3.61%
+-REML = -245.09  Scale est. = 0.0085524  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.99219    0.01102  90.036   <2e-16 ***
+sex_cohortM -0.05057    0.01852  -2.731   0.0073 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F 1.001  1.001 0.858   0.356
+s(age_cohort):interaction(sex_cohort)M 1.000  1.000 0.267   0.606
+
+R-sq.(adj) =  0.0394   Deviance explained = 6.38%
+-REML = -104.17  Scale est. = 0.0083237  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 0.957334   0.010061  95.153   <2e-16 ***
+sex_cohortM 0.001927   0.012893   0.149    0.881    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1  1.001 0.915   0.340
+s(age_cohort):interaction(sex_cohort)M   1  1.000 0.459   0.499
+
+R-sq.(adj) =  -0.00585   Deviance explained = 0.537%
+-REML = -220.44  Scale est. = 0.010372  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.955609   0.006851 139.493   <2e-16 ***
+sex_cohortM -0.013582   0.009121  -1.489    0.137    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F 1.158  1.301 1.648   0.153
+s(age_cohort):interaction(sex_cohort)M 1.007  1.014 1.648   0.197
+
+R-sq.(adj) =  0.00851   Deviance explained = 1.64%
+-REML = -384.74  Scale est. = 0.0079087  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.90081    0.01316  68.467   <2e-16 ***
+sex_cohortM -0.01396    0.01903  -0.734    0.465    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 2.482  0.1182  
+s(age_cohort):interaction(sex_cohort)M   1      1 2.804  0.0971 .
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.022   Deviance explained = 4.94%
+-REML = -86.825  Scale est. = 0.0094656  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.970670   0.005876 165.202   <2e-16 ***
+sex_cohortM -0.002334   0.008181  -0.285    0.776    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F 1.001  1.001 3.299  0.0704 .
+s(age_cohort):interaction(sex_cohort)M 1.662  2.088 2.393  0.0991 .
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0209   Deviance explained = 3.42%
+-REML = -330.49  Scale est. = 0.0044752  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.977526   0.006031 162.072   <2e-16 ***
+sex_cohortM -0.023132   0.010135  -2.283   0.0243 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 2.542   0.114
+s(age_cohort):interaction(sex_cohort)M   1      1 2.400   0.124
+
+R-sq.(adj) =  0.0967   Deviance explained =   12%
+-REML = -173.48  Scale est. = 0.0024935  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.973653   0.005922 164.403   <2e-16 ***
+sex_cohortM -0.007477   0.007598  -0.984    0.326    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value   
+s(age_cohort):interaction(sex_cohort)F 1.000  1.000 3.346  0.0685 . 
+s(age_cohort):interaction(sex_cohort)M 1.803  2.265 5.778  0.0022 **
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0587   Deviance explained =  7.2%
+-REML = -360.86  Scale est. = 0.003594  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.967601   0.005285 183.075  < 2e-16 ***
+sex_cohortM -0.018832   0.007036  -2.676  0.00775 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F 1.323  1.583 0.674  0.3860  
+s(age_cohort):interaction(sex_cohort)M 1.000  1.001 5.079  0.0247 *
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0331   Deviance explained = 4.12%
+-REML = -487.17  Scale est. = 0.0047061  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.922834   0.007252  127.26   <2e-16 ***
+sex_cohortM -0.003250   0.010488   -0.31    0.757    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 0.159  0.6907  
+s(age_cohort):interaction(sex_cohort)M   1      1 3.429  0.0669 .
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.00809   Deviance explained = 3.59%
+-REML = -148.78  Scale est. = 0.0028756  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 0.932043   0.005701 163.480   <2e-16 ***
+sex_cohortM 0.011830   0.007931   1.492    0.137    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 0.031  0.8615  
+s(age_cohort):interaction(sex_cohort)M   1      1 4.484  0.0351 *
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0146   Deviance explained = 2.56%
+-REML = -338.89  Scale est. = 0.0042135  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.928954   0.007703 120.602   <2e-16 ***
+sex_cohortM -0.017071   0.012943  -1.319     0.19    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 0.078   0.780
+s(age_cohort):interaction(sex_cohort)M   1      1 1.261   0.264
+
+R-sq.(adj) =  -0.00606   Deviance explained = 1.95%
+-REML = -145.35  Scale est. = 0.0040666  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.928483   0.006899 134.579   <2e-16 ***
+sex_cohortM -0.012632   0.008847  -1.428    0.154    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F 1.001  1.002 1.341   0.248
+s(age_cohort):interaction(sex_cohort)M 1.401  1.702 0.133   0.824
+
+R-sq.(adj) =  0.0019   Deviance explained = 1.45%
+-REML = -320.56  Scale est. = 0.0048773  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.917213   0.005089  180.24   <2e-16 ***
+sex_cohortM -0.012737   0.006774   -1.88   0.0608 .  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F 1.595  1.999 0.536   0.577
+s(age_cohort):interaction(sex_cohort)M 1.001  1.001 0.002   0.971
+
+R-sq.(adj) =  0.00407   Deviance explained = 1.31%
+-REML = -502.08  Scale est. = 0.0043599  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.87479    0.00832 105.144   <2e-16 ***
+sex_cohortM -0.00434    0.01203  -0.361    0.719    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                        edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F 1.22  1.408 0.221   0.644
+s(age_cohort):interaction(sex_cohort)M 1.00  1.000 2.650   0.107
+
+R-sq.(adj) =  0.00334   Deviance explained = 3.33%
+-REML = -134.42  Scale est. = 0.0037813  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.818425   0.008036 101.839   <2e-16 ***
+sex_cohortM -0.006294   0.011180  -0.563    0.574    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F   1      1 3.027   0.083 .
+s(age_cohort):interaction(sex_cohort)M   1      1 2.364   0.125  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0106   Deviance explained = 2.17%
+-REML = -247.91  Scale est. = 0.0083721  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.80278    0.01166  68.876   <2e-16 ***
+sex_cohortM -0.03537    0.01947  -1.817   0.0718 .  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F 2.044  2.613 1.126  0.4392  
+s(age_cohort):interaction(sex_cohort)M 1.000  1.000 2.764  0.0991 .
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0706   Deviance explained = 10.2%
+-REML = -98.077  Scale est. = 0.0091367  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.79082    0.01056  74.911   <2e-16 ***
+sex_cohortM -0.01754    0.01353  -1.297    0.196    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F  p-value    
+s(age_cohort):interaction(sex_cohort)F   1      1 15.22 0.000122 ***
+s(age_cohort):interaction(sex_cohort)M   1      1 24.41 1.68e-06 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.136   Deviance explained = 14.6%
+-REML = -207.65  Scale est. = 0.01142   n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.776890   0.007212 107.723  < 2e-16 ***
+sex_cohortM -0.024850   0.009600  -2.589  0.00999 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df      F  p-value    
+s(age_cohort):interaction(sex_cohort)F 1.625  2.041  4.917  0.00771 ** 
+s(age_cohort):interaction(sex_cohort)M 1.000  1.001 20.738 7.61e-06 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0926   Deviance explained = 10.1%
+-REML = -364.33  Scale est. = 0.0087565  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.72375    0.01404  51.544   <2e-16 ***
+sex_cohortM -0.03429    0.02031  -1.689   0.0943 .  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F   1      1 0.005   0.945
+s(age_cohort):interaction(sex_cohort)M   1      1 0.131   0.718
+
+R-sq.(adj) =  0.00211   Deviance explained = 3.01%
+-REML = -80.058  Scale est. = 0.010781  n = 108
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.757748   0.004044  187.39   <2e-16 ***
+sex_cohortM -0.006640   0.005626   -1.18    0.239    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                       edf Ref.df     F  p-value    
+s(age_cohort):interaction(sex_cohort)F   1  1.001 23.79 2.19e-06 ***
+s(age_cohort):interaction(sex_cohort)M   1  1.001 10.29   0.0015 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.111   Deviance explained = 12.1%
+-REML = -429.92  Scale est. = 0.0021196  n = 269
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.745962   0.005501 135.605   <2e-16 ***
+sex_cohortM -0.012908   0.009243  -1.397    0.165    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value
+s(age_cohort):interaction(sex_cohort)F 1.001  1.002 1.513   0.221
+s(age_cohort):interaction(sex_cohort)M 1.000  1.000 1.291   0.258
+
+R-sq.(adj) =  0.0348   Deviance explained = 5.94%
+-REML = -184.07  Scale est. = 0.0020741  n = 119
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.746591   0.005792  128.90   <2e-16 ***
+sex_cohortM -0.018769   0.007420   -2.53    0.012 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F  p-value    
+s(age_cohort):interaction(sex_cohort)F 1.239  1.440 18.34 1.21e-05 ***
+s(age_cohort):interaction(sex_cohort)M 1.001  1.002 57.34  < 2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.262   Deviance explained = 27.1%
+-REML = -367.41  Scale est. = 0.0034318  n = 270
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.725956   0.003852 188.454   <2e-16 ***
+sex_cohortM -0.012349   0.005126  -2.409   0.0164 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F  p-value    
+s(age_cohort):interaction(sex_cohort)F 2.093  2.662 12.81 8.92e-07 ***
+s(age_cohort):interaction(sex_cohort)M 1.000  1.001 40.89  < 2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.181   Deviance explained =   19%
+-REML = -611.92  Scale est. = 0.0024946  n = 399
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+y_i ~ s(age_cohort, k = K, by = interaction(sex_cohort)) + sex_cohort
+
+Parametric coefficients:
+             Estimate Std. Error t value Pr(>|t|)    
+(Intercept)  0.677201   0.007232  93.646   <2e-16 ***
+sex_cohortM -0.003883   0.010465  -0.371    0.711    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                                         edf Ref.df     F p-value  
+s(age_cohort):interaction(sex_cohort)F 1.001  1.001 3.331  0.0709 .
+s(age_cohort):interaction(sex_cohort)M 1.263  1.479 1.568  0.1506  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0375   Deviance explained = 6.69%
+-REML = -148.92  Scale est. = 0.0028596  n = 108
