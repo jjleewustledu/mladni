@@ -107,12 +107,12 @@ classdef NMFRadar < handle
 
             % Estimate
             P = intercept.Estimate';
-            SE = intercept.StdErr';
-            amin = min(P-SE, [], 'all');
-            amax = max(P+SE, [], 'all');
+            CI = 1.96*intercept.StdErr';
+            amin = min(P-CI, [], 'all');
+            amax = max(P+CI, [], 'all');
             h = figure;
-            c = this.suvr2viridis(0.76, suvr_max=1.35, suvr_min=0.76);
-            s1 = plot_with_stderr(this, P, SE, AxesMin=amin, AxesMax=amax, Color=c);
+            c = this.suvr2viridis(min(P, [], "all"), suvr_min=0.76, suvr_max=1.36);
+            s1 = plot_with_CI(this, P, CI, AxesMin=amin, AxesMax=amax, Color=c);
             saveFigure2(h, fullfile(this.figdir, 'call_intercept_GAM_beta_intercept'));
     
             if opts.pvalues
@@ -154,11 +154,12 @@ classdef NMFRadar < handle
             %load("P.mat");
             %load("SE.mat");
             P = apoe4.Estimate';
-            SE = apoe4.StdErr';
-            amin = min(P-SE, [], 'all');
-            amax = max(P+SE, [], 'all');
+            CI = 1.96*apoe4.StdErr';
+            amin = min(P-CI, [], 'all');
+            amax = max(P+CI, [], 'all');
             figure
-            s1 = plot_with_stderr(this, P, SE, AxesMin=amin, AxesMax=amax);
+            c = this.suvr2viridis(min(P, [], "all"), suvr_min=-0.254, suvr_max=0.0108);
+            s1 = plot_with_CI(this, P, CI, AxesMin=amin, AxesMax=amax, Color=c);
             saveFigures(this.figdir, closeFigure=true, prefix='call_apoe4_GAM_beta_apoe4');
     
             if opts.pvalues
@@ -196,11 +197,12 @@ classdef NMFRadar < handle
 
             % Estimate
             P = male.Estimate';
-            SE = male.StdErr';
-            amin = min(P-SE, [], 'all');
-            amax = max(P+SE, [], 'all');
+            CI = 1.96*male.StdErr';
+            amin = min(P-CI, [], 'all');
+            amax = max(P+CI, [], 'all');
             figure
-            s1 = plot_with_stderr(this, P, SE, AxesMin=amin, AxesMax=amax);
+            c = this.suvr2viridis(min(P, [], "all"), suvr_min=-0.254, suvr_max=0.0108);
+            s1 = plot_with_CI(this, P, CI, AxesMin=amin, AxesMax=amax, Color=c);
             saveFigures(this.figdir, closeFigure=true, prefix='call_sex_GAM_beta_sex');
 
             if opts.pvalues
@@ -219,7 +221,7 @@ classdef NMFRadar < handle
                     legend={'CDR=0, amy-'}, ti='FDR p-value \beta_{sex}', AxesScaling=axes_scaling);
                 %saveFigures(this.figdir, closeFigure=true, prefix='call_sex_FDR_p-value_beta_sex');
             end
-        end      
+        end    
 
         function [s1,s2] = call_groups(this, opts)
             arguments
@@ -233,7 +235,7 @@ classdef NMFRadar < handle
 
             assert(length(this.groups) == length(this.groupLabels))
             P = zeros(this.N_groups, this.N_PATTERNS);
-            SE = zeros(this.N_groups, this.N_PATTERNS);
+            CI = zeros(this.N_groups, this.N_PATTERNS);
             h = nan(this.N_groups, this.N_PATTERNS);
             crit_p = nan(this.N_groups, 1);
             adj_ci_cvrg = nan(this.N_groups, 1);
@@ -248,7 +250,7 @@ classdef NMFRadar < handle
 
                     % Estimate
                     P(ig,:) = T.Estimate';
-                    SE(ig,:) = T.StdErr';
+                    CI(ig,:) = 1.96*T.StdErr';
         
                     if opts.pvalues
                         % PValue
@@ -266,16 +268,18 @@ classdef NMFRadar < handle
             end
         
             h = figure;
-            amin = min(P-SE, [], "all");
-            amax = max(P+SE, [], "all");
+            amin = min(P-CI, [], "all");
+            amax = max(P+CI, [], "all");
             fprintf("%s: P: amin->%g, amax->%g\n", stackstr(), amin, amax)
-            s1 = plot_groups_with_stderr(this, P(selected,:), SE(selected,:), ...
+            c = this.suvr2viridis(min(P(selected,:), [], 2), suvr_min=-0.254, suvr_max=0.0108);
+            s1 = plot_groups_with_CI(this, P(selected,:), CI(selected,:), ...
                 AxesMin=-0.3, AxesMax=0.05, ...
                 AxesInterval=7, ...
                 LineWidth=this.GROUP_LINEWIDTHS(selected), ...
                 MinorGrid="off", MinorGridInterval=[], ...
                 legend=this.groupLabels(selected), ...
-                ti="");
+                ti="", ...
+                Color=c);
             saveFigure2(h, fullfile(this.figdir, 'call_groups_GAM_beta_groups'));
 
             if opts.pvalues
@@ -300,6 +304,96 @@ classdef NMFRadar < handle
                     AxesScaling=axes_scaling);
                 saveFigures(this.figdir, closeFigure=true, prefix='call_groups_FDR_p-value_beta_groups');
             end
+        end    
+
+        function [s1,s2] = call_groups_percent(this, opts)
+            arguments
+                this mladni.NMFRadar
+                opts.show logical = false
+                opts.pvalues logical = false
+            end
+
+            ld = load(fullfile(this.workdir, this.matfile_cohort));
+            CC = ld.patternsofneurodegeneration20240630forimport;
+
+            % intercept
+            intercept = CC(contains(CC.ParamCoefficients, "Intercept"), :);
+
+            % groups
+            assert(length(this.groups) == length(this.groupLabels))
+            P = zeros(this.N_groups, this.N_PATTERNS);
+            CI = zeros(this.N_groups, this.N_PATTERNS);
+            h = nan(this.N_groups, this.N_PATTERNS);
+            crit_p = nan(this.N_groups, 1);
+            adj_ci_cvrg = nan(this.N_groups, 1);
+            Padj = nan(this.N_groups, this.N_PATTERNS);
+            selected = 2:length(this.groups);
+            for ig = selected % cn is reference cohort/category
+                try
+                    T = CC(contains(CC.ParamCoefficients, this.groups{ig}), :);       
+                    if opts.show
+                        disp(T)
+                    end
+
+                    % Estimate percents with approx. of std error
+                    R_ = T.Estimate'./(intercept.Estimate');
+                    P(ig,:) = R_;
+                    CI_ = R_.*sqrt((T.StdErr./T.Estimate).^2 + (intercept.StdErr./intercept.Estimate).^2)';
+                    CI(ig,:) = 1.96*CI_';
+        
+                    if opts.pvalues
+                        % PValue
+                        fprintf('NMFRadar.call_groups:\n')
+                        [h__, crit_p(ig), adj_ci_cvrg(ig), Padj__] = ...
+                            fdr_bh(T.PValue, 0.05, 'dep', 'yes');
+                        fprintf("crit_p->%g; adj_ci_cvrg->%g", crit_p(ig), adj_ci_cvrg(ig))
+                        h(ig,:) = asrow(h__);
+                        Padj(ig,:) = asrow(Padj__);
+                    end
+
+                catch ME
+                    handwarning(ME)
+                end
+            end
+        
+            h = figure;
+            amin = 100*min(P-CI, [], "all");
+            amax = 100*max(P+CI, [], "all");
+            fprintf("%s: P: amin->%g, amax->%g\n", stackstr(), amin, amax)
+            c = this.suvr2viridis(min(100*P, [], 2), suvr_min=min(100*P, [], "all"), suvr_max=max(100*P, [], "all"));
+            s1 = plot_groups_with_CI(this, 100*P(selected,:), 100*CI(selected,:), ...
+                AxesMin=-25, AxesMax=5, ...
+                AxesInterval=6, ...
+                AxesPrecision=0, ...
+                LineWidth=this.GROUP_LINEWIDTHS(selected), ...
+                MinorGrid="off", MinorGridInterval=[], ...
+                legend=this.groupLabels(selected), ...
+                ti="", ...
+                Color=c);
+            saveFigure2(h, fullfile(this.figdir, 'call_groups_GAM_beta_groups_percent'));
+
+            if opts.pvalues
+                % PValue
+                U = table( ...
+                    ascol(this.sorted_bases), ...
+                    ascol(Padj(1,:)), ...
+                    ascol(Padj(2,:)), ...
+                    ascol(Padj(3,:)), ...
+                    ascol(Padj(4,:)), ...
+                    VariableNames={'sorted_bases', 'pval_preclin', 'pval_mci', 'pval_ad', 'pval_other'});
+                disp(U)
+                amin = min(Padj, [], "all");
+                amax = max(Padj, [], "all");
+                fprintf("%s: Padj: amin->%g, amax->%g\n", stackstr(), amin, amax)
+                figure
+                axes_scaling = repmat({'log'}, [1, this.N_PATTERNS]);
+                s2 = plot_groups(this, Padj, ...
+                    AxesMin=amin, AxesMax=amax, ...
+                    legend=this.groupLabels(selected), ...
+                    ti="FDR p-value \beta_groups", ...
+                    AxesScaling=axes_scaling);
+                saveFigures(this.figdir, closeFigure=true, prefix='call_groups_FDR_p-value_beta_groups_percent');
+            end
         end  
 
         function this = call_patt_weighted_fdg(this)
@@ -320,7 +414,7 @@ classdef NMFRadar < handle
             cov = sigma./mu;
 
             figure
-            plot_with_stderr(this, mu, sigma, ...
+            plot_with_CI(this, mu, sigma, ...
                 AxesMin=dipmin(mu-sigma), AxesMax=dipmax(mu+sigma), ...
                 legend=this.mergeDx(1), ...
                 ti='Pattern-weighted FDG)');
@@ -352,13 +446,14 @@ classdef NMFRadar < handle
                 opts.AxesMin double = []
                 opts.AxesMax double = []
                 opts.AxesInterval double = []
+                opts.AxesPrecision double = 3
                 opts.AxesScaling cell = {}
                 opts.AxesLabels = this.AxesLabels
                 opts.Color double = []
                 opts.LineWidth double = 2
             end
             if isempty(opts.Color)
-                opts.Color = this.suvr2viridis(min(P, [], "all"));
+                opts.Color = this.suvr2viridis(P);
             end
             P = P(this.sorted_bases);
             Nbases = size(P,2);
@@ -373,7 +468,7 @@ classdef NMFRadar < handle
             
             % Spider plot properties
             s.AxesLabels = opts.AxesLabels;
-            s.AxesPrecision = 3;
+            s.AxesPrecision = opts.AxesPrecision;
             s.AxesDisplay = 'one';
             if ~isempty(opts.AxesMin) && ~isempty(opts.AxesMax)
                 s.AxesLimits = [opts.AxesMin*ones(1,Nbases); opts.AxesMax*ones(1,Nbases)];
@@ -406,7 +501,7 @@ classdef NMFRadar < handle
             end
         end
 
-        function s = plot_with_stderr(this, P, SE, opts)
+        function s = plot_with_CI(this, P, SE, opts)
             %% spider_plot_class_examples.m 
             %  Example 5 with Excel-like radar charts and
             %  Example 9 with shaded areas
@@ -420,13 +515,14 @@ classdef NMFRadar < handle
                 opts.AxesMin double = []
                 opts.AxesMax double = []
                 opts.AxesInterval double = []
+                opts.AxesPrecision double = 2
                 opts.AxesScaling cell = {}
                 opts.AxesLabels = this.AxesLabelsNull
                 opts.Color double = []
                 opts.LineWidth double = 1
             end
             if isempty(opts.Color)
-                opts.Color = this.suvr2viridis(min(P, [], "all"));
+                opts.Color = this.suvr2viridis(P);
             end
             P = P(this.sorted_bases);
             SE = SE(this.sorted_bases);
@@ -459,7 +555,7 @@ classdef NMFRadar < handle
             s.AxesShadedLimits = axes_shaded_limits;
             s.AxesShadedColor = {opts.Color};
             s.AxesShadedTransparency = this.ERR_ALPHA;
-            s.AxesPrecision = 2;
+            s.AxesPrecision = opts.AxesPrecision;
             s.AxesDisplay = 'one';
             %s.FillOption = 'on';
             %s.FillTransparency = 0.1;
@@ -497,6 +593,7 @@ classdef NMFRadar < handle
                 opts.AxesMin double = []
                 opts.AxesMax double = []
                 opts.AxesInterval double = []
+                opts.AxesPrecision double = 3
                 opts.AxesScaling cell = {}
                 opts.Color double = []
                 opts.LineStyle {mustBeText} = '-'
@@ -506,7 +603,7 @@ classdef NMFRadar < handle
                 opts.MinorGridInterval double = [];
             end
             if isempty(opts.Color)
-                opts.Color = this.suvr2viridis(min(P, [], "all"));
+                opts.Color = this.suvr2viridis(P);
             end
             P = P(:, this.sorted_bases);
             Nbases = size(P,2);
@@ -527,7 +624,7 @@ classdef NMFRadar < handle
                 s.AxesInterval = opts.AxesInterval;
             end
             s.AxesLabels = opts.AxesLabels;
-            s.AxesPrecision = 3;
+            s.AxesPrecision = opts.AxesPrecision;
             s.AxesDisplay = 'one';
             %s.FillOption = 'on';
             %s.FillTransparency = 0.1;
@@ -554,7 +651,7 @@ classdef NMFRadar < handle
                 title(opts.ti, 'FontSize', 14);
             end
         end
-        function s = plot_groups_with_stderr(this, P, SE, opts)
+        function s = plot_groups_with_CI(this, P, SE, opts)
             %% spider_plot_class_examples.m 
             %  Example 5 with Excel-like radar charts and
             %  Example 9 with shaded areas
@@ -568,6 +665,7 @@ classdef NMFRadar < handle
                 opts.AxesMin double = []
                 opts.AxesMax double = []
                 opts.AxesInterval double = []
+                opts.AxesPrecision double = 2
                 opts.AxesScaling cell = {}
                 opts.Color double = []
                 opts.LineStyle {mustBeText} = '-'
@@ -577,7 +675,7 @@ classdef NMFRadar < handle
                 opts.MinorGridInterval double = [];
             end
             if isempty(opts.Color)
-                opts.Color = this.suvr2viridis(min(P, [], 2));
+                opts.Color = this.suvr2viridis(P);
             end
             P = P(:, this.sorted_bases);
             SE = SE(:, this.sorted_bases);
@@ -617,7 +715,7 @@ classdef NMFRadar < handle
             s.AxesShadedLimits = axes_shaded_limits;
             s.AxesShadedColor = axes_shaded_colors;
             s.AxesShadedTransparency = this.ERR_ALPHA;
-            s.AxesPrecision = 2;
+            s.AxesPrecision = opts.AxesPrecision;
             s.AxesDisplay = 'one';
             %s.FillOption = 'on';
             %s.FillTransparency = 0.1;
@@ -749,8 +847,14 @@ classdef NMFRadar < handle
             arguments
                 this mladni.NMFRadar
                 suvr double = 0
-                opts.suvr_max = 0.0108
-                opts.suvr_min = -0.254
+                opts.suvr_max = []
+                opts.suvr_min = []
+            end
+            if isempty(opts.suvr_max)
+                opts.suvr_max = max(suvr, [], "all");
+            end
+            if isempty(opts.suvr_min)
+                opts.suvr_min = min(suvr, [], "all");
             end
 
             v = viridis(1000);

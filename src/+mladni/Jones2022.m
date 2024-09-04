@@ -11,6 +11,10 @@ classdef Jones2022 < handle
         colormap = viridis
     end
 
+    properties
+        study_name
+    end
+
     properties (Dependent)
         componentsdir
         data_home
@@ -21,7 +25,7 @@ classdef Jones2022 < handle
         nbases
         plabels
         patt_path 
-        relevant_file % mat file:  nii Filelist, merge/demographic variables, Components.  N = 781.
+        relevant_file % mat file:  nii Filelist, merge/demographic variables, Pattern_*.  N = 781.
         responses_table2 % cell of var names
         responses_table2_2 % cell of var names, excluding NpBraak
         sorted_bases
@@ -65,7 +69,7 @@ classdef Jones2022 < handle
         end
         function g = get.relevant_file(this)
             g = fullfile(this.componentsdir, ...
-                sprintf('Jones2022_table_covariates_1stscan_%s.mat', this.study_design));
+                sprintf('NMFCovariates_table_covariates_1stscan_%s.mat', this.study_design));
         end
         function g = get.responses_table2(~)
             g = {'Metaroi', ...
@@ -82,9 +86,15 @@ classdef Jones2022 < handle
             g_ = g(~contains(g, 'NpBraak', IgnoreCase=true));
         end
         function g = get.sorted_bases(this)
-            sorted_bases_fn = fullfile(this.componentsdir, 'sorted_bases.mat');
-            ld = load(sorted_bases_fn);
-            g = asrow(ld.sorted_bases);
+            if ~isempty(this.sorted_bases_)
+                g = this.sorted_bases_;
+                return
+            end
+
+            nmfh = mladni.NMFHierarchies();
+            T = nmfh.table_patt_weighted_fdg();
+            this.sorted_bases_ = asrow(T.indices_bases);
+            g = this.sorted_bases_;
         end
         function g = get.labels_check_mvregress(~)
             g = {'FDG_{AD}', ...
@@ -101,8 +111,8 @@ classdef Jones2022 < handle
         function g = get.study_design(this)
             g = this.study_design_;
         end
-        function g = get.workdir(~)
-            g = fullfile(getenv('SINGULARITY_HOME'), 'MAYO');
+        function g = get.workdir(this)
+            g = fullfile(getenv('SINGULARITY_HOME'), this.study_name, 'NMF_FDG');
         end
     end
 
@@ -110,8 +120,10 @@ classdef Jones2022 < handle
         function this = Jones2022(opts)
             arguments
                 opts.study_design = 'longitudinal';
+                opts.study_name = 'ADNI';  % 'MAYO'
             end
             this.study_design_ = opts.study_design;
+            this.study_name = opts.study_name;
         end
 
         function T = build_for_brainsmash(this)
@@ -135,6 +147,14 @@ classdef Jones2022 < handle
             writetable(T, sprintf('%s_T.csv', stackstr()));
         end
                 
+        function T = build_Pattern_var(this, T)
+            assert(any(strcmp(this.table_relevant_.Properties.VariableNames, "Pattern_1")))
+            assert(any(strcmp(this.table_relevant_.Properties.VariableNames, "Pattern_"+this.N_PATTERNS)))
+            T = mergevars(T, ...
+                "Pattern_" + (1:this.N_PATTERNS), ...
+                NewVariableName="Pattern");
+        end
+        
         function T = table_built_stats(this, varargin)
             %% test_neurodegeneration2.test_build_eigenbrains; 
             %  hand-assembled by importing test_build_eigenbrains.log
@@ -150,12 +170,15 @@ classdef Jones2022 < handle
         end
         
         function t = table_relevant(this, varargin)
-            if isempty(this.relevant_)
+            if isempty(this.table_relevant_)
                 ld = load(this.relevant_file);
-                this.relevant_ = ld.t;
+                this.table_relevant_ = ld.t;
+                if ~any(strcmp(this.table_relevant_.Properties.VariableNames, 'Pattern'))
+                    this.table_relevant_ = this.build_Pattern_var(this.table_relevant_);
+                end
             end
-            t = this.relevant_;            
-            t = mladni.AdniMerge.table_paren(t);
+            t = this.table_relevant_;            
+            t = mladni.AdniMerge.table_paren(t, varargin{:});
         end
 
         function T = table_termlist(this, varargin)
@@ -252,7 +275,6 @@ classdef Jones2022 < handle
             T = this.table();
             mat = T.corr;
             mat(T.fdr > 0.05) = 0;
-            mat = mat(:, this.sorted_bases);
             
             % clbls
             clbls = this.plabels;
@@ -282,7 +304,6 @@ classdef Jones2022 < handle
                     mat(irow, icol) = div.nifti.img;
                 end
             end
-            mat = mat(:, this.sorted_bases);
 
             % clbls
             clbls = this.plabels;
@@ -329,13 +350,12 @@ classdef Jones2022 < handle
 
             arguments
                 this mladni.Jones2022
-                maxiter double = 20000
+                maxiter double = 100000
             end
 
-            ld = load(this.relevant_file);
-
             % responses from Jones' table 2
-            Y = ld.t(:, this.responses_table2_2);
+            T = this.table_relevant();
+            Y = T(:, this.responses_table2_2);
             Y = this.adjust_table_relevant(Y);
             % sex = Y.Sex;
             % sex = double(contains(sex, 'F'));
@@ -343,7 +363,7 @@ classdef Jones2022 < handle
             Y = Y{:,:};
             [n,d] = size(Y); % ~ 781 x 14 vars from Jones' table 2
 
-            X = zscore(ld.t.Components); % n x p ~ 781 x N_PATTERNS
+            X = zscore(this.table_relevant.Pattern); % n x p ~ 781 x N_PATTERNS
             p = size(X, 2);
             assert(size(X, 2) == p)
             Xmat = [ones(n,1) X];
@@ -356,8 +376,8 @@ classdef Jones2022 < handle
             [beta,sigma,E,covB,logL] = mvregress(Xcell,Y, algorithm='ecm', varformat='beta', maxiter=maxiter);
             B = reshape(beta, d, p+1)';
             B = B(2:end, :);
-            this.heatmap_beta(B(asrow(this.sorted_bases), :))
-            title('Regression \beta for dependent variables from encodings of patterns')            
+            this.heatmap_beta(B)
+            title('Multivariate regression \beta for dependent variables from encodings of patterns')            
             this.heatmap_response(sigma)
             title('Variance-covariance matrix of responses')
             this.set_gcf()
@@ -367,7 +387,7 @@ classdef Jones2022 < handle
             se = sqrt(diag(covB));
             SE = reshape(se, d, p+1)';
             SE = SE(2:end, :);
-            this.heatmap_beta(SE(asrow(this.sorted_bases), :))
+            this.heatmap_beta(SE)
             title('Standard errors')
             this.set_gcf()
 
@@ -394,6 +414,7 @@ classdef Jones2022 < handle
             save( ...
                 fullfile(this.componentsdir, sprintf('dat_%s.mat', datetime('now', 'Format','uuuuMMdd''T''HHmmss'))), ...
                 'dat')
+            saveFigures()
         end  
 
         function plot_relevant_all(this)
@@ -459,7 +480,7 @@ classdef Jones2022 < handle
             end
 
             T = opts.tbl;
-            c = T.Components;
+            c = T.Pattern;
             len = size(c, 2);
 
             h = figure; 
@@ -499,8 +520,7 @@ classdef Jones2022 < handle
 
         function [mdls,T2,h,h1] = fitlm(this)
             T = this.table_relevant();
-            T.Components = T.Components(:, this.sorted_bases);
-            T1 = splitvars(T(:, 'Components')); % just the N_PATTERNS Components
+            T1 = splitvars(T(:, 'Pattern')); % just the N_PATTERNS Components
             respname = this.responses_table2_2; % var names for T
             Nrows = length(respname);
             N = nan(Nrows, 1);
@@ -513,7 +533,7 @@ classdef Jones2022 < handle
             BIC = nan(Nrows, 1);
             F = nan(Nrows, 1);
             adjPval = nan(Nrows, 1);            
-            coeffs = nan(Nrows, size(T.Components, 2)+1);
+            coeffs = nan(Nrows, size(T.Pattern, 2)+1);
             Ncoeffs = size(coeffs, 2);
             mdls = cell(size(respname));
 
@@ -550,7 +570,7 @@ classdef Jones2022 < handle
             beta = table2array(T2(:, 7:(end-1)))';
             abs_beta = abs(beta);
             h = this.heatmap_beta(beta, rlabels=this.labels_check_mvregress_2);
-            title('Regression \beta for dependent variables from encodings of patterns')
+            title('Linear regression \beta for dependent variables from encodings of patterns')
             h1 = this.heatmap_beta(abs_beta, rlabels=this.labels_check_mvregress_2);
             title('Regression abs(\beta) for dependent variables from encodings of patterns')
         end
@@ -560,15 +580,17 @@ classdef Jones2022 < handle
         function T = adjust_table_relevant(T)
             for var = asrow(string(T.Properties.VariableNames))
                 try
-                    if contains(var, "Sex") || contains(var, "CDGLOBAL")
-                        T.(var) = categorical(T.(var));
+                    if contains(var, "Sex") 
+                        T.(var) = double(strcmp(T.(var), 'M'));
                     else
-                        T.(var) = zscore(T.(var));
+                        v = T.(var);
+                        T.(var) = (v - mean(v, 'omitmissing'))/std(v, 'omitmissing');
                     end
                     % range = max(T.(var)) - min(T.(var));
                     % assert(range > eps)
                     % T.(var) = (T.(var) - min(T.(var))) / range;
-                catch 
+                catch ME
+                    disp(ME.message)
                     fprintf("%s: rescaling is not appropriate for %s\n", stackstr(), var)
                 end
             end
@@ -719,10 +741,11 @@ classdef Jones2022 < handle
 
     properties (Access = protected)
         mask_
-        relevant_
+        sorted_bases_
         study_design_
         table_
         table_built_stats_
+        table_relevant_
         table_termlist_
     end
 
