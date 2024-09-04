@@ -1,0 +1,360 @@
+> b <- gam(list(y0~s(age)+sex+apoe4+cohort, y1~s(age)+sex+apoe4+cohort, y2~s(age)+sex+apoe4+cohort, y3~s(age)+sex+apoe4+cohort, y4~s(age)+sex+apoe4+cohort, y5~s(age)+sex+apoe4+cohort, y6~s(age)+sex+apoe4+cohort, y7~s(age)+sex+apoe4+cohort, y8~s(age)+sex+apoe4+cohort, y9~s(age)+sex+apoe4+cohort, y10~s(age)+sex+apoe4+cohort, y11~s(age)+sex+apoe4+cohort, y12~s(age)+sex+apoe4+cohort, y13~s(age)+sex+apoe4+cohort, y14~s(age)+sex+apoe4+cohort, y15~s(age)+sex+apoe4+cohort, y16~s(age)+sex+apoe4+cohort, y17~s(age)+sex+apoe4+cohort, y18~s(age)+sex+apoe4+cohort, y19~s(age)+sex+apoe4+cohort, y20~s(age)+sex+apoe4+cohort, y21~s(age)+sex+apoe4+cohort), family=mvn(d=22), data=tib_gam)
+> b
+
+Family: Multivariate normal 
+Link function: 
+
+Formula:
+y0 ~ s(age) + sex + apoe4 + cohort
+y1 ~ s(age) + sex + apoe4 + cohort
+y2 ~ s(age) + sex + apoe4 + cohort
+y3 ~ s(age) + sex + apoe4 + cohort
+y4 ~ s(age) + sex + apoe4 + cohort
+y5 ~ s(age) + sex + apoe4 + cohort
+y6 ~ s(age) + sex + apoe4 + cohort
+y7 ~ s(age) + sex + apoe4 + cohort
+y8 ~ s(age) + sex + apoe4 + cohort
+y9 ~ s(age) + sex + apoe4 + cohort
+y10 ~ s(age) + sex + apoe4 + cohort
+y11 ~ s(age) + sex + apoe4 + cohort
+y12 ~ s(age) + sex + apoe4 + cohort
+y13 ~ s(age) + sex + apoe4 + cohort
+y14 ~ s(age) + sex + apoe4 + cohort
+y15 ~ s(age) + sex + apoe4 + cohort
+y16 ~ s(age) + sex + apoe4 + cohort
+y17 ~ s(age) + sex + apoe4 + cohort
+y18 ~ s(age) + sex + apoe4 + cohort
+y19 ~ s(age) + sex + apoe4 + cohort
+y20 ~ s(age) + sex + apoe4 + cohort
+y21 ~ s(age) + sex + apoe4 + cohort
+
+Estimated degrees of freedom:
+1.00 1.03 2.34 1.00 1.00 1.01 1.00 
+2.48 2.22 1.01 1.06 1.00 2.94 1.01 
+1.00 1.00 1.00 1.08 3.03 1.01 1.00 
+1.04  total = 459.28 
+
+REML score: -84827.12     
+> summary(b)
+
+Family: Multivariate normal 
+Link function: 
+
+Formula:
+y0 ~ s(age) + sex + apoe4 + cohort
+y1 ~ s(age) + sex + apoe4 + cohort
+y2 ~ s(age) + sex + apoe4 + cohort
+y3 ~ s(age) + sex + apoe4 + cohort
+y4 ~ s(age) + sex + apoe4 + cohort
+y5 ~ s(age) + sex + apoe4 + cohort
+y6 ~ s(age) + sex + apoe4 + cohort
+y7 ~ s(age) + sex + apoe4 + cohort
+y8 ~ s(age) + sex + apoe4 + cohort
+y9 ~ s(age) + sex + apoe4 + cohort
+y10 ~ s(age) + sex + apoe4 + cohort
+y11 ~ s(age) + sex + apoe4 + cohort
+y12 ~ s(age) + sex + apoe4 + cohort
+y13 ~ s(age) + sex + apoe4 + cohort
+y14 ~ s(age) + sex + apoe4 + cohort
+y15 ~ s(age) + sex + apoe4 + cohort
+y16 ~ s(age) + sex + apoe4 + cohort
+y17 ~ s(age) + sex + apoe4 + cohort
+y18 ~ s(age) + sex + apoe4 + cohort
+y19 ~ s(age) + sex + apoe4 + cohort
+y20 ~ s(age) + sex + apoe4 + cohort
+y21 ~ s(age) + sex + apoe4 + cohort
+
+Parametric coefficients:
+                        Estimate Std. Error z value Pr(>|z|)    
+(Intercept)            9.979e-01  6.382e-03 156.343  < 2e-16 ***
+sexM                  -3.368e-03  4.883e-03  -0.690 0.490283    
+apoe4                 -1.003e-02  4.017e-03  -2.496 0.012567 *  
+cohortCDR=0,amy+      -1.682e-02  1.107e-02  -1.519 0.128647    
+cohortCDR=0.5,amy+    -4.265e-02  7.976e-03  -5.347 8.95e-08 ***
+cohortCDR>0,amy-      -2.901e-02  7.883e-03  -3.680 0.000233 ***
+cohortCDR>0.5,amy+    -1.010e-01  1.145e-02  -8.820  < 2e-16 ***
+cohortunknown          2.316e-02  7.822e-03   2.962 0.003061 ** 
+(Intercept).1          1.173e+00  7.419e-03 158.110  < 2e-16 ***
+sexM.1                -1.481e-02  5.676e-03  -2.609 0.009085 ** 
+apoe4.1               -1.032e-02  4.670e-03  -2.209 0.027157 *  
+cohortCDR=0,amy+.1    -9.000e-03  1.287e-02  -0.700 0.484232    
+cohortCDR=0.5,amy+.1  -4.754e-02  9.272e-03  -5.127 2.95e-07 ***
+cohortCDR>0,amy-.1    -3.455e-02  9.164e-03  -3.770 0.000163 ***
+cohortCDR>0.5,amy+.1  -1.358e-01  1.331e-02 -10.204  < 2e-16 ***
+cohortunknown.1       -5.386e-02  9.092e-03  -5.923 3.16e-09 ***
+(Intercept).2          9.515e-01  4.499e-03 211.492  < 2e-16 ***
+sexM.2                -1.030e-02  3.438e-03  -2.996 0.002739 ** 
+apoe4.2               -4.856e-03  2.828e-03  -1.717 0.085996 .  
+cohortCDR=0,amy+.2     1.085e-02  7.793e-03   1.392 0.163990    
+cohortCDR=0.5,amy+.2  -3.327e-03  5.621e-03  -0.592 0.553892    
+cohortCDR>0,amy-.2    -4.521e-04  5.571e-03  -0.081 0.935322    
+cohortCDR>0.5,amy+.2  -4.936e-02  8.075e-03  -6.112 9.83e-10 ***
+cohortunknown.2       -5.508e-02  5.514e-03  -9.989  < 2e-16 ***
+(Intercept).3          1.177e+00  8.574e-03 137.276  < 2e-16 ***
+sexM.3                -3.314e-02  6.559e-03  -5.053 4.36e-07 ***
+apoe4.3               -1.481e-02  5.396e-03  -2.744 0.006076 ** 
+cohortCDR=0,amy+.3     1.952e-02  1.487e-02   1.313 0.189261    
+cohortCDR=0.5,amy+.3  -3.907e-02  1.071e-02  -3.646 0.000266 ***
+cohortCDR>0,amy-.3    -2.428e-02  1.059e-02  -2.292 0.021879 *  
+cohortCDR>0.5,amy+.3  -1.046e-01  1.538e-02  -6.800 1.05e-11 ***
+cohortunknown.3       -3.057e-02  1.051e-02  -2.909 0.003621 ** 
+(Intercept).4          1.259e+00  8.066e-03 156.128  < 2e-16 ***
+sexM.4                -2.036e-02  6.171e-03  -3.300 0.000968 ***
+apoe4.4               -2.296e-02  5.077e-03  -4.522 6.12e-06 ***
+cohortCDR=0,amy+.4    -1.090e-02  1.399e-02  -0.779 0.435706    
+cohortCDR=0.5,amy+.4  -6.254e-02  1.008e-02  -6.204 5.50e-10 ***
+cohortCDR>0,amy-.4    -3.041e-02  9.962e-03  -3.053 0.002267 ** 
+cohortCDR>0.5,amy+.4  -2.175e-01  1.447e-02 -15.033  < 2e-16 ***
+cohortunknown.4       -8.386e-02  9.885e-03  -8.484  < 2e-16 ***
+(Intercept).5          9.779e-01  3.424e-03 285.602  < 2e-16 ***
+sexM.5                -1.028e-02  2.619e-03  -3.925 8.69e-05 ***
+apoe4.5               -4.168e-03  2.155e-03  -1.934 0.053072 .  
+cohortCDR=0,amy+.5    -4.326e-03  5.937e-03  -0.729 0.466248    
+cohortCDR=0.5,amy+.5  -1.276e-02  4.279e-03  -2.982 0.002862 ** 
+cohortCDR>0,amy-.5    -8.139e-03  4.229e-03  -1.925 0.054292 .  
+cohortCDR>0.5,amy+.5  -4.641e-02  6.141e-03  -7.558 4.08e-14 ***
+cohortunknown.5       -3.911e-03  4.196e-03  -0.932 0.351248    
+(Intercept).6          8.079e-01  4.383e-03 184.326  < 2e-16 ***
+sexM.6                -5.686e-03  3.353e-03  -1.696 0.089953 .  
+apoe4.6               -7.156e-03  2.759e-03  -2.594 0.009489 ** 
+cohortCDR=0,amy+.6    -1.188e-02  7.601e-03  -1.563 0.117968    
+cohortCDR=0.5,amy+.6  -3.828e-02  5.478e-03  -6.988 2.79e-12 ***
+cohortCDR>0,amy-.6    -2.858e-02  5.414e-03  -5.279 1.30e-07 ***
+cohortCDR>0.5,amy+.6  -9.085e-02  7.861e-03 -11.558  < 2e-16 ***
+cohortunknown.6       -1.955e-02  5.371e-03  -3.639 0.000273 ***
+(Intercept).7          1.047e+00  5.781e-03 181.076  < 2e-16 ***
+sexM.7                -2.250e-03  4.421e-03  -0.509 0.610837    
+apoe4.7               -1.507e-02  3.637e-03  -4.143 3.42e-05 ***
+cohortCDR=0,amy+.7    -6.727e-03  1.002e-02  -0.671 0.502094    
+cohortCDR=0.5,amy+.7  -4.451e-02  7.224e-03  -6.161 7.21e-10 ***
+cohortCDR>0,amy-.7    -3.221e-02  7.146e-03  -4.507 6.57e-06 ***
+cohortCDR>0.5,amy+.7  -1.478e-01  1.037e-02 -14.256  < 2e-16 ***
+cohortunknown.7       -6.671e-02  7.085e-03  -9.416  < 2e-16 ***
+(Intercept).8          1.284e+00  8.898e-03 144.297  < 2e-16 ***
+sexM.8                -2.499e-02  6.806e-03  -3.672 0.000241 ***
+apoe4.8               -2.892e-02  5.599e-03  -5.164 2.41e-07 ***
+cohortCDR=0,amy+.8     7.271e-03  1.543e-02   0.471 0.637405    
+cohortCDR=0.5,amy+.8  -5.037e-02  1.112e-02  -4.530 5.89e-06 ***
+cohortCDR>0,amy-.8    -1.934e-02  1.100e-02  -1.759 0.078569 .  
+cohortCDR>0.5,amy+.8  -1.916e-01  1.596e-02 -12.003  < 2e-16 ***
+cohortunknown.8       -9.315e-02  1.090e-02  -8.542  < 2e-16 ***
+(Intercept).9          1.059e+00  6.160e-03 171.934  < 2e-16 ***
+sexM.9                -1.537e-02  4.713e-03  -3.261 0.001108 ** 
+apoe4.9               -1.394e-02  3.877e-03  -3.595 0.000325 ***
+cohortCDR=0,amy+.9    -1.205e-02  1.068e-02  -1.128 0.259460    
+cohortCDR=0.5,amy+.9  -3.177e-02  7.698e-03  -4.127 3.67e-05 ***
+cohortCDR>0,amy-.9    -2.464e-02  7.609e-03  -3.238 0.001202 ** 
+cohortCDR>0.5,amy+.9  -1.222e-01  1.105e-02 -11.063  < 2e-16 ***
+cohortunknown.9       -2.979e-02  7.549e-03  -3.946 7.96e-05 ***
+(Intercept).10         1.211e+00  6.669e-03 181.521  < 2e-16 ***
+sexM.10               -5.409e-03  5.102e-03  -1.060 0.289072    
+apoe4.10              -7.793e-03  4.197e-03  -1.857 0.063365 .  
+cohortCDR=0,amy+.10   -1.859e-02  1.156e-02  -1.607 0.107964    
+cohortCDR=0.5,amy+.10 -3.472e-02  8.335e-03  -4.166 3.10e-05 ***
+cohortCDR>0,amy-.10   -2.125e-02  8.238e-03  -2.579 0.009898 ** 
+cohortCDR>0.5,amy+.10 -9.457e-02  1.196e-02  -7.906 2.65e-15 ***
+cohortunknown.10      -2.551e-02  8.173e-03  -3.121 0.001804 ** 
+(Intercept).11         1.048e+00  7.851e-03 133.522  < 2e-16 ***
+sexM.11               -2.070e-02  6.006e-03  -3.446 0.000569 ***
+apoe4.11              -1.861e-02  4.941e-03  -3.765 0.000166 ***
+cohortCDR=0,amy+.11    2.298e-02  1.361e-02   1.688 0.091488 .  
+cohortCDR=0.5,amy+.11 -1.363e-02  9.812e-03  -1.390 0.164654    
+cohortCDR>0,amy-.11   -6.277e-03  9.697e-03  -0.647 0.517422    
+cohortCDR>0.5,amy+.11 -1.218e-01  1.408e-02  -8.653  < 2e-16 ***
+cohortunknown.11      -1.235e-01  9.622e-03 -12.838  < 2e-16 ***
+(Intercept).12         1.393e+00  9.474e-03 147.034  < 2e-16 ***
+sexM.12               -1.730e-02  7.243e-03  -2.389 0.016903 *  
+apoe4.12              -2.738e-02  5.959e-03  -4.595 4.33e-06 ***
+cohortCDR=0,amy+.12   -1.359e-02  1.642e-02  -0.828 0.407951    
+cohortCDR=0.5,amy+.12 -7.840e-02  1.184e-02  -6.623 3.53e-11 ***
+cohortCDR>0,amy-.12   -3.908e-02  1.172e-02  -3.335 0.000852 ***
+cohortCDR>0.5,amy+.12 -2.478e-01  1.700e-02 -14.577  < 2e-16 ***
+cohortunknown.12      -8.397e-02  1.161e-02  -7.231 4.78e-13 ***
+(Intercept).13         1.239e+00  7.501e-03 165.136  < 2e-16 ***
+sexM.13               -1.252e-02  5.739e-03  -2.182 0.029103 *  
+apoe4.13              -1.386e-02  4.721e-03  -2.937 0.003317 ** 
+cohortCDR=0,amy+.13    5.973e-03  1.301e-02   0.459 0.646076    
+cohortCDR=0.5,amy+.13 -4.298e-02  9.374e-03  -4.584 4.55e-06 ***
+cohortCDR>0,amy-.13   -2.730e-02  9.265e-03  -2.947 0.003211 ** 
+cohortCDR>0.5,amy+.13 -1.410e-01  1.345e-02 -10.478  < 2e-16 ***
+cohortunknown.13      -6.239e-02  9.193e-03  -6.787 1.15e-11 ***
+(Intercept).14         1.225e+00  7.759e-03 157.835  < 2e-16 ***
+sexM.14               -1.853e-02  5.936e-03  -3.122 0.001798 ** 
+apoe4.14              -1.900e-02  4.883e-03  -3.891 9.96e-05 ***
+cohortCDR=0,amy+.14    1.562e-02  1.345e-02   1.161 0.245593    
+cohortCDR=0.5,amy+.14 -3.122e-02  9.696e-03  -3.219 0.001285 ** 
+cohortCDR>0,amy-.14   -1.923e-02  9.583e-03  -2.006 0.044836 *  
+cohortCDR>0.5,amy+.14 -1.231e-01  1.392e-02  -8.850  < 2e-16 ***
+cohortunknown.14      -4.076e-02  9.508e-03  -4.287 1.81e-05 ***
+(Intercept).15         1.033e+00  8.397e-03 123.012  < 2e-16 ***
+sexM.15               -1.488e-02  6.424e-03  -2.316 0.020575 *  
+apoe4.15              -1.706e-02  5.285e-03  -3.228 0.001247 ** 
+cohortCDR=0,amy+.15    2.737e-02  1.456e-02   1.880 0.060129 .  
+cohortCDR=0.5,amy+.15 -1.737e-02  1.049e-02  -1.656 0.097793 .  
+cohortCDR>0,amy-.15   -8.396e-03  1.037e-02  -0.810 0.418196    
+cohortCDR>0.5,amy+.15 -9.852e-02  1.506e-02  -6.542 6.07e-11 ***
+cohortunknown.15      -1.233e-01  1.029e-02 -11.982  < 2e-16 ***
+(Intercept).16         1.318e+00  7.747e-03 170.121  < 2e-16 ***
+sexM.16               -5.809e-03  5.927e-03  -0.980 0.327034    
+apoe4.16              -1.644e-02  4.876e-03  -3.371 0.000748 ***
+cohortCDR=0,amy+.16    1.256e-02  1.343e-02   0.935 0.349853    
+cohortCDR=0.5,amy+.16 -1.012e-02  9.682e-03  -1.046 0.295696    
+cohortCDR>0,amy-.16   -1.671e-02  9.569e-03  -1.746 0.080737 .  
+cohortCDR>0.5,amy+.16 -9.956e-02  1.389e-02  -7.166 7.73e-13 ***
+cohortunknown.16      -3.983e-02  9.494e-03  -4.196 2.72e-05 ***
+(Intercept).17         9.289e-01  4.380e-03 212.082  < 2e-16 ***
+sexM.17               -2.914e-03  3.351e-03  -0.870 0.384376    
+apoe4.17              -1.004e-02  2.756e-03  -3.644 0.000269 ***
+cohortCDR=0,amy+.17   -7.794e-03  7.595e-03  -1.026 0.304790    
+cohortCDR=0.5,amy+.17 -1.830e-02  5.473e-03  -3.343 0.000830 ***
+cohortCDR>0,amy-.17   -1.098e-02  5.410e-03  -2.030 0.042346 *  
+cohortCDR>0.5,amy+.17 -5.004e-02  7.855e-03  -6.370 1.89e-10 ***
+cohortunknown.17      -1.317e-02  5.367e-03  -2.453 0.014169 *  
+(Intercept).18         1.044e+00  2.614e-03 399.499  < 2e-16 ***
+sexM.18                4.324e-03  1.996e-03   2.166 0.030284 *  
+apoe4.18              -1.454e-03  1.642e-03  -0.886 0.375789    
+cohortCDR=0,amy+.18   -1.207e-03  4.524e-03  -0.267 0.789578    
+cohortCDR=0.5,amy+.18 -7.147e-03  3.266e-03  -2.189 0.028633 *  
+cohortCDR>0,amy-.18   -3.341e-03  3.243e-03  -1.030 0.302915    
+cohortCDR>0.5,amy+.18 -1.808e-02  4.694e-03  -3.851 0.000118 ***
+cohortunknown.18       5.143e-03  3.205e-03   1.605 0.108573    
+(Intercept).19         8.071e-01  6.620e-03 121.909  < 2e-16 ***
+sexM.19               -2.172e-02  5.065e-03  -4.288 1.80e-05 ***
+apoe4.19              -2.311e-03  4.167e-03  -0.555 0.579112    
+cohortCDR=0,amy+.19   -2.611e-02  1.148e-02  -2.275 0.022923 *  
+cohortCDR=0.5,amy+.19 -4.845e-02  8.274e-03  -5.856 4.73e-09 ***
+cohortCDR>0,amy-.19   -3.226e-02  8.177e-03  -3.945 7.98e-05 ***
+cohortCDR>0.5,amy+.19 -1.054e-01  1.187e-02  -8.873  < 2e-16 ***
+cohortunknown.19      -8.959e-03  8.113e-03  -1.104 0.269481    
+(Intercept).20         1.161e+00  6.826e-03 170.029  < 2e-16 ***
+sexM.20                3.271e-03  5.222e-03   0.626 0.531014    
+apoe4.20              -1.463e-02  4.296e-03  -3.405 0.000662 ***
+cohortCDR=0,amy+.20    1.376e-02  1.184e-02   1.162 0.245174    
+cohortCDR=0.5,amy+.20 -1.497e-02  8.530e-03  -1.755 0.079290 .  
+cohortCDR>0,amy-.20   -1.283e-02  8.431e-03  -1.521 0.128169    
+cohortCDR>0.5,amy+.20 -6.288e-02  1.224e-02  -5.137 2.79e-07 ***
+cohortunknown.20       2.416e-05  8.365e-03   0.003 0.997695    
+(Intercept).21         1.248e+00  7.646e-03 163.275  < 2e-16 ***
+sexM.21               -5.203e-03  5.849e-03  -0.889 0.373739    
+apoe4.21              -1.702e-02  4.812e-03  -3.536 0.000406 ***
+cohortCDR=0,amy+.21   -2.732e-03  1.326e-02  -0.206 0.836738    
+cohortCDR=0.5,amy+.21 -4.474e-02  9.556e-03  -4.682 2.85e-06 ***
+cohortCDR>0,amy-.21   -3.109e-02  9.444e-03  -3.292 0.000994 ***
+cohortCDR>0.5,amy+.21 -1.330e-01  1.371e-02  -9.699  < 2e-16 ***
+cohortunknown.21      -5.613e-02  9.370e-03  -5.990 2.10e-09 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+            edf Ref.df  Chi.sq  p-value    
+s(age)    1.005  1.009   0.420 0.516841    
+s.1(age)  1.031  1.060 272.918  < 2e-16 ***
+s.2(age)  2.335  2.952  63.890  < 2e-16 ***
+s.3(age)  1.003  1.006 175.703  < 2e-16 ***
+s.4(age)  1.001  1.003  11.633 0.000656 ***
+s.5(age)  1.011  1.022 304.336  < 2e-16 ***
+s.6(age)  1.002  1.004 226.775  < 2e-16 ***
+s.7(age)  2.481  3.138  68.102  < 2e-16 ***
+s.8(age)  2.217  2.805  48.194  < 2e-16 ***
+s.9(age)  1.011  1.022  20.768 6.50e-06 ***
+s.10(age) 1.064  1.125  35.403  < 2e-16 ***
+s.11(age) 1.002  1.003  73.313  < 2e-16 ***
+s.12(age) 2.944  3.710  62.674  < 2e-16 ***
+s.13(age) 1.010  1.020  63.269  < 2e-16 ***
+s.14(age) 1.002  1.004  76.193  < 2e-16 ***
+s.15(age) 1.001  1.002 132.787  < 2e-16 ***
+s.16(age) 1.002  1.004  64.638  < 2e-16 ***
+s.17(age) 1.077  1.149   0.569 0.469813    
+s.18(age) 3.034  3.818  15.794 0.003198 ** 
+s.19(age) 1.007  1.013 104.392  < 2e-16 ***
+s.20(age) 1.001  1.001  15.578 8.04e-05 ***
+s.21(age) 1.041  1.080  74.017  < 2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Deviance explained = 9.15%
+-REML = -84827  Scale est. = 1         n = 1496
+> plot(b, page=1)
+Error in plot.new() : figure margins too large
+> plot(b, page=1)
+> covariance <- solve(crossprod(b$family$data$R))
+> AIC(b, k=2)
+[1] -171264.4
+> BIC(b)
+[1] -168805.9
+> gam.check(b)
+
+Method: REML   Optimizer: outer newton
+full convergence after 18 iterations.
+Gradient range [-0.01995683,0.02177279]
+(score -84827.12 & scale 1).
+Hessian positive definite, eigenvalue range [0.01625107,2.904051].
+Model rank =  627 / 627 
+
+Basis dimension (k) checking results. Low p-value (k-index<1) may
+indicate that k is too low, especially if edf is close to k'.
+
+            k'  edf k-index p-value
+s(age)    9.00 1.00       1    0.36
+s.1(age)  9.00 1.03       1    0.36
+s.2(age)  9.00 2.34       1    0.42
+s.3(age)  9.00 1.00       1    0.43
+s.4(age)  9.00 1.00       1    0.35
+s.5(age)  9.00 1.01       1    0.42
+s.6(age)  9.00 1.00       1    0.48
+s.7(age)  9.00 2.48       1    0.40
+s.8(age)  9.00 2.22       1    0.42
+s.9(age)  9.00 1.01       1    0.43
+s.10(age) 9.00 1.06       1    0.39
+s.11(age) 9.00 1.00       1    0.43
+s.12(age) 9.00 2.94       1    0.42
+s.13(age) 9.00 1.01       1    0.46
+s.14(age) 9.00 1.00       1    0.45
+s.15(age) 9.00 1.00       1    0.43
+s.16(age) 9.00 1.00       1    0.41
+s.17(age) 9.00 1.08       1    0.44
+s.18(age) 9.00 3.03       1    0.46
+s.19(age) 9.00 1.01       1    0.43
+s.20(age) 9.00 1.00       1    0.43
+s.21(age) 9.00 1.04       1    0.43
+> plot(b, page=1)
+> covariance <- solve(crossprod(b$family$data$R))
+> AIC(b, k=2)
+[1] -171264.4
+> BIC(b)
+[1] -168805.9
+> gam.check(b)
+
+Method: REML   Optimizer: outer newton
+full convergence after 18 iterations.
+Gradient range [-0.01995683,0.02177279]
+(score -84827.12 & scale 1).
+Hessian positive definite, eigenvalue range [0.01625107,2.904051].
+Model rank =  627 / 627 
+
+Basis dimension (k) checking results. Low p-value (k-index<1) may
+indicate that k is too low, especially if edf is close to k'.
+
+            k'  edf k-index p-value
+s(age)    9.00 1.00       1    0.40
+s.1(age)  9.00 1.03       1    0.45
+s.2(age)  9.00 2.34       1    0.47
+s.3(age)  9.00 1.00       1    0.44
+s.4(age)  9.00 1.00       1    0.41
+s.5(age)  9.00 1.01       1    0.46
+s.6(age)  9.00 1.00       1    0.45
+s.7(age)  9.00 2.48       1    0.45
+s.8(age)  9.00 2.22       1    0.43
+s.9(age)  9.00 1.01       1    0.42
+s.10(age) 9.00 1.06       1    0.38
+s.11(age) 9.00 1.00       1    0.36
+s.12(age) 9.00 2.94       1    0.38
+s.13(age) 9.00 1.01       1    0.46
+s.14(age) 9.00 1.00       1    0.41
+s.15(age) 9.00 1.00       1    0.40
+s.16(age) 9.00 1.00       1    0.43
+s.17(age) 9.00 1.08       1    0.39
+s.18(age) 9.00 3.03       1    0.45
+s.19(age) 9.00 1.01       1    0.47
+s.20(age) 9.00 1.00       1    0.47
+s.21(age) 9.00 1.04       1    0.41

@@ -246,7 +246,7 @@ b1
 summary(b1)
 ```
 
-## Multivariate GAMs, with interactions.
+## Multivariate GAMs, with interactions
 
 ```{r dev=c("png", "tiff")}
 b2 <- gam(list(
@@ -263,6 +263,8 @@ b2
 summary(b2)
 ```
 
+## anova, AIC, BIC
+
 ```{r plot; AIC; BIC; gam.check, echo=TRUE, dev=c("png", "tiff")}
 #adjust plot margins
 par(mar = c(1, 1, 1, 1))
@@ -270,6 +272,8 @@ plot(b2, page=1)
 #covariance <- solve(crossprod(b$family$data$R))
 anova(b0, b1)
 anova(b1, b2)
+AIC(b0, b1)
+AIC(b1, b2)
 BIC(b0, b1)
 BIC(b1, b2)
 gam.check(b0)
@@ -277,6 +281,54 @@ gam.check(b1)
 gam.check(b2)
 save(b2, file="patterns_of_neurodegneration_b2.Rdata")
 saveRDS(b2, file="patterns_of_neurodegneration_b2.Rds")
+```
+
+## age & sex only: Multivariate LMs, with interactions
+
+```{r}
+as1 <- gam(list(
+y0~age*sex+age+sex, y1~age*sex+sex, y2~age*sex+sex, 
+y3~age*sex+age+sex, y4~age*sex+sex, y5~age*sex+sex, 
+y6~age*sex+age+sex, y7~age*sex+sex, y8~age*sex+sex, 
+y9~age*sex+age+sex, y10~age*sex+sex, y11~age*sex+sex, 
+y12~age*sex+age+sex, y13~age*sex+sex, y14~age*sex+sex, 
+y15~age*sex+age+sex, y16~age*sex+sex, y17~age*sex+sex, 
+y18~age*sex+age+sex, y19~age*sex+sex, y20~age*sex+sex, 
+y21~age*sex+age+sex, y22~age*sex+sex, y23~age*sex+sex+apoe4+cohort), 
+family=mvn(d=24), data=soto)
+as1
+summary(as1)
+```
+
+## age & sex only: Multivariate GAMs, with interactions
+
+```{r}
+as2 <- gam(list(
+y0~s(age,k=K,by=interaction(sex))+sex, y1~s(age,k=K,by=interaction(sex))+sex, y2~s(age,k=K,by=interaction(sex))+sex, 
+y3~s(age,k=K,by=interaction(sex))+sex, y4~s(age,k=K,by=interaction(sex))+sex, y5~s(age,k=K,by=interaction(sex))+sex, 
+y6~s(age,k=K,by=interaction(sex))+sex, y7~s(age,k=K,by=interaction(sex))+sex, y8~s(age,k=K,by=interaction(sex))+sex, 
+y9~s(age,k=K,by=interaction(sex))+sex, y10~s(age,k=K,by=interaction(sex))+sex, y11~s(age,k=K,by=interaction(sex))+sex, 
+y12~s(age,k=K,by=interaction(sex))+sex, y13~s(age,k=K,by=interaction(sex))+sex, y14~s(age,k=K,by=interaction(sex))+sex, 
+y15~s(age,k=K,by=interaction(sex))+sex, y16~s(age,k=K,by=interaction(sex))+sex, y17~s(age,k=K,by=interaction(sex))+sex, 
+y18~s(age,k=K,by=interaction(sex))+sex, y19~s(age,k=K,by=interaction(sex))+sex, y20~s(age,k=K,by=interaction(sex))+sex, 
+y21~s(age,k=K,by=interaction(sex))+sex, y22~s(age,k=K,by=interaction(sex))+sex, y23~s(age,k=K,by=interaction(sex))+sex+apoe4+cohort), 
+family=mvn(d=24), data=soto)
+as2
+summary(as2)
+```
+
+## age & sex only: anova, AIC, BIC
+
+```{r plot; AIC; BIC; gam.check, echo=TRUE, dev=c("png", "tiff")}
+#adjust plot margins
+par(mar = c(1, 1, 1, 1))
+plot(as2, page=1)
+#covariance <- solve(crossprod(b$family$data$R))
+anova(as1, as2)
+AIC(as1, as2)
+BIC(as1, as2)
+gam.check(as1)
+gam.check(as2)
 ```
 
 ## Uncomment the following to load saved b2.
@@ -315,6 +367,8 @@ for (icoh in 1:length(str_cohort)) {
 ```
 
 ## Cross-sectional data, set by chunk "Form y\* and Y" Analog of Fig. 2D, Nazeri et al. Neuron 2022.
+
+## combined plot gam(y \~ s(age, interaction(sex)) + sex)
 
 {Age -\> Component_i}\_i for CN, preclinical, MCI, AD, atypical
 

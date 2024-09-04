@@ -1,0 +1,244 @@
+>>>>>>>>>>>> ns120.disp_odd_labels >>>>>>>>>>>>
+interference
+response inhibition
+expectancy
+task switching
+executive function
+sustained attention
+maintenance
+rehearsal
+learning
+retention
+selective attention
+goal
+cueing
+search
+mental imagery
+rhythm
+representation
+action
+coordination
+memory retrieval
+semantic memory
+remembering
+recall
+verbal memory
+reasoning
+thought
+language comprehension
+semantic information
+semantic knowledge
+reading
+priming
+verbal fluency
+categorization
+discrimination
+integration
+speech production
+listening
+belief
+social cognition
+communication
+facial expression
+gaze
+visual perception
+concept
+strength
+induction
+choice
+uncertainty
+hyperactivity
+consciousness
+consolidation
+morphology
+psychosis
+eating
+anticipation
+risk
+emotion regulation
+valence
+stress
+fear
+>>>>>>>>>>>>>>>>>>>>>>>>
+
+attention
+attention
+attention
+attention
+attention
+attention
+attention
+attention
+attention
+attention
+attention
+
+
+movement and motor planning
+movement and motor planning
+movement and motor planning
+movement and motor planning
+movement and motor planning
+memory
+memory
+memory
+memory
+memory
+
+
+language
+language
+language
+language
+language
+language
+language
+language
+language
+language
+language
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+fear/reward
+fear/reward
+fear/reward
+fear/reward
+fear/reward
+fear/reward
+fear/reward
+fear/reward
+>>>>>>>>>>>> ns120.disp_even_labels >>>>>>>>>>>>
+cognitive control
+monitoring
+response selection
+rule
+executive control
+effort
+working memory
+updating
+manipulation
+distraction
+spatial attention
+visual attention
+efficiency
+visual search
+navigation
+feedback
+skill
+planning
+motor control
+movement
+episodic memory
+autobiographical memory
+familiarity
+encoding
+judgement
+strategy
+meaning
+sentence comprehension
+knowledge
+context
+word recognition
+competition
+naming
+adaptation
+localization
+multisensory
+speech perception
+inference
+intention
+empathy
+face recognition
+expertise
+object recognition
+insight
+salience
+balance
+pain
+decision making
+impulsivity
+intelligence
+awareness
+sleep
+association
+utility
+reward
+addiction
+loss
+mood
+arousal
+anxiety
+>>>>>>>>>>>>>>>>>>>>>>>>
+attention
+attention
+attention
+attention
+attention
+attention
+attention
+attention
+attention
+attention
+attention
+attention
+
+
+movement and motor planning
+movement and motor planning
+movement and motor planning
+movement and motor planning
+movement and motor planning
+memory
+memory
+memory
+memory
+memory
+
+
+language
+language
+language
+language
+language
+language
+language
+language
+language
+language
+language
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+fear/reward
+fear/reward
+fear/reward
+fear/reward
+fear/reward
+fear/reward
+fear/reward
+fear/reward
