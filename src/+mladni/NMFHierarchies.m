@@ -9,13 +9,13 @@ classdef NMFHierarchies < handle
 
     properties (Constant)
         EPS = 1e-6
-        N_PATTERNS = mladni.NMF.N_PATTERNS
     end
 
     properties    
         data_home
         home
         matfile0 = 'NMFCovariates_table_cn_1stscan_longitudinal.mat'
+        N_patterns
         Nforeground = 228483  % mask has 228483 foreground voxels in 2mm, 67019 voxels in 3mm
         selected_spans = [2, 6, 8, 10, 12, 14, 24]
     end
@@ -48,8 +48,10 @@ classdef NMFHierarchies < handle
             arguments
                 opts.data_home {mustBeFolder} = getenv("ADNI_HOME")
                 opts.home {mustBeTextScalar} = ""  % e.g. baseline_cn
+                opts.N_patterns double = mladni.NMF.N_PATTERNS
             end
 
+            this.N_patterns = opts.N_patterns;
             this.data_home = opts.data_home;
             this.home = opts.home;
             if isemptytext(opts.home)
@@ -63,7 +65,7 @@ classdef NMFHierarchies < handle
             pwd0 = pushd(this.home);
             for s = max(this.selected_spans):-2:2
 
-                nmfc = mladni.NMFCovariates(selectedNumBases=s);
+                nmfc = mladni.NMFCovariates(N_patterns=s);
                 t = nmfc.table_cn(true);  % cross-sectional=true
                 pwd1 = pushd(fullfile("NumBases"+s, "components"));
                 save("NMFCovariates_table_cn_1stscan_longitudinal.mat", "t");
@@ -520,7 +522,7 @@ classdef NMFHierarchies < handle
 
             arguments
                 this mladni.NMFHierarchies
-                opts.span = this.N_PATTERNS
+                opts.span = this.N_patterns
             end
             assert(any(ismember(opts.span, 1:max(this.selected_spans))))
 
@@ -568,6 +570,11 @@ classdef NMFHierarchies < handle
                 t_ = readtable(t_, ReadVariableNames=true);
             end
             assert(istable(t_))
+
+            if startsWith(t_.Properties.VariableNames{end}, 'Pattern_')
+                t = t_;
+                return
+            end
 
             % obtain ordering of components by suvr =: patterns
             tpwf = this.table_patt_weighted_fdg;

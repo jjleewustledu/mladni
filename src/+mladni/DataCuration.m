@@ -11,6 +11,7 @@ classdef (Abstract) DataCuration < handle
         nmfc
         nmfh
         nmfr
+        N_patterns
     end
 
     properties (Abstract)
@@ -19,12 +20,15 @@ classdef (Abstract) DataCuration < handle
     end
     
     properties (Constant)
-        selectedNumBases = mladni.NMF.N_PATTERNS
         selected_spans = mladni.NMFHierarchies.selected_spans
     end
 
     methods
-        function this = DataCuration(varargin)
+        function this = DataCuration(opts)
+            arguments
+                opts.N_patterns double = mladni.NMF.N_PATTERNS
+            end
+            this.N_patterns = opts.N_patterns;
         end
 
         function build_stats_imaging(this, opts)
@@ -44,9 +48,9 @@ classdef (Abstract) DataCuration < handle
             
             % montage
             if contains(opts.inputDir, "baseline")
-                globbed = glob(fullfile(opts.inputDir, sprintf("NumBases%i", this.selectedNumBases)));
+                globbed = glob(fullfile(opts.inputDir, sprintf("NumBases%i", this.N_patterns)));
                 if isempty(globbed)
-                    globbed = glob(fullfile(opts.inputDir, "*", sprintf("NumBases%i", this.selectedNumBases)));
+                    globbed = glob(fullfile(opts.inputDir, "*", sprintf("NumBases%i", this.N_patterns)));
                 end
                 assert(~isempty(globbed))
                 this.nmf.create_montage(globbed{1});

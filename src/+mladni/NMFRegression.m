@@ -33,7 +33,6 @@
             'MergeEcogSPDivattBl' 'MergeEcogSPTotalBl' ...
             'Phase' 'SITEID' ...
             'Components'}
-        N_PATTERNS = mladni.NMF.N_PATTERNS
     end
 
     properties
@@ -42,6 +41,7 @@
         crossVal
         holdout
         is_bivariate
+        N_patterns
         predictors
         response
         reuse_mdl
@@ -582,7 +582,7 @@
                 colorbar("eastoutside")
                 ax1.YDir = "normal";
                 
-                ax2 = nexttile(this.N_PATTERNS,[1,4]);
+                ax2 = nexttile(this.N_patterns,[1,4]);
                 dX = diff(ptX(1:2));
                 edgeX = [ptX-dX/2;ptX(end)+dX];
                 histogram(Age,edgeX);
@@ -802,8 +802,11 @@
             addParameter(ip, "response", "", @istext);
             addParameter(ip, "reuse_mdl", true, @islogical);
             addParameter(ip, "study_design", "cross-sectional", @istext)
+            addParameter(ip, "N_patterns", mladni.NMF.N_PATTERNS, @isscalar)
             parse(ip, varargin{:});
             ipr = ip.Results;
+
+            this.N_patterns = ipr.N_patterns;
             this.componentDir = ipr.componentDir;
             assert(endsWith(this.componentDir, 'components'))
             this.crossVal = ipr.crossVal;

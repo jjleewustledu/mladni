@@ -11,7 +11,6 @@ classdef NMFRadar < handle
     
     properties (Constant)
         AXES_COLOR = [0.9 0.9 0.9];
-        N_PATTERNS = mladni.NMF.N_PATTERNS
         ERR_COLOR = [0.9 0.9 0.9]
         ERR_ALPHA = 0.08
         GROUP_COLORS = [
@@ -45,6 +44,7 @@ classdef NMFRadar < handle
         % b2
         % summary(b2)  
         matfile_cohort_sorted = 'CohortCoefficientsSorted.mat'  % P1 has highest SUVR, P24 has lowest SUVR
+        N_patterns
         workdir
     end
 
@@ -52,7 +52,6 @@ classdef NMFRadar < handle
         AxesLabels
         AxesLabelsNull
         figdir
-        N_bases_target
         N_groups
         sorted_bases % indexing from VolBin -> indexing sorted by pattern-weighted FDG SUvR; 
                      % e.g., sorted_bases(16) == 20
@@ -82,9 +81,6 @@ classdef NMFRadar < handle
         function g = get.figdir(this)
             g = fullfile(this.workdir, 'baseline_cn', 'results');
         end        
-        function g = get.N_bases_target(this)
-            g = this.N_PATTERNS;
-        end
         function g = get.N_groups(this)
             g = length(this.groups);
         end
@@ -129,7 +125,7 @@ classdef NMFRadar < handle
                     return
                 end
                 figure
-                axes_scaling = repmat({'log'}, [1 this.N_PATTERNS]);
+                axes_scaling = repmat({'log'}, [1 this.N_patterns]);
                 s2 = plot(this, Padj, AxesMin=amin, AxesMax=amax, ...
                     legend={'CDR=0, amy-'}, ti='FDR p-value \beta_{Intercept}', AxesScaling=axes_scaling);
                 % saveFigures(this.figdir, closeFigure=false, prefix='call_intercept_FDR_p-value_beta_intercept');
@@ -176,7 +172,7 @@ classdef NMFRadar < handle
                     return
                 end
                 figure
-                axes_scaling = repmat({'log'}, [1 this.N_PATTERNS]);
+                axes_scaling = repmat({'log'}, [1 this.N_patterns]);
                 s2 = plot(this, Padj, AxesMin=amin, AxesMax=amax, ...
                     legend={'CDR=0, amy-'}, ti='FDR p-value \beta_{ApoE4}', AxesScaling=axes_scaling);
                 %saveFigures(this.figdir, closeFigure=true, prefix='call_apoe4_FDR_p-value_beta_apoe4');
@@ -216,7 +212,7 @@ classdef NMFRadar < handle
                 amin = min(Padj, [], 'all');
                 amax = max(Padj, [], 'all');
                 figure
-                axes_scaling = repmat({'log'}, [1 this.N_PATTERNS]);
+                axes_scaling = repmat({'log'}, [1 this.N_patterns]);
                 s2 = plot(this, Padj, AxesMin=amin, AxesMax=amax, ...
                     legend={'CDR=0, amy-'}, ti='FDR p-value \beta_{sex}', AxesScaling=axes_scaling);
                 %saveFigures(this.figdir, closeFigure=true, prefix='call_sex_FDR_p-value_beta_sex');
@@ -234,12 +230,12 @@ classdef NMFRadar < handle
             CC = ld.patternsofneurodegeneration20240630forimport;
 
             assert(length(this.groups) == length(this.groupLabels))
-            P = zeros(this.N_groups, this.N_PATTERNS);
-            CI = zeros(this.N_groups, this.N_PATTERNS);
-            h = nan(this.N_groups, this.N_PATTERNS);
+            P = zeros(this.N_groups, this.N_patterns);
+            CI = zeros(this.N_groups, this.N_patterns);
+            h = nan(this.N_groups, this.N_patterns);
             crit_p = nan(this.N_groups, 1);
             adj_ci_cvrg = nan(this.N_groups, 1);
-            Padj = nan(this.N_groups, this.N_PATTERNS);
+            Padj = nan(this.N_groups, this.N_patterns);
             selected = 2:length(this.groups);
             for ig = selected % cn is reference cohort/category
                 try
@@ -296,7 +292,7 @@ classdef NMFRadar < handle
                 amax = max(Padj, [], "all");
                 fprintf("%s: Padj: amin->%g, amax->%g\n", stackstr(), amin, amax)
                 figure
-                axes_scaling = repmat({'log'}, [1, this.N_PATTERNS]);
+                axes_scaling = repmat({'log'}, [1, this.N_patterns]);
                 s2 = plot_groups(this, Padj, ...
                     AxesMin=amin, AxesMax=amax, ...
                     legend=this.groupLabels(selected), ...
@@ -321,12 +317,12 @@ classdef NMFRadar < handle
 
             % groups
             assert(length(this.groups) == length(this.groupLabels))
-            P = zeros(this.N_groups, this.N_PATTERNS);
-            CI = zeros(this.N_groups, this.N_PATTERNS);
-            h = nan(this.N_groups, this.N_PATTERNS);
+            P = zeros(this.N_groups, this.N_patterns);
+            CI = zeros(this.N_groups, this.N_patterns);
+            h = nan(this.N_groups, this.N_patterns);
             crit_p = nan(this.N_groups, 1);
             adj_ci_cvrg = nan(this.N_groups, 1);
-            Padj = nan(this.N_groups, this.N_PATTERNS);
+            Padj = nan(this.N_groups, this.N_patterns);
             selected = 2:length(this.groups);
             for ig = selected % cn is reference cohort/category
                 try
@@ -386,7 +382,7 @@ classdef NMFRadar < handle
                 amax = max(Padj, [], "all");
                 fprintf("%s: Padj: amin->%g, amax->%g\n", stackstr(), amin, amax)
                 figure
-                axes_scaling = repmat({'log'}, [1, this.N_PATTERNS]);
+                axes_scaling = repmat({'log'}, [1, this.N_patterns]);
                 s2 = plot_groups(this, Padj, ...
                     AxesMin=amin, AxesMax=amax, ...
                     legend=this.groupLabels(selected), ...
@@ -400,12 +396,12 @@ classdef NMFRadar < handle
             c = 1;
             ld = load(fullfile(this.workdir, ...
                 sprintf('baseline_%s', this.groups0{c}), ...
-                sprintf('NumBases%i', this.N_bases_target), ...
+                sprintf('NumBases%i', this.N_patterns), ...
                 'components', this.matfile0));
 
-            mu = nan(1, this.N_bases_target);
-            sigma = nan(1, this.N_bases_target);
-            for idx = 1:this.N_bases_target
+            mu = nan(1, this.N_patterns);
+            sigma = nan(1, this.N_patterns);
+            for idx = 1:this.N_patterns
                 comp = ld.t.(sprintf("Components_%i", idx));
                 mu(idx) = mean(comp, 1);
                 sigma(idx) = std(comp, 1);
@@ -751,7 +747,7 @@ classdef NMFRadar < handle
             pwd0 = pushd(this.workdir);
 
             %% unwraps the radar plots to show panels of maps of beta0 -> beta1_{Dx group}
-            NP = this.N_PATTERNS;
+            NP = this.N_patterns;
             ld = load(this.matfile_cohort);
             CC = ld.patternsofneurodegeneration20240630forimport;
             CC = natsortrows(CC);
@@ -909,7 +905,12 @@ classdef NMFRadar < handle
             T = nmfh.table_patt_weighted_fdg();
         end
 
-        function this = NMFRadar(varargin)
+        function this = NMFRadar(opts)
+            arguments
+                opts.N_patterns double = mladni.NMF.N_PATTERNS
+            end
+
+            this.N_patterns = opts.N_patterns;
             this.workdir = fullfile(getenv('ADNI_HOME'), 'NMF_FDG');
             
             if ~isfile(fullfile(this.workdir, this.matfile_cohort_sorted))

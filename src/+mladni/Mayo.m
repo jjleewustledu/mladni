@@ -24,7 +24,7 @@ classdef Mayo < DataCuration & handle
             this.demogr = mladni.AdniDemographics();
             this.nmf = mladni.NMF( ...
                 data_home=this.data_home, ...
-                selectedNumBases=this.selectedNumBases);
+                N_patterns=this.N_patterns);
             this.nmfc = mladni.NMFCovariates();
             this.nmfh = mladni.NMFHierarchies(data_home=this.data_home);
             this.nmfr = mladni.NMFRadar();

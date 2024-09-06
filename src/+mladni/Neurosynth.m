@@ -40,6 +40,10 @@ classdef Neurosynth < handle
               'working_memory'}
     end
 
+    properties
+        N_patterns
+    end
+
     properties (Dependent)
         bases_volbin
         bases_reported
@@ -187,7 +191,7 @@ classdef Neurosynth < handle
             % add fdr, relabel bases
             [~,~,~,fdrp] = fdr_bh(T.p, 0.05, 'dep', 'yes');
             T = addvars(T, fdrp);     
-            span = this.nmfh_.N_PATTERNS;
+            span = this.N_patterns;
             for row = 1:size(T, 1)
                 T.basis(row) = this.nmfh_.pattern_num_from(span, T.basis(row));
             end
@@ -287,11 +291,14 @@ classdef Neurosynth < handle
             vec = vec(this.ORDERING);
         end
         
-        function this = Neurosynth(cache, amask)
+        function this = Neurosynth(cache, amask, opts)
             arguments
                 cache {mustBeText} = ""
                 amask = []
+                opts.N_patterns double = mladni.NMF.N_PATTERNS
             end
+            this.N_patterns = opts.N_patterns;
+
             if isfile(cache)
                 ld = load(cache);
                 this.imaging_ = ld.imaging_cache;
@@ -326,8 +333,8 @@ classdef Neurosynth < handle
             T = table(this.TERMS, this.ORDERING);
             T.Properties.VariableNames = {'Summary term', 'Topic term number'};
 
-            pwd0 = pushd(sprintf('%s/NMF_FDG/baseline_cn/NumBases%i/OPNMF/niiImg', getenv('ADNI_HOME'), this.N_PATTERNS));
-            for idx = 1:this.N_PATTERNS
+            pwd0 = pushd(sprintf('%s/NMF_FDG/baseline_cn/NumBases%i/OPNMF/niiImg', getenv('ADNI_HOME'), this.N_patterns));
+            for idx = 1:this.N_patterns
                 vec = this.corr_all_topics(sprintf('Basis_%i.nii', idx));
                 T = addvars(T, vec);
                 T.Properties.VariableNames{end} = sprintf('P%i', idx);
@@ -343,9 +350,9 @@ classdef Neurosynth < handle
         function h = heatmap3(this)
             %% Pearson correlations
 
-            pwd0 = pushd(sprintf('%s/NMF_FDG/baseline_cn/NumBases%i/OPNMF/niiImg', getenv('ADNI_HOME'), this.N_PATTERNS));
+            pwd0 = pushd(sprintf('%s/NMF_FDG/baseline_cn/NumBases%i/OPNMF/niiImg', getenv('ADNI_HOME'), this.N_patterns));
             mat = [];
-            for idx = 1:this.N_PATTERNS
+            for idx = 1:this.N_patterns
                 mat = [mat, this.corr_all_topics(sprintf('Basis_%i.nii', idx))]; %#ok<AGROW> 
             end
             cd('/Volumes/PrecunealSSD/Singularity/ADNI/neurovault.org/gradient_1_cortical_')
@@ -365,7 +372,7 @@ classdef Neurosynth < handle
 
             pwd0 = pushd('/Volumes/PrecunealSSD/Singularity/ADNI/NMF_FDG/baseline_cn/NumBases16/OPNMF/niiImg');
             mat = [];
-            for idx = 1:this.N_PATTERNS
+            for idx = 1:this.N_patterns
                 mat = [mat, this.sim_all_topics(sprintf('Basis_%i.nii', idx))]; %#ok<AGROW> 
             end
              
@@ -385,7 +392,7 @@ classdef Neurosynth < handle
 
             pwd0 = pushd('/Volumes/PrecunealSSD/Singularity/ADNI/NMF_FDG/baseline_cn/NumBases16/OPNMF/niiImg');
             mat = [];
-            for idx = 1:this.N_PATTERNS
+            for idx = 1:this.N_patterns
                 mat = [mat, this.kldiv_all_topics(sprintf('Basis_%i.nii', idx))]; %#ok<AGROW> 
             end
             cd('/Volumes/PrecunealSSD/Singularity/ADNI/neurovault.org/gradient_1_cortical_')

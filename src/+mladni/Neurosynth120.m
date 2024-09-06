@@ -6,7 +6,7 @@ classdef Neurosynth120 < handle
     %  Developed on Matlab 9.14.0.2239454 (R2023a) Update 1 for MACI64.  Copyright 2023 John J. Lee.
     
     properties
-        nbases
+        N_patterns
         neurosynthdir
         brainsmash_outdir
         workdir
@@ -16,11 +16,11 @@ classdef Neurosynth120 < handle
     end
 
     methods
-        function this = Neurosynth120(nbases)
+        function this = Neurosynth120(N_patterns)
             arguments
-                nbases double {mustBeScalarOrEmpty} = mladni.NMF.N_PATTERNS
+                N_patterns double {mustBeScalarOrEmpty} = mladni.NMF.N_PATTERNS
             end
-            this.nbases = nbases;
+            this.N_patterns = N_patterns;
             this.neurosynthdir = fullfile(getenv('ADNI_HOME'), 'neurosynth.org');
             this.brainsmash_outdir = fullfile(getenv('ADNI_HOME'), 'brainsmash_output');
             this.workdir = fullfile(getenv('ADNI_HOME'), 'NMF_FDG');
@@ -55,7 +55,7 @@ classdef Neurosynth120 < handle
                 mat(T.fdr > 0.05) = 0;
             end
             if isempty(clbls)
-                clbls = num2cell(1:this.nbases);
+                clbls = num2cell(1:this.N_patterns);
                 clbls = cellfun(@(x) sprintf('ADNI P%i', x), clbls, UniformOutput=false);
             end
             if isempty(rlbls)
@@ -130,9 +130,9 @@ classdef Neurosynth120 < handle
 
             % aufbau new table variables
             this.table_ = this.table_termlist;
-            corr = zeros(length(this.table_.index), this.nbases);
-            pval = ones(length(this.table_.index), this.nbases);
-            fdr = ones(length(this.table_.index), this.nbases);
+            corr = zeros(length(this.table_.index), this.N_patterns);
+            pval = ones(length(this.table_.index), this.N_patterns);
+            fdr = ones(length(this.table_.index), this.N_patterns);
             this.table_ = addvars(this.table_, corr, pval, fdr, 'After', 'term', ...
                 'NewVariableNames', {'corr', 'pval', 'fdr'});
 
@@ -151,7 +151,7 @@ classdef Neurosynth120 < handle
                 % avoid caches
                 S = this.table_built_stats_(this.table_built_stats_.term == term_, ':'); 
                 S = sortrows(S, 'basis');
-                if this.nbases == length(S.basis)
+                if this.N_patterns == length(S.basis)
                     r_row = S.r';
                     p_row = S.p';
                     this.table_.corr(it1,:) = r_row;
@@ -160,8 +160,8 @@ classdef Neurosynth120 < handle
                 end
 
                 % special cases of U.basis
-                r_row = nan(1, this.nbases);
-                p_row = nan(1, this.nbases);
+                r_row = nan(1, this.N_patterns);
+                p_row = nan(1, this.N_patterns);
                 for abasis = S.basis % int-valued
                     r_row(abasis) = S.r(abasis);
                     p_row(abasis) = S.p(abasis);
@@ -178,7 +178,7 @@ classdef Neurosynth120 < handle
             this.table_ = addvars(this.table_, (1:Nrows)', 'After', 'index', 'NewVariableNames', 'index1');
 
             % do fdr
-            for bi = 1:this.nbases
+            for bi = 1:this.N_patterns
                 [~,~,~,P] = fdr_bh(this.table_.pval(:,bi), 0.05, 'dep', 'yes');
                 this.table_.fdr(:,bi) = ascol(P);
             end

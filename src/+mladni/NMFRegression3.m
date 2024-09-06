@@ -7,6 +7,7 @@ classdef NMFRegression3 < handle
     
     properties
         nmf
+        N_patterns
         workdir
 
         cohort_coefficients_sorted
@@ -14,7 +15,6 @@ classdef NMFRegression3 < handle
     end
 
     properties (Dependent)
-        N_PATTERNS
         componentsDir
         mask
         niiImgDir
@@ -22,18 +22,15 @@ classdef NMFRegression3 < handle
     end
     
     methods  %% GET
-        function g = get.N_PATTERNS(this)
-            g = this.nmf.N_PATTERNS;
-        end
         function g = get.componentsDir(this)
-            g = fullfile(this.outputDir, sprintf('NumBases%i', this.N_PATTERNS), 'components');
+            g = fullfile(this.outputDir, sprintf('NumBases%i', this.N_patterns), 'components');
         end
         function g = get.mask(~)
             g = mlfourd.ImagingContext2( ...
                 fullfile(getenv('ADNI_HOME'), 'VolBin', 'mask.nii.gz'));
         end
         function g = get.niiImgDir(this)
-            g = fullfile(this.outputDir, sprintf('NumBases%i', this.N_PATTERNS), 'OPNMF', 'niiImg');
+            g = fullfile(this.outputDir, sprintf('NumBases%i', this.N_patterns), 'OPNMF', 'niiImg');
         end
         function g = get.outputDir(this)
             g = fullfile(this.workdir, 'baseline_cn');
@@ -54,7 +51,7 @@ classdef NMFRegression3 < handle
 
             nii = this.basis_alluvial.nifti;
             ifc = copy(nii);
-            for b = 1:this.nmf.N_PATTERNS
+            for b = 1:this.nmf.N_patterns
                 ifc.img(:,:,:,b) = encoding(b)*ifc.img(:,:,:,b);
             end
             ifc.img = sum(ifc.img, 4);
@@ -63,7 +60,12 @@ classdef NMFRegression3 < handle
             ic.fileprefix = strrep(strrep(strrep(strrep(opts.param, '(', ''), ')', ''), '>', 'gt'), '=', 'eq');
         end        
 
-        function this = NMFRegression3()
+        function this = NMFRegression3(opts)
+            arguments
+                opts.N_patterns double = mladni.NMF.N_patterns
+            end
+            this.N_patterns = opts.N_patterns;
+
             this.nmf = mladni.NMF();
             this.workdir = fullfile(getenv('ADNI_HOME'), 'NMF_FDG');
 

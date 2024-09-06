@@ -14,10 +14,10 @@
         mcrroot
         memInGB
         nmfDataset
-        numBases  % array, e.g., 2:2:40
+        N_patterns
         permute
         repetitions
-        selectedNumBases
+        selected_spans  % array, e.g., 2:2:40
         smooth
         study_design
         volbin
@@ -44,6 +44,7 @@
         targetDatasetDir % baseline_cn that provides all NMF patterns
         Xmat
         X2mat
+        X2_studydesign_mat
     end
 
     methods % GET
@@ -65,7 +66,7 @@
             error('mladni:RuntimeError', stackstr())
         end
         function g = get.componentDir(this)
-            g = fullfile(this.outputDir, sprintf('NumBases%i', this.selectedNumBases), 'components');
+            g = fullfile(this.outputDir, sprintf('NumBases%i', this.N_patterns), 'components');
             ensuredir(g);
         end
         function g = get.inFiles(this)
@@ -105,12 +106,16 @@
             g = fullfile(this.data_home, 'NMF_FDG', 'baseline_cn');
         end
         function g = get.Xmat(this)
-            numBasesFolder = sprintf('NumBases%i', this.selectedNumBases);
+            numBasesFolder = sprintf('NumBases%i', this.N_patterns);
             g = fullfile(this.outputDir, numBasesFolder, 'X.mat');
         end
         function g = get.X2mat(this)
-            numBasesFolder = sprintf('NumBases%i', this.selectedNumBases);
+            numBasesFolder = sprintf('NumBases%i', this.N_patterns);
             g = fullfile(this.outputDir, numBasesFolder, 'X2.mat');  
+        end
+        function g = get.X2_studydesign_mat(this)
+            numBasesFolder = sprintf('NumBases%i', this.N_patterns);
+            g = fullfile(this.outputDir, numBasesFolder, 'components', sprintf('X2_%s.mat', this.study_design));  
         end
     end
     
@@ -131,16 +136,17 @@
             addParameter(ip, "mask", fullfile(getenv("ADNI_HOME"), "VolBin", "mask.nii.gz"), @isfile);
             addParameter(ip, "memInGB", 4, @isscalar);
             addParameter(ip, "nmfDataset", "baseline_cn", @(x) istext(x));
-            addParameter(ip, "numBases", 2:2:40, @isnumeric);
+            addParameter(ip, "selected_spans", 2:2:40, @isnumeric);
             addParameter(ip, "permute", false, @islogical);
             addParameter(ip, "repetitions", 50, @isscalar);
-            addParameter(ip, "selectedNumBases", mladni.NMF.N_PATTERNS, @isscalar);  % [2, 8, 10, 12, 14 24]
             addParameter(ip, "smooth", false, @islogical);
             addParameter(ip, "study_design", "longitudinal", @istext)
-            addParameter(ip, "data_home", getenv("ADNI_HOME"), @isfolder);            
+            addParameter(ip, "data_home", getenv("ADNI_HOME"), @isfolder);       
+            addParameter(ip, "N_patterns", mladni.NMF.N_PATTERNS, @isscalar)
             parse(ip, varargin{:})
             ipr = ip.Results;
             
+            this.N_patterns = ipr.N_patterns;
             this.cache_files = ipr.cache_files;
             this.downSample = ipr.downSample;
             this.isList = ipr.isList;
@@ -150,12 +156,11 @@
             this.study_design = ipr.study_design;
             this.permute = ipr.permute;
             this.repetitions = ipr.repetitions;
-            this.selectedNumBases = ipr.selectedNumBases;
             this.smooth = ipr.smooth;
             this.data_home = ipr.data_home;
             this.volbin = fullfile(this.data_home, "VolBin");
 
-            this.numBases = ipr.numBases;
+            this.selected_spans = ipr.selected_spans;
 
             assert(isfolder(this.outputDir));
         end
@@ -170,9 +175,9 @@
             end            
 
             niiImg_home = fullfile(this.data_home, 'NMF_FDG', 'baseline_cn', ...
-                sprintf('NumBases%i', this.selectedNumBases), 'OPNMF', 'niiImg');
+                sprintf('NumBases%i', this.N_patterns), 'OPNMF', 'niiImg');
             pwd1 = pushd(niiImg_home);
-            parfor idx = 1:this.selectedNumBases
+            parfor idx = 1:this.N_patterns
                 system(sprintf( ...
                     '3dmaskdump -mask %s -o Basis_%i.txt -noijk Basis_%i.nii', ...
                     fullfile(this.data_home, 'VolBin', 'mask.nii.gz'), ...
@@ -198,7 +203,7 @@
             param.smooth = 0;
             param.mask = char(fullfile(this.data_home, "VolBin", "mask.nii.gz"));
             param.permute = 0;
-            param.numBase = this.selectedNumBases;
+            param.numBase = this.N_patterns;
             param.componentDir = char(this.componentDir);
 
             % BUG FIX:  selectVoxels must be logical, and
@@ -289,7 +294,7 @@
                 this mladni.NMF
                 opts.subgroup {mustBeTextScalar} = "cn"
                 opts.N_rep double {mustBeInteger} = 50 % # bootstrapping repetitions
-                opts.N_K double {mustBeInteger} = length(this.numBases) % # models checked by VolBin/*
+                opts.N_K double {mustBeInteger} = length(this.selected_spans) % # models checked by VolBin/*
                 opts.do_plot logical = true
                 opts.magic double = 38  % for plotting rainclouds with others
             end
@@ -408,7 +413,7 @@
                 this mladni.NMF
                 subgroup {mustBeTextScalar} = "cn"
                 opts.N_rep double {mustBeInteger} = 50 % # repetitions
-                opts.N_K double {mustBeInteger} = length(this.numBases) % # bases checked by VolBin/*
+                opts.N_K double {mustBeInteger} = length(this.selected_spans) % # bases checked by VolBin/*
                 opts.do_plot logical = true
                 opts.magic double = 2*38  % for plotting rainclouds with others
             end
@@ -495,7 +500,7 @@
         end
 
         function build_surfaces(this)
-            pwd0 = pushd(fullfile(this.outputDir, sprintf('NumBases%i', this.selectedNumBases), 'OPNMF', 'niiImg'));
+            pwd0 = pushd(fullfile(this.outputDir, sprintf('NumBases%i', this.N_patterns), 'OPNMF', 'niiImg'));
             mlshimony.Workbench.vol2surf('Basis_*.nii')
             popd(pwd0);
         end
@@ -539,14 +544,7 @@
             saveFigure2(gcf, stackstr());
         end
         
-        function call(this)
-            this.plot_ARIs();
-            this.plot_inner_products();
-            this.plot_recon_error();
-            this.plot_grad_recon_error();
-        end
-        
-        function T = call2(this, tags)
+        function T = call(this, tags)
             %% Writes imaging data to X2.mat, 
             %  then calls mladni.ArisCodes.calculateSelectedComponentWeightedAverageNIFTI(), 
             %  which writes component_weighted_average_study-study_design.csv.
@@ -561,13 +559,15 @@
             param.smooth = 0;
             param.mask = fullfile(this.data_home, 'VolBin/mask.nii.gz');
             param.permute = 0;
-            param.numBase = this.selectedNumBases;
+            param.numBase = this.N_patterns;
             param.componentDir = this.componentDir;
 
             assert(isfile(param.mask))
 
-            if isfile(this.X2mat) && this.cache_files
+            if isfile(this.X2mat)
                 load(this.X2mat);
+            elseif isfile(this.X2_studydesign_mat)
+                load(this.X2_studydesign_mat)
             else
                 data = mladni.ArisCodes.loadData(this.inFiles2, param, []);
                 meanX = mean(data.X,2);
@@ -578,7 +578,7 @@
 
             weightedAverFilename = fullfile(this.componentDir, sprintf('component_weighted_average_%s.csv', tags));
             mladni.ArisCodes.calculateSelectedComponentWeightedAverageNIFTI( ...
-                this.inFiles2, this.targetDatasetDir, this.selectedNumBases, weightedAverFilename);
+                this.inFiles2, this.targetDatasetDir, this.N_patterns, weightedAverFilename);
             T = readtable(weightedAverFilename, Delimiter=',', ReadVariableNames=false);
         end
     end
@@ -662,24 +662,7 @@
             disp(c.AdditionalProperties)
         end
         
-        function parcall()
-            %% DEPRECATED legacy method
-            groups = mladni.NMF.groups;
-            parfor gi = 1:length(groups)
-                try
-                    this = mladni.NMF( ...
-                        nmfDataset=sprintf('baseline_%s', groups{gi}));
-                    cd(this.outputDir);
-                    call(this);
-                    this.build_repeated_reproducibility(groups{gi})
-                catch ME
-                    handwarning(ME)
-                end
-            end
-        end
-        
-        function parcall2(opts)
-            %% DEPRECATED legacy method
+        function parcall(opts)
             
             arguments
                 opts.data_home {mustBeFolder} = getenv('ADNI_HOME')
@@ -688,19 +671,15 @@
             targetDatasetDir = fullfile(opts.data_home, 'NMF_FDG', 'baseline_cn');
             assert(isfolder(targetDatasetDir))
 
-            b = 2:2:40;  % MAGIC NUMBER as KLUDGE
+            % b = 2:2:40;  % MAGIC NUMBER as KLUDGE
+            b = [26,28,30,32,34,36,38,40];
             parfor bi = 1:length(b)
-                groups = mladni.NMF.groups;
-                for gi = 1:length(groups)
-                    try
-                        this = mladni.NMF( ...
-                            selectedNumBases=b(bi), ...
-                            nmfDataset=sprintf('baseline_%s', groups{gi}));
-                        cd(this.outputDir);
-                        call2(this, targetDatasetDir, 'on_cn');
-                    catch ME
-                        handwarning(ME)
-                    end
+                try
+                    this = mladni.NMF(N_patterns=b(bi));
+                    cd(this.outputDir);
+                    call(this);
+                catch ME
+                    handwarning(ME)
                 end
             end
 

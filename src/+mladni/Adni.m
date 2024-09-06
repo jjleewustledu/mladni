@@ -24,8 +24,8 @@ classdef Adni < mladni.DataCuration & handle
             this.demogr = mladni.AdniDemographics();
             this.nmf = mladni.NMF( ...
                 data_home=this.data_home, ...
-                selectedNumBases=this.selectedNumBases, ...
-                numBases=2:2:40);
+                N_patterns=this.N_patterns, ...
+                selected_spans=2:2:40);
             this.nmfc = mladni.NMFCovariates();
             this.nmfh = mladni.NMFHierarchies(data_home=this.data_home);
             this.nmfr = mladni.NMFRadar();
@@ -89,23 +89,26 @@ classdef Adni < mladni.DataCuration & handle
             %% write cache "X.mat", calculate reconstruction errors, calculate component-weighted averages
             
             % call(this.nmf)
-            % call2(this.nmf)
 
-            % check completeness
             % fdg5 = this.demogr.table_fdg5;
-            % assert(sum(cellfun(@isempty, fdg5.Filelist)) == 0, stackstr())
+            % assert(sum(cellfun(@isempty, fdg5.Filelist)) == 0, stackstr())  % check completeness            
 
             %% build tables for diagnostic groups
 
-            % this.nmfc.writetables();
+            % for p = 2:2:40
+            %     this.nmfc.N_patterns = p;
+            %     this.nmfc.writetables();
+            % end
 
             %% build argmax maps
 
             % this.nmfh.build_argmax_maps();
             % this.nmfh.build_table_for_ggalluvial2();
-            % run alluvial_across_ranks_tom2.Rmd in RStudio
 
-            % create images of means, var, std, median, iqr of baseline_cn, longitudinal_*
+            %% run alluvial_across_ranks_tom2.Rmd in RStudio
+
+            %% create images of means, var, std, median, iqr of baseline_cn, longitudinal_*
+
             subgroups = [ ...
                 "baseline_cn", "longitudinal_cn", "longitudinal_preclinical", ...
                 "longitudinal_cdr_0p5_apos", "longitudinal_cdr_gt_0p5_apos", ...
@@ -118,10 +121,11 @@ classdef Adni < mladni.DataCuration & handle
                 end
             end
             % this.nmf.build_table_variances(subgroups=subgroups);
-
             % this.plot_model_selections()
 
             %% radar plots, unwrapped radar plots, preparations for chord plots
+
+            %% RStudio ADNI/NMF_FDG/baseline_cn/NumBases24/patterns_of_neurodegeneration_20240904.Rmd.qmd
 
             % call_intercept(this.nmfr);
             % call_groups(this.nmfr);
@@ -135,28 +139,27 @@ classdef Adni < mladni.DataCuration & handle
             % ns.build_stats_from_logs(tag="Neurosynth120");
             % ns.build_stats_from_logs(tag="Neurosynth27");
             
-            % run chords_for_neurosynth.qmd
+            %% run chords_for_neurosynth.qmd
 
             %% GPPM
 
-            % covariates_mat = this.nmfc.covariates_file(adjusted=false)
-            % this.nmfh.addvars_patterns(covariates_file, rewrite=true)
-
-            % RStudio ADNI/NMF/patterns_for_gppm.Rmd; 
-            % builds components/NMFCovariates_table_covariates_longitudinal_adjpatterns.csv
+            %% RStudio ADNI/NMF_FDG/baseline_cn/NumBases24/patterns_for_gppm.Rmd; 
+            %% builds components/NMFCovariates_table_covariates_longitudinal_adjpatterns.csv
 
             % table_gppm_metarois(this.nmfc)
             % table_gppm_patterns(this.nmfc)
             % table_gppm_patterns_metaroi(this.nmfc)
             % table_gppm_patterns_1403(this.nmfc)
-            % run pycharm packages
+            
+            %% run pycharm packages
 
             %% more QC
 
-            % create surfaces
+            %% create surfaces
+
             % this.nmf.build_surfaces()
 
-            % GAM(M4) regressions with RStudio
+            %% GAM(M4) regressions with RStudio
 
 
 

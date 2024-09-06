@@ -7,11 +7,11 @@ classdef Jones2022 < handle
     %  Developed on Matlab 9.12.0.2170939 (R2022a) Update 6 for MACI64.  Copyright 2023 John J. Lee.
     
     properties (Constant)
-        N_PATTERNS = mladni.NMF.N_PATTERNS
         colormap = viridis
     end
 
     properties
+        N_patterns
         study_name
     end
 
@@ -22,7 +22,6 @@ classdef Jones2022 < handle
         labels_check_mvregress % labels for plots
         labels_check_mvregress_2 % labels for plots, excluding NpBraak
         mask
-        nbases
         plabels
         patt_path 
         relevant_file % mat file:  nii Filelist, merge/demographic variables, Pattern_*.  N = 781.
@@ -35,7 +34,7 @@ classdef Jones2022 < handle
 
     methods % GET, SET
         function g = get.componentsdir(this)
-            g = fullfile(this.workdir, 'baseline_cn', sprintf('NumBases%i', this.nbases), 'components');
+            g = fullfile(this.workdir, 'baseline_cn', sprintf('NumBases%i', this.N_patterns), 'components');
         end
         function g = get.data_home(~)
             g = fullfile(getenv('SINGULARITY_HOME'), 'MAYO');
@@ -56,12 +55,9 @@ classdef Jones2022 < handle
         end
         function     set.mask(this, s)
             this.mask_ = mlfourd.ImagingContext2(s);
-        end        
-        function g = get.nbases(this)
-            g = this.N_PATTERNS;
-        end
+        end 
         function g = get.patt_path(this)
-            g = fullfile(this.workdir, 'baseline_cn', sprintf('NumBases%i', this.nbases), 'OPNMF', 'niiImg');
+            g = fullfile(this.workdir, 'baseline_cn', sprintf('NumBases%i', this.N_patterns), 'OPNMF', 'niiImg');
         end
         function g = get.plabels(~)
             g = {'P1' 'P2' 'P3' 'P4' 'P5' 'P6' 'P7' 'P8' 'P9' 'P10' 'P11' 'P12'  ...
@@ -121,7 +117,9 @@ classdef Jones2022 < handle
             arguments
                 opts.study_design = 'longitudinal';
                 opts.study_name = 'ADNI';  % 'MAYO'
+                opts.N_patterns double = mladni.NMF.N_PATTERNS
             end
+            this.N_patterns = opts.N_patterns;
             this.study_design_ = opts.study_design;
             this.study_name = opts.study_name;
         end
@@ -149,9 +147,9 @@ classdef Jones2022 < handle
                 
         function T = build_Pattern_var(this, T)
             assert(any(strcmp(this.table_relevant_.Properties.VariableNames, "Pattern_1")))
-            assert(any(strcmp(this.table_relevant_.Properties.VariableNames, "Pattern_"+this.N_PATTERNS)))
+            assert(any(strcmp(this.table_relevant_.Properties.VariableNames, "Pattern_"+this.N_patterns)))
             T = mergevars(T, ...
-                "Pattern_" + (1:this.N_PATTERNS), ...
+                "Pattern_" + (1:this.N_patterns), ...
                 NewVariableName="Pattern");
         end
         
@@ -209,9 +207,9 @@ classdef Jones2022 < handle
             % aufbau new table variables
 
             this.table_ = this.table_termlist;
-            corr = zeros(length(this.table_.index), this.nbases);
-            pval = ones(length(this.table_.index), this.nbases);
-            fdr = ones(length(this.table_.index), this.nbases);
+            corr = zeros(length(this.table_.index), this.N_patterns);
+            pval = ones(length(this.table_.index), this.N_patterns);
+            fdr = ones(length(this.table_.index), this.N_patterns);
             this.table_ = addvars(this.table_, corr, pval, fdr, 'After', 'term', ...
                 'NewVariableNames', {'corr', 'pval', 'fdr'});
 
@@ -230,7 +228,7 @@ classdef Jones2022 < handle
                 % avoid caches
                 S = this.table_built_stats_(this.table_built_stats_.term == term_, ':'); 
                 S = sortrows(S, 'basis');
-                if this.nbases == length(S.basis)
+                if this.N_patterns == length(S.basis)
                     r_row = S.r';
                     p_row = S.p';
                     this.table_.corr(it1,:) = r_row;
@@ -239,8 +237,8 @@ classdef Jones2022 < handle
                 end
 
                 % special cases of U.basis
-                r_row = nan(1, this.nbases);
-                p_row = nan(1, this.nbases);
+                r_row = nan(1, this.N_patterns);
+                p_row = nan(1, this.N_patterns);
                 for abasis = S.basis % int-valued
                     r_row(abasis) = S.r(abasis);
                     p_row(abasis) = S.p(abasis);
@@ -257,7 +255,7 @@ classdef Jones2022 < handle
             this.table_ = addvars(this.table_, (1:Nrows)', 'After', 'index', 'NewVariableNames', 'index1');
 
             % do fdr
-            for bi = 1:this.nbases
+            for bi = 1:this.N_patterns
                 [~,~,~,P] = fdr_bh(this.table_.pval(:,bi), 0.05, 'dep', 'yes');
                 this.table_.fdr(:,bi) = ascol(P);
             end
@@ -294,11 +292,11 @@ classdef Jones2022 < handle
 
             % mat
             eb_path = '/Volumes/PrecunealSSD/Singularity/MAYO/Eigenbrains';
-            mat = nan(10, this.N_PATTERNS);
+            mat = nan(10, this.N_patterns);
             for irow = 1:10
                 eb = mlfourd.ImagingContext2(fullfile(eb_path, sprintf('MNI152_EB_%02i', irow)));   
                 eb = abs(eb);
-                for icol = 1:this.N_PATTERNS       
+                for icol = 1:this.N_patterns       
                     patt = mlfourd.ImagingContext2(fullfile(this.patt_path, sprintf('Basis_%i.nii', icol))); 
                     div = eb.kldiv(patt, this.mask);    
                     mat(irow, icol) = div.nifti.img;
@@ -554,7 +552,7 @@ classdef Jones2022 < handle
                     AIC(r) = mdls{r}.ModelCriterion.AIC;
                     BIC(r) = mdls{r}.ModelCriterion.BIC;
                     %F(r) = mdls{r}.ModelFitVsNullModel.Fstat;
-                    adjPval(r) = mdls{r}.ModelFitVsNullModel.Pvalue/this.N_PATTERNS;
+                    adjPval(r) = mdls{r}.ModelFitVsNullModel.Pvalue/this.N_patterns;
                     coeffs(r, :) = asrow(mdls{r}.Coefficients.Estimate(1:Ncoeffs));
                 catch ME
                     handwarning(ME)
