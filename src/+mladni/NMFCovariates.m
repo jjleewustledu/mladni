@@ -68,12 +68,13 @@ classdef NMFCovariates < handle
     methods
         function this = NMFCovariates(opts)
             %% NMFCovariates 
-            %  Args:
-            %    opts.table_covariates = []: to provision from memory
-            %    opts.study_design = "cross-sectional"
+            % 
+            % Args:
+            % opts.study_design {mustBeTextScalar} = "longitudinal"
+            % opts.data_home {mustBeFolder} = getenv("ADNI_HOME")
+            % opts.N_patterns double = mladni.NMF.N_PATTERNS            
     
             arguments
-                opts.table_covariates = []
                 opts.study_design {mustBeTextScalar} = "longitudinal"
                 opts.data_home {mustBeFolder} = getenv("ADNI_HOME")
                 opts.N_patterns double = mladni.NMF.N_PATTERNS
@@ -82,7 +83,6 @@ classdef NMFCovariates < handle
             this.selectedNumBases_ = opts.N_patterns;
             this.study_design_ = opts.study_design;
             this.demogr_ = mladni.AdniDemographics(study_design=opts.study_design);
-            this.table_covariates_cache_ = opts.table_covariates;
             this.data_home_ = opts.data_home;
             this.nmfh_ = mladni.NMFHierarchies(N_patterns = this.N_patterns);
 
@@ -354,12 +354,19 @@ classdef NMFCovariates < handle
         end
         function t = table_covariates(this, opts)
             %% Saves and returns table useful for inferences using RStudio.
-            %  Args:
-            %
+            %  
+            % Args:
             % this mladni.NMFCovariates
             % opts.save_1comp logical = false  % call this.table_covariates_1comp() for all components.  DEPRECATED.
             % opts.permissive_qc logical = false
-            % opts.adjusted logical = false
+            % opts.adjusted logical = false 
+            % opts.reuse_cache logical = true
+            %
+            % N.B.:  while table_dlicv(), table_pve1(), table_regerr() may be memory-cached for all N_patterns,
+            %        table_selectedComponentWeightedAverageNIFTI() varies with N_patterns, and cannot be memory-cached
+            %        while supporting multiple N_patterns from a NMFCovariates object in memory.
+            %        Therefor, table_covariates() should not use memory-caches, but filesystem-caches are safe so long
+            %        as they are stored separately for each possible value of N_patterns.
 
             arguments
                 this mladni.NMFCovariates
@@ -369,18 +376,11 @@ classdef NMFCovariates < handle
                 opts.reuse_cache logical = true
             end
 
-            % if ~isempty(this.table_covariates_cache_)
-            %     fprintf("%s: using cached in memory\n", stackstr())
-            %     t = this.table_covariates_cache_;
-            %     return
-            % end
             cache_file = this.covariates_file(permissive_qc=opts.permissive_qc, adjusted=opts.adjusted);
             if opts.reuse_cache && isfile(cache_file)
                 fprintf("%s: using cached from filesystem\n", stackstr())
                 ld = load(cache_file);
                 t = ld.t1;
-                % this.table_covariates_cache_ = ld.t1;
-                % t = this.table_covariates_cache_;
                 return
             end
 
@@ -424,8 +424,7 @@ classdef NMFCovariates < handle
             % AcqDuration ~ floating-point years since first scan, after removing faulty scans
             t = this.AddAcqDuration(t);
 
-            % store cache, & save/write table
-            % this.table_covariates_cache_ = t;
+            % save/write table
             save(cache_file, 't');
             writetable(t, strrep(cache_file, ".mat", ".csv"));
 
@@ -789,15 +788,13 @@ classdef NMFCovariates < handle
             %% See also mladni.ArisCodes.calculateSelectedComponentWeightedAverageNIFTI(),
             %  which writes component_weighted_average_<study_design>.csv.
             %  t.Filelist will exclude registration failures.
+            %
+            %  N.B.:  caching this table in memory is incompatible with iterations of N_patterns 
+            %         for a given instance of NMFCovariates.
 
             arguments
                 this mladni.NMFCovariates
             end
-
-            % if ~isempty(this.table_selectedComponentWeightedAverageNIFTI_cache_)
-            %     t = this.table_selectedComponentWeightedAverageNIFTI_cache_;
-            %     return
-            % end
 
             % prep param struct
             param.isList = 1 ;
@@ -831,7 +828,6 @@ classdef NMFCovariates < handle
             comp_vars = cellfun(@(x) sprintf('P%i', x), num2cell(1:this.N_patterns), UniformOutput=false);
             t.Properties.VariableNames = ['Filelist', comp_vars];
             t = mergevars(t, comp_vars, NewVariableName="Components");
-            % this.table_selectedComponentWeightedAverageNIFTI_cache_ = t;
         end
 
         %% tables of diagnostic subgroups
@@ -1309,12 +1305,10 @@ classdef NMFCovariates < handle
         selectedNumBases_
         study_design_
         table_cohorts_
-        table_covariates_cache_
         table_dlicv_cache_
         table_fdg5_cache_
         table_pve1_cache_
         table_regerr_cache_
-        table_selectedComponentWeightedAverageNIFTI_cache_
         T1w_dlicv_suffix_
     end
     
