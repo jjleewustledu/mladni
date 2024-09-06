@@ -261,6 +261,18 @@ classdef NMFCovariates < handle
             f = fullfile(this.componentDir, fp + opts.suffix);
         end
 
+        function f = dlicv_file(this)
+            f = fullfile(this.data_home_, "bids", "derivatives", "NMFCovariates_table_dlicv.mat");
+        end
+
+        function f = pve1_file(this)
+            f = fullfile(this.data_home_, "bids", "derivatives", "NMFCovariates_table_pve1.mat");
+        end
+
+        function f = regerr_file(this)
+            f = fullfile(this.data_home_, "bids", "derivatives", "NMFCovariates_table_regerr.mat");
+        end
+
         %% tables
 
         function t = AddAcqDuration(~, t)
@@ -380,7 +392,12 @@ classdef NMFCovariates < handle
             if opts.reuse_cache && isfile(cache_file)
                 fprintf("%s: using cached from filesystem\n", stackstr())
                 ld = load(cache_file);
-                t = ld.t1;
+                try
+                    t = ld.t1;
+                catch ME
+                    handwarning(ME)
+                    t = ld.t;
+                end
                 return
             end
 
@@ -455,6 +472,12 @@ classdef NMFCovariates < handle
                 return
             end
 
+            if isfile(this.dlicv_file)
+                ld = load(this.dlicv_file);
+                t = ld.t;
+                return
+            end
+
             Filelist = this.table_fdg.Filelist;
             Dlicv = nan(size(Filelist));
             for fidx = 1:length(Filelist)
@@ -480,6 +503,7 @@ classdef NMFCovariates < handle
                 end
             end
             t = table(Filelist, Dlicv);
+            save(this.dlicv_file, "t");
             this.table_dlicv_cache_ = t;
         end
         function t = table_fdg(this)
@@ -721,6 +745,12 @@ classdef NMFCovariates < handle
                 return
             end
 
+            if isfile(this.pve1_file)
+                ld = load(this.pve1_file);
+                t = ld.t;
+                return
+            end
+
             Filelist = this.table_fdg.Filelist;
             PVE1 = nan(size(Filelist));
             for fidx = 1:length(Filelist)
@@ -748,12 +778,19 @@ classdef NMFCovariates < handle
                 end
             end
             t = table(Filelist, PVE1);
+            save(this.pve1_file, "t");
             this.table_pve1_cache_ = t;
         end
         function t = table_regerr(this)
 
             if ~isempty(this.table_regerr_cache_)
                 t = this.table_regerr_cache_;
+                return
+            end
+
+            if isfile(this.regerr_file)
+                ld = load(this.regerr_file);
+                t = ld.t;
                 return
             end
 
@@ -782,6 +819,7 @@ classdef NMFCovariates < handle
                 end
             end
             t = table(Filelist, RegErr);
+            save(this.regerr_file, "t");
             this.table_regerr_cache_ = t;
         end
         function t = table_selectedComponentWeightedAverageNIFTI(this)
