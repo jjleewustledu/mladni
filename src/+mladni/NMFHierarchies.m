@@ -63,19 +63,23 @@ classdef NMFHierarchies < handle
             %% builds argmax maps for each of the spanning spaces for a cohort, e.g., baseline_cn.
 
             pwd0 = pushd(this.home);
-            for s = max(this.selected_spans):-2:2
+            s = this.N_patterns;
 
-                nmfc = mladni.NMFCovariates(N_patterns=s);
-                t = nmfc.table_cn(true);  % cross-sectional=true
-                pwd1 = pushd(fullfile("NumBases"+s, "components"));
+            nmfc = mladni.NMFCovariates(N_patterns=s);
+            t = nmfc.table_cn(true);  % cross-sectional=true
+            pwd1 = pushd(fullfile("NumBases"+s, "components"));
+            if ~isfile("NMFCovariates_table_cn_1stscan_longitudinal.mat")
                 save("NMFCovariates_table_cn_1stscan_longitudinal.mat", "t");
-                writetable(t, "NMFCovariates_table_cn_1stscan_longitudinal.csv", WriteVariableNames=true)
-                popd(pwd1);
-
-                pwd1 = pushd(fullfile("NumBases"+s, "OPNMF", "niiImg")); 
-                this.build_argmax_map(s, varargin{:}); 
-                popd(pwd1); 
             end
+            if ~isfile("NMFCovariates_table_cn_1stscan_longitudinal.csv")
+                writetable(t, "NMFCovariates_table_cn_1stscan_longitudinal.csv", WriteVariableNames=true)
+            end
+            popd(pwd1);
+
+            pwd1 = pushd(fullfile("NumBases"+s, "OPNMF", "niiImg")); 
+            this.build_argmax_map(s, varargin{:}); 
+            popd(pwd1); 
+
             popd(pwd0);
         end
 
@@ -207,7 +211,7 @@ classdef NMFHierarchies < handle
             ic_final.save();  
         end
 
-        function T = build_table_for_ggalluvial2(this)
+        function T = build_table_for_ggalluvial2(this, opts)
             %% maintain voxel identities across pattern-models
             %
             % unique(t.N_Patterns_2)
@@ -292,11 +296,16 @@ classdef NMFHierarchies < handle
             %     20
             %     24
 
+            arguments
+                this mladni.NMFHierarchies
+                opts.selected_spans double = this.selected_spans
+            end
+
             pwd0 = pushd(this.home);
 
             Nspans = length(this.selected_spans);
             A = NaN(this.Nforeground, Nspans);
-            for sidx = length(this.selected_spans):-1:1
+            for sidx = length(opts.selected_spans):-1:1
                 mg = mglob(sprintf("NumBases%i/OPNMF/niiImg/Basis_argmax_brain_mask.nii", this.selected_spans(sidx)));
                 ic = mlfourd.ImagingContext2(mg(1));
                 img = ic.imagingFormat.img;
