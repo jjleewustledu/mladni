@@ -524,7 +524,7 @@ classdef NMFHierarchies < handle
                 this mladni.NMFHierarchies
                 opts.span = this.N_patterns
             end
-            assert(any(ismember(opts.span, 1:max(this.selected_spans))))
+            % assert(any(ismember(opts.span, 1:max(this.selected_spans))))  % considering all possible N_patterns
 
             c = 1;
             ld = load(fullfile( ...

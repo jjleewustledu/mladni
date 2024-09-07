@@ -10,12 +10,12 @@ classdef NMFCovariates < handle
     end
 
     properties
-        N_patterns
     end
 
     properties (Dependent)
         componentDir
         inFiles
+        N_patterns
         pet_on_T1w_suffix
         pve_1_suffix
         study_design
@@ -37,6 +37,12 @@ classdef NMFCovariates < handle
                 t = table(this.table_fdg.Filelist);
                 writetable(t, g, WriteVariableNames=false)
             end
+        end
+        function g = get.N_patterns(this)
+            g = this.nmfh_.N_patterns;
+        end
+        function set.N_patterns(this, s)
+            this.nmfh_ = mladni.NMFHierarchies(N_patterns=s);
         end
         function g = get.pet_on_T1w_suffix(this)
             g = this.pet_on_T1w_suffix_;
@@ -79,12 +85,10 @@ classdef NMFCovariates < handle
                 opts.data_home {mustBeFolder} = getenv("ADNI_HOME")
                 opts.N_patterns double = mladni.NMF.N_PATTERNS
             end
-            this.N_patterns = opts.N_patterns;
-            this.selectedNumBases_ = opts.N_patterns;
             this.study_design_ = opts.study_design;
             this.demogr_ = mladni.AdniDemographics(study_design=opts.study_design);
             this.data_home_ = opts.data_home;
-            this.nmfh_ = mladni.NMFHierarchies(N_patterns = this.N_patterns);
+            this.nmfh_ = mladni.NMFHierarchies(N_patterns = opts.N_patterns);
 
             this.pet_on_T1w_suffix_ = 'orient-rpi_pet_on_T1w.nii.gz';
             this.T1w_dlicv_suffix_ = 'orient-rpi_T1w_dlicv.nii.gz';
@@ -1340,7 +1344,6 @@ classdef NMFCovariates < handle
         nmfh_
         pet_on_T1w_suffix_
         pve_1_suffix_
-        selectedNumBases_
         study_design_
         table_cohorts_
         table_dlicv_cache_
