@@ -92,7 +92,11 @@ classdef NMFHierarchies < handle
                 this mladni.NMFHierarchies
                 span {mustBeNumeric}
                 opts.rank_by_suvr logical = true
+                opts.tag = "_20240907"
+                opts.overwrite logical = false
             end
+
+            pwd1 = pushd(fullfile(this.home, "NumBases"+span, "OPNMF", "niiImg"));
             
             ic = mlfourd.ImagingContext2('Basis_1.nii');
             ic = ic.zeros;
@@ -106,8 +110,10 @@ classdef NMFHierarchies < handle
                 end
                 ifc.img(:,:,:,b1) = ifc1.img;
             end
-            ifc.fileprefix = 'Basis_all'; % composite nifti of bases
-            ifc.save
+            ifc.fileprefix = 'Basis_all' + opts.tag; % composite nifti of bases
+            if ~isfile(ifc.fqfn) || opts.overwrite
+                ifc.save();
+            end
 
             mat = reshape(ifc.img, [91*109*91, span]);  % N_voxels x K
             mat = this.normalize_cols_rows(mat);  % cols <- cols/norm(col); rows <- rows/sum(rows)
@@ -115,14 +121,81 @@ classdef NMFHierarchies < handle
             argmax = reshape(argmax, [91, 109, 91]);
             ifc_argmax = copy(ifc);
             ifc_argmax.img = argmax;
-            ifc_argmax.fileprefix = 'Basis_argmax';
-            ifc_argmax.save();
+            ifc_argmax.fileprefix = 'Basis_argmax' + opts.tag;
+            if ~isfile(ifc_argmax.fqfn) || opts.overwrite
+                ifc_argmax.save();
+            end
             
             brain_mask = mlfourd.ImagingContext2(fullfile(this.standard_dir, 'MNI152_T1_2mm_brain_mask.nii.gz'));  % tight mask
             ic_argmax = mlfourd.ImagingContext2(ifc_argmax);
             ic_argmax = ic_argmax .* brain_mask.binarized();
             ic_argmax.fileprefix = strcat(ifc_argmax.fileprefix, '_brain_mask');
-            ic_argmax.save();            
+            if ~isfile(ic_argmax.fqfn) || opts.overwrite
+                ic_argmax.save();
+            end
+
+            popd(pwd1);
+        end
+
+        function ic = build_Basis_alluvial_brain_mask(this, rank)
+            %% alluvial objects are defined by the optimal NMF decomposition with rank == 24
+
+            arguments
+                this mladni.NMFHierarchies
+                rank {mustBeNumeric}
+            end
+            assert(rank <= 24)
+            %rank0 = this.N_patterns;            
+            % this.N_patterns = rank;
+
+            pwd1 = pushd(fullfile("NumBases"+rank, "OPNMF", "niiImg"));             
+            % this.build_argmax_map(rank, tag="");  % Basis_argmax*.nii.gz
+            this.build_Basis_argmax_brain_mask_reordered_patterns(rank=rank, rank_ref=24);
+            ic = this.build_map_for_ggalluvial2(rank);  % Basis_alluvial_brain_mask.nii.gz
+            popd(pwd1)
+
+            % this.N_patterns = rank0;  % reset
+        end
+
+        function ic = build_Basis_argmax_brain_mask_reordered_patterns(this, opts)
+            %% derived from build_table_for_ggalluvial2
+            
+            arguments
+                this mladni.NMFHierarchies
+                opts.rank {mustBeScalarOrEmpty}
+                opts.rank_ref double = this.N_patterns
+            end
+
+            fprintf( ... 
+                "%s:  reordering patterns for similarity to reference model of rank %i\n", ...
+                stackstr(), opts.rank_ref);
+
+            pwd0 = pushd(this.home);
+
+            % build img_span_ref
+            mg_ref = mglob(sprintf("NumBases%i/OPNMF/niiImg/Basis_argmax_brain_mask.nii", this.N_patterns));
+            assert(~isempty(mg_ref));
+            ic_ref_ = mlfourd.ImagingContext2(mg_ref(1));
+            img_ref = single(ic_ref_);
+            img_ref = ascol(img_ref(img_ref > 0));
+            assert(length(img_ref) == this.Nforeground)
+
+            % build Basis_argmax_brain_mask_reordered_patterns
+            mg = mglob(sprintf("NumBases%i/OPNMF/niiImg/Basis_argmax_brain_mask.nii", opts.rank));
+            ic_ = mlfourd.ImagingContext2(mg(1));
+            img = single(ic_);
+            img = ascol(img(img > 0));
+            assert(length(img) == this.Nforeground)
+            
+            img = this.reorder_patterns_by_cosine_similarity(img, img_ref);
+            ifc = copy(this.mask.imagingFormat);
+            ifc.img(ifc.img > 0) = img;
+            ifc.fqfileprefix = ic_.fqfileprefix + "_reordered_patterns";
+            ifc.save();
+
+            ic = mlfourd.ImagingContext2(ifc);
+
+            popd(pwd0)
         end
 
         function ic = build_downsampled_to_3mm(this, ic)
@@ -160,7 +233,7 @@ classdef NMFHierarchies < handle
             popd(pwd0);
         end
 
-        function build_map_for_ggalluvial2(this, span)
+        function ic_final = build_map_for_ggalluvial2(this, span)
             %% Identifies time index with rank of basis in the spanning model.
 
             arguments

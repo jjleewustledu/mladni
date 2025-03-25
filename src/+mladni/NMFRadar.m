@@ -39,8 +39,8 @@ classdef NMFRadar < handle
         matfile_cohort = 'patterns_of_neurodegeneration_20240630_for_import.mat' 
         % Output from R: Singularity/ADNI/NMF_FDG/patterns_of_neurodegeneration_20230921.Rmd
         % b2 <- gam(list(
-        % y0~s(age,k=20,by=interaction(sex))+sex+apoe4+cohort, y1~s(age,k=20,by=interaction(sex))+sex+apoe4+cohort, y2~s(age,k=20,by=interaction(sex))+sex+apoe4+cohort, ...
-        % family=mvn(d=24), data=soto)
+        % y0~s(age,k=21,by=interaction(sex))+sex+apoe4+cohort, y1~s(age,k=20,by=interaction(sex))+sex+apoe4+cohort, y2~s(age,k=20,by=interaction(sex))+sex+apoe4+cohort, ...
+        % family=mvn(d=N_patterns), data=soto)
         % b2
         % summary(b2)  
         matfile_cohort_sorted = 'CohortCoefficientsSorted.mat'  % P1 has highest SUVR, P24 has lowest SUVR
@@ -53,6 +53,7 @@ classdef NMFRadar < handle
         AxesLabelsNull
         figdir
         N_groups
+        num_bases_dir
         sorted_bases % indexing from VolBin -> indexing sorted by pattern-weighted FDG SUvR; 
                      % e.g., sorted_bases(16) == 20
     end
@@ -62,12 +63,10 @@ classdef NMFRadar < handle
             g = {'', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''};
         end
         function g = get.AxesLabels(this)
-            g = {'p_1', 'p_2', 'p_3', 'p_4', ...
-                 'p_5', 'p_6', 'p_7', 'p_8', ...
-                 'p_9', 'p_{10}', 'p_{11}', 'p_{12}', ...
-                 'p_{13}', 'p_{14}', 'p_{15}', 'p_{16}', ...
-                 'p_{17}', 'p_{18}', 'p_{19}', 'p_{20}', ...
-                 'p_{21}', 'p_{22}', 'p_{23}', 'p_{24}'};
+            g = {};
+            for idx = 1:this.N_patterns
+                g = [g, {sprintf('p_{%i}', idx)}];
+            end
             g = g(this.sorted_bases);
         end
         function g = get.sorted_bases(this)
@@ -79,10 +78,13 @@ classdef NMFRadar < handle
             g = asrow(T.indices_bases);
         end
         function g = get.figdir(this)
-            g = fullfile(this.workdir, 'baseline_cn', 'results');
+            g = fullfile(this.num_bases_dir);
         end        
         function g = get.N_groups(this)
             g = length(this.groups);
+        end
+        function g = get.num_bases_dir(this)
+            g = fullfile(this.workdir, "baseline_cn", "NumBases"+this.N_patterns);
         end
     end
 
@@ -94,7 +96,7 @@ classdef NMFRadar < handle
                 opts.pvalues logical = false
             end
 
-            ld = load(fullfile(this.workdir, this.matfile_cohort));
+            ld = load(fullfile(this.num_bases_dir, this.matfile_cohort));
             PC = ld.patternsofneurodegeneration20240630forimport;
             intercept = PC(contains(PC.ParamCoefficients, "Intercept"), :);
             if opts.show
@@ -139,7 +141,7 @@ classdef NMFRadar < handle
                 opts.pvalues logical = false
             end
 
-            ld = load(fullfile(this.workdir, this.matfile_cohort));
+            ld = load(fullfile(this.num_bases_dir, this.matfile_cohort));
             PC = ld.patternsofneurodegeneration20240630forimport;
             apoe4 = PC(contains(PC.ParamCoefficients, "apoe4"), :);
             if opts.show
@@ -186,7 +188,7 @@ classdef NMFRadar < handle
                 opts.pvalues logical = false
             end
 
-            ld = load(fullfile(this.workdir, this.matfile_cohort));
+            ld = load(fullfile(this.num_bases_dir, this.matfile_cohort));
             PC = ld.patternsofneurodegeneration20240630forimport;
 
             male = PC(contains(PC.ParamCoefficients, "sexM"), :);
@@ -226,7 +228,7 @@ classdef NMFRadar < handle
                 opts.pvalues logical = false
             end
 
-            ld = load(fullfile(this.workdir, this.matfile_cohort));
+            ld = load(fullfile(this.num_bases_dir, this.matfile_cohort));
             CC = ld.patternsofneurodegeneration20240630forimport;
 
             assert(length(this.groups) == length(this.groupLabels))
@@ -309,7 +311,7 @@ classdef NMFRadar < handle
                 opts.pvalues logical = false
             end
 
-            ld = load(fullfile(this.workdir, this.matfile_cohort));
+            ld = load(fullfile(this.num_bases_dir, this.matfile_cohort));
             CC = ld.patternsofneurodegeneration20240630forimport;
 
             % intercept
@@ -742,9 +744,10 @@ classdef NMFRadar < handle
             arguments
                 this mladni.NMFRadar
                 opts.show_labels logical = true
+                opts.show_atypical logical = false  % CDR>0, amy-
             end
 
-            pwd0 = pushd(this.workdir);
+            pwd0 = pushd(this.num_bases_dir);
 
             %% unwraps the radar plots to show panels of maps of beta0 -> beta1_{Dx group}
             NP = this.N_patterns;
@@ -761,7 +764,7 @@ classdef NMFRadar < handle
             indices(this.sorted_bases) = 1:NP;
             indices = num2cell(indices);
             if opts.show_labels
-                labels = cellfun(@(x) sprintf('p%i', x), indices, UniformOutput=false);
+                labels = cellfun(@(x) sprintf('p_{%i}', x), indices, UniformOutput=false);
                 filesuffix = '_labelled';
             else
                 labels = cellfun(@(x) '', indices);
@@ -772,69 +775,95 @@ classdef NMFRadar < handle
             cmax = 0.0108;
             marker_size = 100;
             fscale = 3;
+            lblfs = 10;
+            buf = 0.25;
+            st = 'down_2';
+            interp = 'tex';
 
-            figure        
+            figure   
+            hold on
             scatter(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), marker_size, CC.Estimate(  NP+1:2*NP), "filled");
             colormap(viridis);
             clim([cmin, cmax]);
-            % labelpoints(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), labels, 'E')
             xlim([0.7 1.4])
             ylim([-0.3 0.02])
             % xlabel("\beta_{CDR=0,amy-}", FontSize=14)
             % ylabel("\beta_{CDR=0,amy+}", FontSize=14)
             fontsize(gcf, scale=fscale)
+            if opts.show_labels
+                labelpoints(CC.Estimate(1:NP), CC.Estimate(  NP+1:2*NP), labels, 'E', buf, ...
+                    stacked=st, FontSize=lblfs, interpreter=interp)
+            end     
             grid on
             pbaspect([1 3 1])
             set(gcf, position=position)
             saveFigure2(gcf, fullfile(this.figdir, "plot_beta0_to_beta1_cdr=0_amy+" + filesuffix))
+            hold off
 
-            figure        
-            scatter(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), marker_size, CC.Estimate(3*NP+1:4*NP), "filled")    
-            colormap(viridis);   
-            clim([cmin, cmax]);     
-            % labelpoints(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), labels, 'E')
-            xlim([0.7 1.4])
-            ylim([-0.3 0.02])
-            % yticklabels([])
-            % xlabel("\beta_{CDR=0,amy-}", FontSize=14)
-            % ylabel("\beta_{CDR>0,amy-}", FontSize=14)
-            fontsize(gcf, scale=fscale)
-            grid on
-            pbaspect([1 3 1])
-            set(gcf, position=position)
-            saveFigure2(gcf, fullfile(this.figdir, "plot_beta0_to_beta1_cdr_gt_0_amy-" + filesuffix))
+            if opts.show_atypical
+                figure
+                hold on
+                scatter(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), marker_size, CC.Estimate(3*NP+1:4*NP), "filled")
+                colormap(viridis);
+                clim([cmin, cmax]);
+                xlim([0.7 1.4])
+                ylim([-0.3 0.02])
+                % yticklabels([])
+                % xlabel("\beta_{CDR=0,amy-}", FontSize=14)
+                % ylabel("\beta_{CDR>0,amy-}", FontSize=14)
+                fontsize(gcf, scale=fscale)
+                if opts.show_labels
+                    labelpoints(CC.Estimate(1:NP), CC.Estimate(3*NP+1:4*NP), labels, 'E', buf, ...
+                        stacked=st, FontSize=lblfs, interpreter=interp)
+                end
+                grid on
+                pbaspect([1 3 1])
+                set(gcf, position=position)
+                saveFigure2(gcf, fullfile(this.figdir, "plot_beta0_to_beta1_cdr_gt_0_amy-" + filesuffix))
+                hold off
+            end
 
             figure
+            hold on
             scatter(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), marker_size, CC.Estimate(2*NP+1:3*NP), "filled")
             colormap(viridis);
             clim([cmin, cmax]);
-            % labelpoints(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), labels, 'E')
             xlim([0.7 1.4])
             ylim([-0.3 0.02])
             % yticklabels([])
             % xlabel("\beta_{CDR=0,amy-}", FontSize=14)
             % ylabel("\beta_{CDR=0.5,amy+}", FontSize=14)
             fontsize(gcf, scale=fscale)
+            if opts.show_labels
+                labelpoints(CC.Estimate(1:NP), CC.Estimate(2*NP+1:3*NP), labels, 'E', buf, ...
+                    stacked=st, FontSize=lblfs, interpreter=interp)
+            end
             grid on
             pbaspect([1 3 1])
             set(gcf, position=position)
             saveFigure2(gcf, fullfile(this.figdir, "plot_beta0_to_beta1_cdr=0p5_amy+" + filesuffix))
+            hold off
 
             figure
+            hold on
             scatter(CC.Estimate(1:NP), CC.Estimate(4*NP+1:5*NP), marker_size, CC.Estimate(4*NP+1:5*NP), "filled")
             colormap(viridis);
             clim([cmin, cmax]);
-            % labelpoints(CC.Estimate(1:NP), CC.Estimate(4*NP+1:5*NP), labels, 'E')
             xlim([0.7 1.4])
             ylim([-0.3 0.02])
             % yticklabels([])
             % xlabel("\beta_{CDR=0,amy-}", FontSize=14)
             % ylabel("\beta_{CDR>0.5,amy+}", FontSize=14)
             fontsize(gcf, scale=fscale)
+            if opts.show_labels
+                labelpoints(CC.Estimate(1:NP), CC.Estimate(4*NP+1:5*NP), labels, 'E', buf, ...
+                    stacked=st, FontSize=lblfs, interpreter=interp)
+            end
             grid on
             pbaspect([1 3 1])
             set(gcf, position=position)
             saveFigure2(gcf, fullfile(this.figdir, "plot_beta0_to_beta1_cdr_gt_0p5_amy+" + filesuffix))
+            hold off
 
             popd(pwd0);
         end
@@ -867,15 +896,15 @@ classdef NMFRadar < handle
 
             patterns_are_adjacent = false;
 
-            ld = load(fullfile(this.workdir, this.matfile_cohort));
+            ld = load(fullfile(this.num_bases_dir, this.matfile_cohort));
             T0 = ld.patternsofneurodegeneration20240630forimport;
             T = T0;
 
-            N_bundle = size(T0, 1) / 24;  % bundle of covariates:  Intercept, SexM, apoe4, chohortCDR*, ...
-            assert(rem(size(T0, 1), 24) == 0)
+            N_bundle = size(T0, 1) / this.N_patterns;  % bundle of covariates:  Intercept, SexM, apoe4, chohortCDR*, ...
+            assert(rem(size(T0, 1), this.N_patterns) == 0)
             if patterns_are_adjacent
                 for b = 1:N_bundle
-                    rows = (b - 1)*24 + (1:24);
+                    rows = (b - 1)*this.N_patterns + (1:this.N_patterns);
                     U0 = T0(rows, :);
                     U1 = U0(this.sorted_bases, :);
                     U1.ParamCoefficients = U0.ParamCoefficients;
@@ -883,7 +912,7 @@ classdef NMFRadar < handle
                 end
             else
                 for b = 1:N_bundle
-                    rows = ascol(b + (0:23)*N_bundle);
+                    rows = ascol(b + (0:(this.N_patterns - 1))*N_bundle);
                     U0 = T0(rows, :);
                     U1 = U0(this.sorted_bases, :);
                     U1.ParamCoefficients = U0.ParamCoefficients;  % sort the Estimates, then replace the ParamCoeff labels
@@ -896,12 +925,12 @@ classdef NMFRadar < handle
             T = addvars(T, FdrPValue);
             T = natsortrows(T);
             
-            save(fullfile(this.workdir, this.matfile_cohort_sorted), "T");
-            writetable(T, fullfile(this.workdir, myfileprefix(this.matfile_cohort_sorted) + ".csv"));
+            save(fullfile(this.num_bases_dir, this.matfile_cohort_sorted), "T");
+            writetable(T, fullfile(this.num_bases_dir, myfileprefix(this.matfile_cohort_sorted) + ".csv"));
         end
         function T = table_patt_weighted_fdg(this)
 
-            nmfh = mladni.NMFHierarchies();
+            nmfh = mladni.NMFHierarchies(N_patterns=this.N_patterns);
             T = nmfh.table_patt_weighted_fdg();
         end
 
@@ -913,7 +942,7 @@ classdef NMFRadar < handle
             this.N_patterns = opts.N_patterns;
             this.workdir = fullfile(getenv('ADNI_HOME'), 'NMF_FDG');
             
-            if ~isfile(fullfile(this.workdir, this.matfile_cohort_sorted))
+            if ~isfile(fullfile(this.num_bases_dir, this.matfile_cohort_sorted))
                 this.table_cohort_coefficients_sorted();
             end
         end

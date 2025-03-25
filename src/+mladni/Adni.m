@@ -125,6 +125,8 @@ classdef Adni < mladni.DataCuration & handle
 
             %% radar plots, unwrapped radar plots, preparations for chord plots
 
+            % this.nmf.build_for_brainsmash();
+            
             %% RStudio ADNI/NMF_FDG/baseline_cn/NumBases24/patterns_of_neurodegeneration_20240904.Rmd.qmd
 
             % call_intercept(this.nmfr);
@@ -162,6 +164,14 @@ classdef Adni < mladni.DataCuration & handle
             %% GAM(M4) regressions with RStudio
 
 
+
+
+        end
+
+        function call_hcp(this)
+            %% sub-168S6085_ses-20171128111047_trc-FDG_proc-CASU-ponsvermis_orient-rpi_pet_on_T1w_Warped_dlicv.nii.gz  % youngest baseline
+            %  
+            %  https://ida.loni.usc.edu/pages/access/search.jsp
 
 
         end

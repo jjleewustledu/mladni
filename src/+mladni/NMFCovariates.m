@@ -678,8 +678,8 @@ classdef NMFCovariates < handle
 
             Nrows = size(t, 1);
             % this.covariates_file(selection="gppm_patterns_"+Nrows, suffix=".csv")
-            save(his.covariates_file(selection="gppm_patterns_"+Nrows, suffix=".mat"), "t")  
-            writetable(t, his.covariates_file(selection="gppm_patterns_"+Nrows, suffix=".csv"));
+            save(this.covariates_file(selection="gppm_patterns_"+Nrows, suffix=".mat"), "t")  
+            writetable(t, this.covariates_file(selection="gppm_patterns_"+Nrows, suffix=".csv"));
         end
         function t = table_imagedataIDs(this)
             %% Finds imagedataIDs;
@@ -1346,6 +1346,7 @@ classdef NMFCovariates < handle
         pve_1_suffix_
         study_design_
         table_cohorts_
+        table_covariates_cache_
         table_dlicv_cache_
         table_fdg5_cache_
         table_pve1_cache_
