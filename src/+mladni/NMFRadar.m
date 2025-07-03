@@ -13,16 +13,11 @@ classdef NMFRadar < handle
         AXES_COLOR = [0.9 0.9 0.9];
         ERR_COLOR = [0.9 0.9 0.9]
         ERR_ALPHA = 0.08
-        GROUP_COLORS = [
-            0.134633333333333 0.240916666666667 0.425183333333333;
-            0.338566666666667 0.361233333333333 0.4268;
-            0.4879 0.4841 0.47105;
-            0.654266666666667 0.616366666666667 0.4597;
-            0.833733333333333 0.7609 0.393416666666667]  % cividis(5)
-        GROUP_LINEWIDTHS = [1,1,1,1,1]
     end
 
     properties
+        GROUP_LINEWIDTHS = [1,1,1,1,1]
+
         groups = { ...
             '' 'CDR=0,amy+' 'CDR=0.5,amy+' 'CDR>0.5,amy+'} 
         groupLabels = {...
@@ -78,6 +73,10 @@ classdef NMFRadar < handle
             g = asrow(T.indices_bases);
         end
         function g = get.figdir(this)
+            if ~isempty(this.figdir_)
+                g = this.figdir_;
+                return
+            end
             g = fullfile(this.num_bases_dir);
         end        
         function g = get.N_groups(this)
@@ -951,6 +950,7 @@ classdef NMFRadar < handle
     %% PROTECTED
     
     properties (Access = protected)
+        figdir_
         sorted_bases_
     end
     

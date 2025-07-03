@@ -7,12 +7,27 @@ classdef Topology < handle
     %  Created 29-Jul-2024 22:50:15 by jjlee in repository /Users/jjlee/MATLAB-Drive/mladni/src/+mladni.
     %  Developed on Matlab 24.1.0.2653294 (R2024a) Update 5 for MACA64.  Copyright 2024 John J. Lee.
     
-    properties
+    properties (Dependent)
+        complete_overlaps
         mask
+        model_rank
         Nmask
     end
 
     methods  %% GET
+        function g = get.complete_overlaps(this)
+            if ~isempty(this.complete_overlaps_)
+                g = this.complete_overlaps_;
+            end
+
+            r = this.model_rank;
+            g = mlfourd.ImagingContext2( ...
+                fullfile( ...
+                    this.niiImgDir(num_bases=this.model_rank), ...
+                    "Topology_call_nsimplices_nbases="+r+"_naccum="+r+"_geomean-strict.nii"));
+            this.complete_overlaps_ = g;
+        end
+
         function g = get.mask(this)
             if ~isempty(this.mask_)
                 g = this.mask_;
@@ -23,37 +38,138 @@ classdef Topology < handle
                 fullfile(getenv("SINGULARITY_HOME"), "ADNI", "VolBin", "mask.nii.gz"));
             this.mask_ = g;
         end
+
+        function g = get.model_rank(this)
+            g = this.nmfh_.N_patterns;
+        end
+
         function g = get.Nmask(this)
             g = dipsum(this.mask.binarized);  % ~228483
         end
     end
 
     methods
+        function ic = apply_lim(~, ic, lim)
+            if isempty(lim)
+                return
+            end
+
+            ifc = ic.imagingFormat;
+            img = ifc.img;
+            img(img < lim(1)) = lim(1);
+            img(img > lim(2)) = lim(2);
+            ifc.img = img;
+            ic = mlfourd.ImagingContext2(ifc);
+            ic.fileprefix = sprintf("%s_lim-%g-%g", ifc.fileprefix, lim(1), lim(2));
+        end
+
         function ic = Basis_alluvial_brain_mask(this, opts)
             arguments
                 this mladni.Topology
-                opts.model_rank {mustBeNumeric} = 24
+                opts.model_rank {mustBeNumeric} = this.model_rank
             end
             ic = mlfourd.ImagingContext2( ...
                 fullfile(this.niiImgDir(num_bases=opts.model_rank), "Basis_alluvial_brain_mask.nii"));
         end
 
+        function ic_d_neurodegen = call_nsimplices_d(this, opts)
+            %% delta neurodegen from complete overlaps
+
+            arguments
+                this mladni.Topology
+                opts.to_ignore {mustBeNumeric} = [2,3,5]  % white matter is [20]
+                opts.tag {mustBeTextScalar} = "geomean-strict"
+                opts.ic_neurodegen = []
+                opts.lim = []
+            end
+            if ~isempty(opts.to_ignore)
+                ignore_tag = num2str(opts.to_ignore);
+                ignore_tag = strrep(ignore_tag, "   ", ",");
+                ignore_tag = strrep(ignore_tag, "  ", ",");
+                opts.tag = opts.tag + "-" + ignore_tag;
+            end
+
+            % baseline of overlaps
+            ic = this.complete_overlaps;
+            img = double(ic); 
+            img = img(logical(this.mask));
+            L = median(img);
+
+            % overlaps for neurodegen
+            if isempty(opts.ic_neurodegen)
+                ic_neurodegen = this.call_nsimplices(to_ignore=opts.to_ignore);
+            else
+                ic_neurodegen = opts.ic_neurodegen;
+            end
+            img_neurodegen = double(ic_neurodegen); 
+            img_neurodegen = img_neurodegen(logical(this.mask));
+            L_neurodegen = median(img_neurodegen);
+
+            ic_d_neurodegen = ic_neurodegen/L_neurodegen - ic/L;
+            ic_d_neurodegen.fileprefix = sprintf("%s_nbases=%i_%s", stackstr(), this.model_rank, opts.tag);
+            % expected: "Topology_call_nsimplices_d_nbases=24_geomean-strict-2,3,5";
+
+            ic_d_neurodegen = this.apply_lim(ic_d_neurodegen, opts.lim);  % empty opts.lim does nothing
+            ic_d_neurodegen.save();
+        end
+
+        function ic_d_neurodegen = call_nsimplices_dqn(this, opts)
+            %% delta neurodegen from complete overlaps
+
+            arguments
+                this mladni.Topology
+                opts.to_ignore {mustBeNumeric} = [2,3,5]  % white matter is [20]
+                opts.tag {mustBeTextScalar} = "geomean-strict"
+                opts.ic_neurodegen = []
+                opts.lim = []
+            end
+            if ~isempty(opts.to_ignore)
+                ignore_tag = num2str(opts.to_ignore);
+                ignore_tag = strrep(ignore_tag, "   ", ",");
+                ignore_tag = strrep(ignore_tag, "  ", ",");
+                opts.tag = opts.tag + "-" + ignore_tag;
+            end
+
+            % baseline of overlaps
+            ic = this.complete_overlaps;
+
+            % overlaps for neurodegen
+            if ~isempty(opts.ic_neurodegen)
+                ic_neurodegen = opts.ic_neurodegen;
+            else
+                ic_neurodegen = this.call_nsimplices(to_ignore=opts.to_ignore);
+            end
+
+            ic_d_neurodegen = this.quantile_normalization_to_target(ic_neurodegen, ic);
+            ic_d_neurodegen.fileprefix = sprintf("%s_nbases=%i_%s", stackstr(), this.model_rank, opts.tag);
+            % expected: "Topology_call_nsimplices_d_nbases=24_geomean-strict-2,3,5";
+
+            ic_d_neurodegen = this.apply_lim(ic_d_neurodegen, opts.lim);  % empty opts.lim does nothing
+            ic_d_neurodegen.save();
+        end
+
         function ic_accum = call_nsimplices(this, n_bases, n_accum, opts)
             %% \sim (
             %    \sum_{i \in \binomial{n}{k}} 
-            %      p_{1,i}\qty(\mathbf{x}) \circledot \ldots \circledot p_{i,k}\qty(\mathbf(x))
+            %      p_{i,1}\qty(\mathbf{x}) \circledot \ldots \circledot p_{i,k}\qty(\mathbf(x))
             %  )^{1/k}
 
             arguments
                 this mladni.Topology
-                n_bases {mustBeScalarOrEmpty} = 24
-                n_accum {mustBeScalarOrEmpty} = 24
+                n_bases {mustBeScalarOrEmpty} = this.model_rank
+                n_accum {mustBeScalarOrEmpty} = this.model_rank  % high values provide maps near zero
                 opts.use_geom_mean logical = true
                 opts.tag {mustBeTextScalar} = "geomean-strict"
                 opts.to_ignore {mustBeNumeric} = []  % white matter is [20]
             end
+            if n_accum > 12
+                n_accum = 12;
+            end
             if ~isempty(opts.to_ignore)
-                opts.tag = opts.tag + "-" + strrep(num2str(opts.to_ignore), " ", ",");
+                ignore_tag = num2str(opts.to_ignore);
+                ignore_tag = strrep(ignore_tag, "   ", ",");
+                ignore_tag = strrep(ignore_tag, "  ", ",");
+                opts.tag = opts.tag + "-" + ignore_tag;
             end
 
             ic_accum = this.patterns(num_bases=n_bases);
@@ -76,14 +192,14 @@ classdef Topology < handle
             if opts.use_geom_mean  % retain magnitudes of original patterns
                 ic_accum = ic_accum / n_accum;
             end
-            ic_accum.fileprefix = sprintf("%s_nbases=%i_naccum=%i_%s", stackstr(), 24, n, opts.tag);
+            ic_accum.fileprefix = sprintf("%s_nbases=%i_naccum=%i_%s", stackstr(), n_bases, n, opts.tag);
             ic_accum.save(); 
         end
 
         function d = numBasesDir(this, opts)
             arguments
                 this mladni.Topology
-                opts.num_bases int16 = 24
+                opts.num_bases int16 = this.model_rank
             end
 
             d = fullfile(getenv("SINGULARITY_HOME"), ...
@@ -93,7 +209,7 @@ classdef Topology < handle
         function d = niiImgDir(this, opts)
             arguments
                 this mladni.Topology
-                opts.num_bases int16 = 24
+                opts.num_bases int16 = this.model_rank
             end
 
             d = fullfile(getenv("SINGULARITY_HOME"), ...
@@ -103,14 +219,14 @@ classdef Topology < handle
         function C = covariance(this, opts)
             arguments
                 this mladni.Topology
-                opts.model_rank {mustBeNumeric} = 24
+                opts.model_rank {mustBeNumeric} = this.model_rank
                 opts.do_plot logical = true
                 opts.do_save logical = true
                 opts.try_alluvial logical = true
                 opts.do_diag logical = false
             end
 
-            max_rank = 24;
+            max_rank = this.model_rank;
 
             % labels for heatmaps should be consistent with alluvials
             pids = this.patterns_ids( ...
@@ -202,7 +318,7 @@ classdef Topology < handle
 
             arguments
                 this mladni.Topology
-                opts.num_bases int16 = 24
+                opts.num_bases int16 = this.model_rank
                 opts.do_checks logical = false
                 opts.try_alluvial logical = true
                 opts.to_ignore {mustBeNumeric} = []  % white matter is [20]
@@ -228,7 +344,7 @@ classdef Topology < handle
             if ~isempty(opts.to_ignore)
                 ifc = ic.imagingFormat;
                 sz = size(ifc.img);
-                ifc.img(:,:,:,opts.to_ignore) = ones(sz(1), sz(2), sz(3), length(opts.to_ignore));
+                ifc.img(:,:,:,opts.to_ignore) = zeros(sz(1), sz(2), sz(3), length(opts.to_ignore));
                 ic = mlfourd.ImagingContext2(ifc);
             end
         end
@@ -240,7 +356,7 @@ classdef Topology < handle
 
             arguments
                 this mladni.Topology
-                opts.num_bases int16 = 24
+                opts.num_bases int16 = this.model_rank
                 opts.do_save logical = false
                 opts.do_checks logical = true
                 opts.use_cache logical = true
@@ -280,7 +396,7 @@ classdef Topology < handle
 
             arguments
                 this mladni.Topology
-                opts.num_bases int16 = 24
+                opts.num_bases int16 = this.model_rank
                 opts.do_save logical = false
                 opts.do_checks logical = true
                 opts.use_cache logical = true
@@ -617,7 +733,7 @@ classdef Topology < handle
 
             arguments
                 this mladni.Topology
-                opts.num_bases int16 = 24
+                opts.num_bases int16 = this.model_rank
                 opts.except double = []
             end
 
@@ -843,6 +959,7 @@ classdef Topology < handle
     %% PRIVATE
 
     properties (Access = private)
+        complete_overlaps_
         mask_
         nmfh_
         pattern_probabilities_
@@ -1069,6 +1186,49 @@ classdef Topology < handle
                 otherwise
                     error("mladni:ValueError", stackstr())
             end
+        end
+
+        % Function to perform quantile normalization with a target distribution
+        function normalized_ic = quantile_normalization_to_target(this, ic, target_ic)
+            % This function normalizes data to match a target distribution
+            %
+            % Inputs:
+            %   data - A numeric matrix (rows = features, columns = samples/arrays)
+            %   target_dist - Target distribution (vector with same length as num_features)
+            %
+            % Output:
+            %   normalized_data - Data normalized to match the target distribution
+
+            ifc = ic.imagingFormat;
+            data = ifc.img(logical(this.mask));
+
+            target_ifc = target_ic.imagingFormat;
+            target_dist = target_ifc.img(logical(this.mask));
+
+            % Get dimensions
+            [~, num_samples] = size(data);
+
+            % Sort the target distribution
+            sorted_target = sort(target_dist);
+
+            % Initialize output
+            normalized_data = zeros(size(data));
+
+            for i = 1:num_samples
+                % Sort the current column
+                [~, sort_idx] = sort(data(:,i));
+
+                % Get ranks
+                [~, ranks] = sort(sort_idx);
+
+                % Replace with values from the target distribution
+                normalized_data(:,i) = sorted_target(ranks);
+            end
+
+            normalized_ifc = copy(ifc);
+            normalized_ifc.img(logical(this.mask)) = normalized_data;
+            normalized_ic = mlfourd.ImagingContext2(normalized_ifc);
+            normalized_ic.fileprefix = ifc.fileprefix + "_quantilenorm";
         end
 
         function sampledMatrix = random_sample_rows(~, matrix, numSamples)
